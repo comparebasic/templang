@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Compare Basic - Productivity Software</title>
+<style>
+    #templates{display:none}
+</style>
+<script src="dom.js" type="text/javascript"></script>
+<script src="interface.js" type="text/javascript"></script>
+<link rel="stylesheet" href="style.css" />
+  <meta 
+    name="viewport"
+    content="width=device-width,maximum-scale=1.0,initial-scale=1.0,minimum-scale=1.0,user-scalable=yes,shrink-to-fit=no"
+  >
+</head>
+<body>
+<div id="templates">
+    <div data:templ="menu-item">
+        <li data:styles="none,hover,active,active-hover" on:click="_update:value" data:vars="key,value">$name</li>
+    </div>
+    <div data:templ="menu" data:style="menu" on:hover="show" on:update="hide;menuAction:key" data:vars="key">
+        <div data:style="side-icons">
+            <span data:for="$icons" data:style="$icon" on:click="_setAction:action" data:vars="action,image" style="background-image:url($image)">&nbsp;</span>
+        </div>
+        <ul data:syle="menu-item-container" data:children="$items" data:children-as="menu-item"></ul>
+    </div>
+    <div data:templ="menu-item"></div>
+</div>
+<header>
+</header>
+<section id="main">
+
+</section>
+<footer class="home-footer">
+    <div class="inner">
+        <p>
+        <b>Compare Basic</b><br />
+        <span>136 S Dubuque St</span><br />
+        <span>Iowa City, IA 52240</span><br />
+        <br />
+        <span>+1 (917) 306 9451</span><br />
+        <a href="mailto:comparebasic@firecrow.com">comparebasic@firecrow.com</a>
+        </p>
+        <p class="copyright">&copy; Copyright COMPARE BASIC INCORPORATED 2024 </p>
+    </div>
+</footer>
+</body>
+</html>
