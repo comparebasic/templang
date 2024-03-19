@@ -7,11 +7,61 @@ var STATE_KEY = 2;
 
 function handleEvent(name, eventSpec_s){
     var msg = "event called" + name + " : " + eventSpec_s;
-    console.log(msg, this);
+    var li = eventSpec_s.split(':');
+    if(li.length > 0 && li[0]){
+        var cmd = li[0];
+        if(cmd == 'style'){
+            if(name == 'hover'){
+                console.log('hover');
+                if(li.length >= 2){
+                    var value = li[1];
+                    El_SetStyle(value, this.templ, this);
+                }
+            }else if(name == 'unhover'){
+                console.log('unhover');
+                if(li.length == 2){
+                    var value = li[1];
+                    El_RemoveStyle(value, this.templ, this);
+                }else if(li.length == 3){
+                    console.log('swapping');
+                    var value = li[1];
+                    var value2 = li[2];
+                    El_RemoveStyle(value, this.templ, this);
+                    El_SetStyle(value2, this.templ, this);
+                }
+            }
+        }
+    }
+}
+
+function El_RemoveStyle(style_s, templ, node){
+    node.classList.remove(style_s);
+}
+
+function El_SetStyle(style_s, templ, node){
+    console.log('setting ' + style_s, templ);
+    if(templ.classList){
+        node.classList = templ.classList;
+    }
+
+    if(style_s){
+        console.log(templ.styleOptions);
+        for(var i = 0; i < templ.styleOptions.length; i++){
+            console.log('looking ' + style_s);
+            var idx = templ.styleOptions.indexOf(style_s);
+            console.log('found ' + style_s + ' ' + idx);
+            if(idx != -1){
+                node.classList.add(templ.styleOptions[idx]);
+            }
+        }
+    }else{
+        if(templ.styleOptions[0]){
+            node.classList.add(templ.styleOptions[0]);
+        }
+    }
 }
 
 function cash(s, data){
-    console.log("cash " + s, data);
     var state = STATE_TEXT;
     var key = "";
     var shelf = "";
@@ -55,19 +105,17 @@ function El_Make(templ, targetEl, data){
         return;
     }
 
-    console.log('making', templ);
-
     var node = document.createElement(templ.nodeName);
     node.vars = {};
     node.events = {};
+    node.templ = templ;
 
     if(templ.body){
         node.appendChild(document.createTextNode(cash(templ.body, data)));
     }
 
-    if(templ.styleOptions[0]){
-        node.className = templ.styleOptions[0];
-    }
+
+    El_SetStyle(null, templ, node);
 
     var varKeys = Object.keys(templ.vars);
     if(varKeys.length){
@@ -89,15 +137,16 @@ function El_Make(templ, targetEl, data){
         var key = onKeys[i];
         var eventSpec_s = templ.on[key];
         if(key == 'click'){
-            node.onclick = handleEvent('click', eventSpec_s);
+            node.onclick = handleEvent.bind(node, 'click', eventSpec_s);
         }else if(key == 'down'){
-            node.onmousedown = handleEvent('down', eventSpec_s);
+            node.onmousedown = handleEvent.bind(node, 'down', eventSpec_s);
         }else if(key == 'up'){
-            node.onmouseup = handleEvent('up', eventSpec_s);
+            node.onmouseup = handleEvent.bind(node, 'up', eventSpec_s);
         }else if(key == 'key'){
-            node.onkeyboard = handleEvent('key', eventSpec_s);
+            node.onkeyboard = handleEvent.bind(node, 'key', eventSpec_s);
         }else if(key == 'hover'){
-            node.onmouseover = handleEvent('hover', eventSpec_s);
+            node.onmouseover = handleEvent.bind(node, 'hover', eventSpec_s);
+            node.onmouseout = handleEvent.bind(node, 'unhover', eventSpec_s);
         }else{
             node.events[key] = eventSpec_s
         }

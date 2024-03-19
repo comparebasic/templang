@@ -28,8 +28,12 @@
             }else if(/^data-on:/.test(att.name)){
                 var funcName = att.name.substring("data-on:".length);        
                 templ.on[funcName] = att.value;
-            }else if(att.name == 'data:style'){
+            }else if(att.name == 'data:styles'){
                 templ.styleOptions = att.value.split(',');
+            }else if(att.name == 'data:classes'){
+                templ.classList = att.value.split(',');
+            }else if(att.name == 'data:style'){
+                templ.styleOptions = [att.value];
             }else if(att.name == 'style'){
                 templ.style = att.value;
             }else if(att.name == 'data:vars'){
@@ -81,5 +85,6 @@
                 bootStrapEl(el, null);
             }
         }
+        console.log(window.basic.templates);
     }
 })();

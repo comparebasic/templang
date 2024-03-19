@@ -5,6 +5,30 @@
 <title>Compare Basic - Productivity Software</title>
 <style>
     #templates{display:none}
+    .menu {
+        display: inline-block;
+        border: 1px solid black;
+        padding: 8px;
+        margin: 0;
+    }
+    .menu ul.menu-item-container{
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+    }
+    .menu ul.menu-item-container li {
+        margin: 0;
+        padding: 0;
+    }
+
+    .menu.collapsed ul.menu-item-container li {
+        display: none;
+    }
+
+    .menu.collapsed ul.menu-item-container li:first-child {
+        display: block;
+    }
+
 </style>
 <script src="dom.js" type="text/javascript"></script>
 <script src="interface.js" type="text/javascript"></script>
@@ -16,16 +40,13 @@
 </head>
 <body>
 <div id="templates">
-    <div data:templ="menu-item">
-        <li data:styles="none,hover,active,active-hover" data-on:click="_update:value" data:vars="key,value">$name</li>
-    </div>
-    <div data:templ="menu" data:style="menu" data-on:hover="show" data-on:update="hide;menuAction:key" data:vars="key">
+    <li data:templ="menu-item" data:styles="none,hover,active,active-hover" data-on:click="_update:value" data:vars="key,value">${name}</li>
+    <div data:templ="menu" data:classes="menu" data:styles="collapsed,expanded" data-on:hover="style:expanded:collapsed" data-on:update="hide;menuAction:key" data:vars="key">
         <div data:style="side-icons">
-            <span data:for="$icons" data:style="$icon" data-on:click="_setAction:action" data:vars="action,image" style="background-image:url($image)">&nbsp;</span>
+            <span data:for="${icons}" data:style="${icon}" data-on:click="_setAction:action" data:vars="action,image" style="background-image:url(${image})">&nbsp;</span>
         </div>
-        <ul data:syle="menu-item-container" data:children="items" data:children-as="menu-item"></ul>
+        <ul data:style="menu-item-container" data:children="items" data:children-as="menu-item"></ul>
     </div>
-    <div data:templ="menu-item"></div>
 </div>
 <script src="template.js" type="text/javascript"></script>
 <header>
