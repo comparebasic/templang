@@ -17,16 +17,17 @@
 <body>
 <div id="templates">
     <div data:templ="menu-item">
-        <li data:styles="none,hover,active,active-hover" on:click="_update:value" data:vars="key,value">$name</li>
+        <li data:styles="none,hover,active,active-hover" data-on:click="_update:value" data:vars="key,value">$name</li>
     </div>
-    <div data:templ="menu" data:style="menu" on:hover="show" on:update="hide;menuAction:key" data:vars="key">
+    <div data:templ="menu" data:style="menu" data-on:hover="show" data-on:update="hide;menuAction:key" data:vars="key">
         <div data:style="side-icons">
-            <span data:for="$icons" data:style="$icon" on:click="_setAction:action" data:vars="action,image" style="background-image:url($image)">&nbsp;</span>
+            <span data:for="$icons" data:style="$icon" data-on:click="_setAction:action" data:vars="action,image" style="background-image:url($image)">&nbsp;</span>
         </div>
         <ul data:syle="menu-item-container" data:children="$items" data:children-as="menu-item"></ul>
     </div>
     <div data:templ="menu-item"></div>
 </div>
+<script src="template.js" type="text/javascript"></script>
 <header>
 </header>
 <section id="main">
