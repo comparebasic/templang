@@ -17,6 +17,7 @@
             tags: {},
             children: [],
             styleOptions: {},
+            commandKeys: {},
         };
 
         for(var i = 0, l = el.attributes.length; i < l; i++){
@@ -34,6 +35,10 @@
                 templ.classList = att.value.split(',');
             }else if(att.name == 'data:style'){
                 templ.styleOptions = [att.value];
+            }else if(att.name == 'data:commands'){
+                templ.commandKeys = att.value.split(',');
+            }else if(att.name == 'data:command'){
+                templ.commandKeys = [att.value];
             }else if(att.name == 'style'){
                 templ.style = att.value;
             }else if(att.name == 'data:vars'){
