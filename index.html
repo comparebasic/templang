@@ -25,8 +25,12 @@
         display: none;
     }
 
-    .menu.collapsed ul.menu-item-container li:first-child {
+    .menu.collapsed ul.menu-item-container li.active {
         display: block;
+    }
+
+    .menu-item.active {
+        font-weight: bold;
     }
 
 </style>
@@ -40,7 +44,7 @@
 </head>
 <body>
 <div id="templates">
-    <li data:templ="menu-item" data:styles="none,hover,active,active-hover" data-on:click="^update:value" data:vars="key,value" >${name}</li>
+    <li data:templ="menu-item" data:classes="menu-item" data:styles="none,hover,active,active-hover" data-on:click="^update:key;style:active" data:vars="key" >${name}</li>
     <div data:templ="menu" data:command="update" data:classes="menu" data:styles="collapsed,expanded" data-on:hover="style:expanded:collapsed" data-on:update="style:collapsed">
         <div data:style="side-icons">
             <span data:for="${icons}" data:style="${icon}" data-on:click="_setAction:action" data:vars="action,image" style="background-image:url(${image})">&nbsp;</span>

@@ -1,7 +1,19 @@
 (function(){
 
-    function setFunc(target, source, name, eventSpec_s){
-        console.log('set ', eventSpec_s, target.vars);
+    function setFunc(target, source, name, spec){
+        var valKey = spec[1];
+        var value = target.vars[valKey];
+
+        var prevKey = source.vars[valKey]
+        if(prevKey){
+            var prev = El_Query(source, null, "_menu-item", {key: prevKey});
+            if(prev){
+                console.log('prev is', prev);
+                El_RemoveStyle('active', prev.templ, prev);
+            }
+        }
+
+        source.vars[valKey] = value;
     }
 
     if(window.basic.templates){
