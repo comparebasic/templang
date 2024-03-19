@@ -13,16 +13,20 @@
             flags: 0,
             el: el,
             on: {},
+            vars: {},
+            tags: {},
             children: [],
+            styleOptions: {},
         };
 
         for(var i = 0, l = el.attributes.length; i < l; i++){
             var att = el.attributes[i];
+            var eventStart_s = "data-on:";
             if(att.name == 'data:templ'){
                 templ_s = att.value;
                 templ.name = att.value;
-            }else if(att.name.substring(0, 3) == 'data-on:'){
-                var funcName = att.name.substring(3);        
+            }else if(/^data-on:/.test(att.name)){
+                var funcName = att.name.substring("data-on:".length);        
                 templ.on[funcName] = att.value;
             }else if(att.name == 'data:style'){
                 templ.styleOptions = att.value.split(',');
@@ -40,7 +44,9 @@
             }else if(att.name == 'data:children'){
                 templ.childrenKey = att.value;
             }else if(att.name == 'data:children-as'){
-                templ.childrenTemplKey = att.value;
+                templ.childrenTempl = att.value;
+            }else{
+                templ.tags[att.name] = att.value;
             }
         }
 
@@ -50,6 +56,10 @@
 
         if(parentEl){
             parentEl.children.push(templ);
+        }
+
+        if(el.firstChild && el.firstChild.nodeType == Node.TEXT_NODE){
+            templ.body = el.firstChild.nodeValue;
         }
 
         if(el.hasChildNodes()){
@@ -71,8 +81,5 @@
                 bootStrapEl(el, null);
             }
         }
-
-        console.log('templates');
-        console.log(window.basic.templates);
     }
 })();
