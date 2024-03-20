@@ -1,6 +1,6 @@
 (function(){
 
-    function setFunc(target, source, name, spec){
+    function setFunc(target, source, name, spec, event_d){
         var valKey = spec[1];
         var value = target.vars[valKey];
 
@@ -11,8 +11,10 @@
                 El_RemoveStyle('active', prev.templ, prev);
             }
         }
+    }
 
-        source.vars[valKey] = value;
+    function splitFunc(target, source, name, spec, event_d){
+        console.log('SPLIT ' + name + ' : ' + spec, event_d);
     }
 
     if(window.basic.templates){
@@ -27,7 +29,7 @@
             update: setFunc,
         };
 
-        var data = {type: "preview", menu: menu};
+        var data = {type: "preview", menu: menu, split: splitFunc};
         El_Make("viewport", main, main, data);
     }
 })();
