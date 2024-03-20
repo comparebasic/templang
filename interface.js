@@ -138,7 +138,7 @@ function El_StyleFromSetters(styleSetters, templ, node, data){
         if(setter.length == 2){
             var key = setter[0];
             var style = setter[1];
-            while(key.length > 1 && key[0] === '_' && data !== undefined){
+            while(key.length > 1 && key[0] === '^' && data !== undefined){
                 key = key.substring(1);
                 data = data._parentData;
             }
