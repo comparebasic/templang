@@ -35,6 +35,16 @@
         font-weight: bold;
     }
 
+    .viewport {
+        border: 1px solid #999;
+        padding: 12px;
+    }
+
+    .center-v {
+        position: relative;
+        left:  50%;
+        transform: translateY(-50%);
+    }
 </style>
 <script src="dom.js" type="text/javascript"></script>
 <script src="interface.js" type="text/javascript"></script>
@@ -53,7 +63,8 @@
         </div>
         <ul data:style="menu-item-container" data:children="items" data:children-as="menu-item"></ul>
     </div>
-    <div data:classes="viweport" data:templ="viewport" data:vars="type" data-on:set-type="_viewport-change:type=key">
+    <div data:classes="viewport" data:templ="viewport" data:vars="type" data-on:set-type="_viewport-change:type=key">
+        <span data:classes="center-v">split view</span>
         <div data:child="menu"></div>
         <div data:child-as-value="type" data-on:viewport-change="templ:key"></div>
     </div>
