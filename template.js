@@ -17,6 +17,7 @@
             tags: {},
             children: [],
             styleOptions: {},
+            styleSetters: [],
             commandKeys: {},
         };
 
@@ -35,6 +36,8 @@
                 templ.classList = att.value.split(',');
             }else if(att.name == 'data:style'){
                 templ.styleOptions = [att.value];
+            }else if(att.name == 'data:style-if'){
+                templ.styleSetters = att.value.split(';');
             }else if(att.name == 'data:commands'){
                 templ.commandKeys = att.value.split(',');
             }else if(att.name == 'data:command'){

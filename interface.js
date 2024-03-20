@@ -10,10 +10,8 @@ var QUERY_PARENTS = 2;
 var QUERY_CHILDREN = 4;
 
 function El_Match(node, name, data){
-    console.log('name is: ' + name);
     if(node.templ && (name === null || node.templ.name === name)){
         for(var key in data){
-            console.log('has ' + key);
             if(data[key] !== node.vars[key]){
                 return null;
             }
@@ -134,6 +132,23 @@ function handleEvent(name, eventSpec_s){
     }
 }
 
+function El_StyleFromSetters(styleSetters, templ, node, data){
+    for(var i = 0; i < styleSetters.length; i++){
+        var setter = styleSetters[i].split('=');
+        if(setter.length == 2){
+            var key = setter[0];
+            var style = setter[1];
+            while(key.length > 1 && key[0] === '_' && data !== undefined){
+                key = key.substring(1);
+                data = data._parentData;
+            }
+            if(data[key] === node.vars[key]){
+                El_SetStyle(style, templ, node);
+            }
+        }
+    }
+}
+
 function El_RemoveStyle(style_s, templ, node){
     node.classList.remove(style_s);
 }
@@ -212,9 +227,6 @@ function El_Make(templ, targetEl, rootEl, data){
         node.appendChild(document.createTextNode(cash(templ.body, data)));
     }
 
-
-    El_SetStyle(null, templ, node);
-
     var varKeys = Object.keys(templ.vars);
     if(varKeys.length){
         for(var i = 0; i < varKeys.length; i++){
@@ -222,6 +234,9 @@ function El_Make(templ, targetEl, rootEl, data){
             node.vars[key] = data[key];
         }
     }
+
+    El_SetStyle(null, templ, node);
+    El_StyleFromSetters(templ.styleSetters, templ, node, data);
 
     var commandKeys = templ.commandKeys;
     if(commandKeys.length){
@@ -271,6 +286,7 @@ function El_Make(templ, targetEl, rootEl, data){
         if(childItems){
             for(var j = 0; j < childItems.length; j++){
                 var childData = childItems[j];
+                childData._parentData = data;
                 El_Make(templ.childrenTempl, node, rootEl, childData);
             }
         }

@@ -8,7 +8,6 @@
         if(prevKey){
             var prev = El_Query(source, null, "_menu-item", {key: prevKey});
             if(prev){
-                console.log('prev is', prev);
                 El_RemoveStyle('active', prev.templ, prev);
             }
         }
@@ -18,7 +17,7 @@
 
     if(window.basic.templates){
         var main = document.getElementById('main'); 
-        var data = {items: [
+        var data = {key:"preview", items: [
                 {name: "Preview", key: "preview"},
                 {name: "Edit Page", key: "edit-page"},
                 {name: "Undo/Redo", key: "undo-redo"},
