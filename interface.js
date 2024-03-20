@@ -21,6 +21,29 @@ function El_Match(node, name, data){
     return null;
 }
 
+function El_SetChildren(node, templ, key, data){
+    if(key){
+        if(key && templ){
+            var childItems = data[key];
+            if(childItems){
+                for(var j = 0; j < childItems.length; j++){
+                    var childData = childItems[j];
+                    childData._parentData = data;
+                    El_Make(templ, node, node.root_el, childData);
+                }
+            }
+        }
+    }else if(templ){
+        var childData = data[templ];
+        if(childData){
+            childData._parentData = data;
+            El_Make(templ, node, node.root_el, childData);
+        }else{
+            El_Make(templ, node, node.root_el, data);
+        }
+    }
+}
+
 function El_Query(node, root_el, _query_s, data){
     var direction = QUERY_SELF;
     var query_s = _query_s;
@@ -316,24 +339,11 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     if(childTempl){
-        var childData = data[childTempl];
-        if(childData){
-            childData._parentData = data;
-            El_Make(childTempl, node, rootEl, childData);
-        }else{
-            El_Make(childTempl, node, rootEl, data);
-        }
+        El_SetChildren(node, childTempl, null, data);
     }
 
     if(templ.childrenKey && templ.childrenTempl){
-        var childItems = data[templ.childrenKey];
-        if(childItems){
-            for(var j = 0; j < childItems.length; j++){
-                var childData = childItems[j];
-                childData._parentData = data;
-                El_Make(templ.childrenTempl, node, rootEl, childData);
-            }
-        }
+        El_SetChildren(node, templ.childrenTempl, templ.childrenKey, data);
     }
 
     targetEl.appendChild(node);
