@@ -23,7 +23,6 @@
 
         for(var i = 0, l = el.attributes.length; i < l; i++){
             var att = el.attributes[i];
-            var eventStart_s = "data-on:";
             if(att.name == 'data:templ'){
                 templ_s = att.value;
                 templ.name = att.value;

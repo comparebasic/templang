@@ -6,7 +6,7 @@
 
         var prevKey = source.vars[valKey]
         if(prevKey){
-            var prev = El_Query(source, null, "_menu-item", {key: prevKey});
+            var prev = El_Query(source, null, "_#menu-item", {key: prevKey});
             if(prev){
                 El_RemoveStyle('active', prev.templ, prev);
             }

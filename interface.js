@@ -9,21 +9,50 @@ var QUERY_SELF = 1;
 var QUERY_PARENTS = 2;
 var QUERY_CHILDREN = 4;
 
-function El_Match(node, name, data){
-    if(node.templ && (name === null || node.templ.name === name)){
-        for(var key in data){
-            if(data[key] !== node.vars[key]){
-                return null;
-            }
+function specParse(spec_s){
+    if(/:/.test(spec_s)){
+        s_li = spec_s.split(':'); 
+        if(s_li.length === 1){
+            return {cmd: spec_s};
+        }else if(s_li.length === 2){
+            return {
+                cmd: s_li[0],
+                value: s_li[1],
+            };
+        }else{
+            var o = {cmd: s_li[0], value: s_li[1]};
+            s_li.unshif();
+            s_li.unshif();
+            o.allValues = s_li;
+            return o;
         }
-        return node;
     }
+
+    return {};
+}
+
+function El_Match(node, name, data){
+    var found = false;
+    if(node.templ && (!name || node.templ.name === name)){
+        if(typeof data === 'function'){
+            return data(node); 
+        }else{
+            for(var key in data){
+                if(data[key] !== node.vars[key]){
+                    return null;
+                }
+            }
+            return node;
+        }
+    }
+
     return null;
 }
 
 function El_SetChildren(node, templ, key, data){
     if(key){
         if(key && templ){
+            node.innerHTML = '';
             var childItems = data[key];
             if(childItems){
                 for(var j = 0; j < childItems.length; j++){
@@ -34,11 +63,13 @@ function El_SetChildren(node, templ, key, data){
             }
         }
     }else if(templ){
-        var childData = data[templ];
+        var childData = data && data[templ];
         if(childData){
+            node.innerHTML = '';
             childData._parentData = data;
             El_Make(templ, node, node.root_el, childData);
         }else{
+            node.innerHTML = '';
             El_Make(templ, node, node.root_el, data);
         }
     }
@@ -52,12 +83,12 @@ function El_Query(node, root_el, _query_s, data){
         query_s = query_s.substring(1);
     }else if(query_s[0] === '^'){
         direction = QUERY_PARENTS;
-        query_s = qeury_s.substring(1);
+        query_s = query_s.substring(1);
     }
 
     var nodeName = null;
-    if(query_s){
-        nodeName = query_s;
+    if(query_s[0] === '#'){
+        nodeName = query_s.substring(1);
     }
 
     if(El_Match(node, nodeName, data)){
@@ -76,6 +107,7 @@ function El_Query(node, root_el, _query_s, data){
     }
 
     if(direction === QUERY_PARENTS){
+        console.log('QUERY PARENTS ' + query_s);
         while(node.parentNode != null){
             var parent_el = node.parentNode;
             if(parent_el == root_el){
@@ -96,11 +128,11 @@ function parseSpec(spec_s){
     return spec_s.split(':');
 }
 
-function handleEvent(name, eventSpec_s){
+function handleEvent(name, eventSpec_s, target_el){
     if(/;/.test(eventSpec_s)){
         var events_li = eventSpec_s.split(';');
         for(var i = 0; i < events_li.length; i++){
-            handleEvent.call(this, name, events_li[i]);
+            handleEvent.call(this, name, events_li[i], target_el);
         }
     }
     var msg = "[event called]:" + name + " : " + eventSpec_s;
@@ -108,7 +140,14 @@ function handleEvent(name, eventSpec_s){
     var spec = parseSpec(eventSpec_s);
     if(spec.length > 0 && spec[0]){
         var cmd = spec[0];
-        if(cmd == 'style'){
+        if(cmd === 'templ'){
+            console.log('template chang: ' + eventSpec_s, target_el.vars);
+            var pair = specParse(eventSpec_s);
+            console.log(pair);
+            if(target_el.vars[pair.value]){
+                El_SetChildren(this, target_el.vars[pair.value], null, null);
+            }
+        }else if(cmd == 'style'){
             if(name == 'unhover'){
                 if(spec.length == 2){
                     var value = spec[1];
@@ -125,29 +164,46 @@ function handleEvent(name, eventSpec_s){
                     El_SetStyle(value, this.templ, this);
                 }
             }
-        }else if(spec[0] && spec[0][0] == '^'){
-            spec[0] = spec[0].substring(1);
+        }else if(spec[0] && (spec[0][0] == '_' || spec[0][0] == '^')){
             var cmd_s = eventSpec_s.substring(1);
             var cmd_li = cmd_s.split(':');
             var cmdName_s = cmd_li[0];
             var func = null;
+            var subSpec_s = spec[0].substring(1);
             var node = this;
-            while(node.parentNode != null && func === null){
-                var parent_el = node.parentNode;
-                if(parent_el == this.root_el){
-                    break;
+
+            var source_el = El_Query(node, node.root_el, spec[0], function(node_el){
+                if(!node_el){
+                    return null;
                 }
-                if(parent_el.commands[cmdName_s]){
-                    func = parent_el.commands[cmdName_s];
+                console.log('         looking ' + cmdName_s, node_el);
+                if(node_el.commands[cmdName_s] || (node_el.templ && node_el.templ.on[cmdName_s])){
+                    return node_el;
                 }
-                node = parent_el;
+                return null;
+            });
+
+            if(source_el){
+                if(source_el.commands[cmdName_s]){
+                    func = source_el.commands[cmdName_s];
+                }else if(source_el.templ && source_el.templ.on[cmdName_s]){
+                    subSpec_s = source_el.templ.on[cmdName_s];
+                }
+            }else{
+                console.log('ERROR: source_el not found ' + spec[0], node);
             }
 
             if(func){
-                func(this, parent_el, name, spec);
-                if(parent_el.templ.on && parent_el.templ.on[cmdName_s]){
-                    handleEvent.call(parent_el, cmdName_s, parent_el.templ.on[cmdName_s]);
+                console.log('FUNC calling subSpec_s ' + subSpec_s, spec);
+                func(this, source_el, name, spec);
+                if(source_el.templ.on && source_el.templ.on[cmdName_s]){
+                    handleEvent.call(source_el, cmdName_s, source_el.templ.on[cmdName_s], target_el);
                 }
+            }else if(subSpec_s){
+                console.log('SUBSPEC calling cmdName_s:' + cmdName_s + ' subSpec_s:' + subSpec_s, source_el);
+                handleEvent.call(source_el, cmdName_s, subSpec_s, target_el);
+            }else{
+                console.log('NOT FOUND cmd "'+ cmd +'" not found "'+ cmdName_s +'"');
             }
         }else if(window.basic.commands && window.basic.commands[cmd]){
             window.basic.command[cmd].call(this, name, eventSpec_s);
@@ -309,16 +365,16 @@ function El_Make(templ, targetEl, rootEl, data){
         var key = onKeys[i];
         var eventSpec_s = templ.on[key];
         if(key == 'click'){
-            node.onclick = handleEvent.bind(node, 'click', eventSpec_s);
+            node.onclick = handleEvent.bind(node, 'click', eventSpec_s, node);
         }else if(key == 'down'){
-            node.onmousedown = handleEvent.bind(node, 'down', eventSpec_s);
+            node.onmousedown = handleEvent.bind(node, 'down', eventSpec_s, node);
         }else if(key == 'up'){
-            node.onmouseup = handleEvent.bind(node, 'up', eventSpec_s);
+            node.onmouseup = handleEvent.bind(node, 'up', eventSpec_s, node);
         }else if(key == 'key'){
-            node.onkeyboard = handleEvent.bind(node, 'key', eventSpec_s);
+            node.onkeyboard = handleEvent.bind(node, 'key', eventSpec_s, node);
         }else if(key == 'hover'){
-            node.onmouseover = handleEvent.bind(node, 'hover', eventSpec_s);
-            node.onmouseout = handleEvent.bind(node, 'unhover', eventSpec_s);
+            node.onmouseover = handleEvent.bind(node, 'hover', eventSpec_s, node);
+            node.onmouseout = handleEvent.bind(node, 'unhover', eventSpec_s, node);
         }else{
             node.events[key] = eventSpec_s
         }
