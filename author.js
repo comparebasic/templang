@@ -17,7 +17,7 @@
 
     if(window.basic.templates){
         var main = document.getElementById('main'); 
-        var data = {key:"preview", items: [
+        var menu = {key:"preview", items: [
                 {name: "Preview", key: "preview"},
                 {name: "Edit Page", key: "edit-page"},
                 {name: "Undo/Redo", key: "undo-redo"},
@@ -27,6 +27,7 @@
             update: setFunc,
         };
 
-        El_Make("menu", main, main, data);
+        var data = {type: "preview", menu: menu};
+        El_Make("viewport", main, main, data);
     }
 })();

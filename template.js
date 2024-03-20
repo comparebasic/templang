@@ -53,6 +53,10 @@
                 templ.vars = vars;
             }else if(att.name == 'data:for'){
                 templ.forKey = att.value;
+            }else if(att.name == 'data:child'){
+                templ.childTempl = att.value;
+            }else if(att.name == 'data:child-as-value'){
+                templ.childSetter = att.value;
             }else if(att.name == 'data:children'){
                 templ.childrenKey = att.value;
             }else if(att.name == 'data:children-as'){

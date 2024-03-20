@@ -132,6 +132,30 @@ function handleEvent(name, eventSpec_s){
     }
 }
 
+function dataScope(sel, data){
+    var key = sel;
+    while(key && key.length > 1 && data !== undefined){
+        if(key[0] === '^'){
+            key = key.substring(1);
+            data = data._parentData;
+        }else if(key[0] === '_'){
+            key = key.substring(1);
+            if(data[key]){
+                data = data[key];
+            }else{
+                return {key: null, data: null};
+            }
+        }else{
+            break;
+        }
+    }
+
+    return {
+        key:key,
+        data: data || null
+    };
+}
+
 function El_StyleFromSetters(styleSetters, templ, node, data){
     for(var i = 0; i < styleSetters.length; i++){
         var setter = styleSetters[i].split('=');
@@ -142,7 +166,9 @@ function El_StyleFromSetters(styleSetters, templ, node, data){
                 key = key.substring(1);
                 data = data._parentData;
             }
-            if(data[key] === node.vars[key]){
+
+            var scope = dataScope(key, data);
+            if(scope.data && scope.data[scope.key] === node.vars[scope.key]){
                 El_SetStyle(style, templ, node);
             }
         }
@@ -278,6 +304,24 @@ function El_Make(templ, targetEl, rootEl, data){
     if(templ.children){
         for(var i = 0, l = templ.children.length; i < l; i++){
             El_Make(templ.children[i], node, rootEl, data);
+        }
+    }
+
+    var childTempl = templ.childTempl;
+    if(templ.childSetter){
+        var scope = dataScope(templ.childSetter, data);
+        if(scope.data[scope.key]){
+            childTempl = scope.data[scope.key];
+        }
+    }
+
+    if(childTempl){
+        var childData = data[childTempl];
+        if(childData){
+            childData._parentData = data;
+            El_Make(childTempl, node, rootEl, childData);
+        }else{
+            El_Make(childTempl, node, rootEl, data);
         }
     }
 

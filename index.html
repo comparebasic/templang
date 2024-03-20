@@ -54,8 +54,8 @@
         <ul data:style="menu-item-container" data:children="items" data:children-as="menu-item"></ul>
     </div>
     <div data:templ="viewport" data:vars="type" data-on:setType="_viewportChange:type=key">
-        <div data:child="menu" children-as="menu"></div>
-        <div data:child="content" data:children-as-value="_type" data-on:viewportChange="templ:type"></div>
+        <div data:child="menu"></div>
+        <div data:child-as-value="type" data-on:viewportChange="templ:type"></div>
     </div>
     <div data:templ="edit-page">
         Edit Page
