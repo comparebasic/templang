@@ -149,7 +149,7 @@ function Event_Clone(target_el, _event_ev, spec_s){
     event_ev.gathers = _event_ev.gathers;
     event_ev._prior = _event_ev;
 
-    Event_SetSpec(event_ev);
+    Event_SetSpec(event_ev, spec_s);
     return event_ev;
 }
 
@@ -298,8 +298,9 @@ function handleEvent(event_ev){
 
     if(event_ev.spec.eventName === 'templ'){
         var value = event_ev.spec.values[0];
-        if(target_el.vars[value]){
-            El_SetChildren(event_ev.target, target_el.vars[value], null, null);
+        console.log("UPDATE TEMPL to " + value + " " + event_ev.vars[value], event_ev);
+        if(event_ev.vars[value]){
+            El_SetChildren(event_ev.target, event_ev.vars[value], null, null);
         }
     }else if(event_ev.spec.eventName === 'style'){
         if(event_ev.sourceType === 'unhover'){
@@ -325,10 +326,10 @@ function handleEvent(event_ev){
                 dest_el.commands[event_s](event_ev);
             }
 
+            CopyVars(Object.keys(event_ev.vars), dest_el.vars, event_ev.vars);
             if(dest_el.templ != event_ev.target_el && dest_el.templ.on[event_s]){
                 handleEvent(Event_Clone(dest_el, event_ev, dest_el.templ.on[event_s]));
             }
-            CopyVars(Object.keys(event_ev.vars), dest_el.vars, event_ev.vars);
         }
     }
 }
