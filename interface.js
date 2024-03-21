@@ -53,11 +53,15 @@ function specParse(spec_s){
         spec.direction = dir.direction;
         spec.cmd = dir.sel;
 
-        if(s_li.length == 2){
-            spec.values = s_li[1].split('/');
-        }else if(s_li.length > 1){
+        if(s_li.length > 1){
             s_li.shift();
-            spec.values = s_li;
+            for(var i = 0; i < s_li.length; i++){
+                var s = s_li[i];
+                if(s.indexOf('/') != -1){
+                    s = s.split('/');
+                }
+                spec.values.push(s);
+            }
         }
     }
     return spec;
@@ -286,15 +290,16 @@ function handleEvent(event_ev){
         }
     }else if(event_ev.spec.eventName === 'style'){
         if(event_ev.sourceType === 'unhover'){
-            if(event_ev.spec.values.length == 2){
-                var value2 = event_ev.spec.values[1];
-                El_SetStyle(value2, event_ev.target.templ, event_ev.target);
-            }else{
-                var value = event_ev.spec.values[0];
-                El_SetStyle(value, event_ev.target.templ, event_ev.target);
+            var value = event_ev.spec.values[0];
+            if(Array.isArray(value)){
+                value = value[1];
             }
+            El_SetStyle(value, event_ev.target.templ, event_ev.target);
         }else{
             var value = event_ev.spec.values[0];
+            if(Array.isArray(value)){
+                value = value[0];
+            }
             El_SetStyle(value, event_ev.target.templ, event_ev.target);
         }
     }else{
