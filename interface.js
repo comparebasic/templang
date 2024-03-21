@@ -9,28 +9,131 @@ var QUERY_SELF = 1;
 var QUERY_PARENTS = 2;
 var QUERY_CHILDREN = 4;
 
+var EVENT_QUERY = 16;
+var ELEM_QUERY = 17;
+
+function PropName(name_s){
+    if(/\./.test(name_s)){
+        var props = name_s.split('.');
+        var name = props[0];
+        props.shift();
+        return {name: name, props: props.split('/')};
+    }
+    return {name: name_s, props: []};
+}
+
+function GetDirection(sel_s){
+    var direction = QUERY_SELF;
+    var type = EVENT_QUERY;
+    var sel = sel_s;
+    if(sel[0] === '_'){
+        direction = QUERY_CHILDREN;
+        sel = sel.substring(1);
+    }else if(sel[0] === '^'){
+        direction = QUERY_PARENTS;
+        sel = sel.substring(1);
+    }
+
+    if(sel[0] === '#'){
+        direction = QUERY_CHILDREN;
+        type = ELEM_QUERY;
+        sel = sel.substring(1);
+    }
+
+    return {sel: sel, direction: direction, type: type };
+}
+
+
+function specParse(spec_s){
+    var spec = {cmd: null, values: [], direction: QUERY_SELF};
+    if(/:/.test(spec_s)){
+        var s_li = spec_s.split(':'); 
+        var dir = GetDirection(s_li[0]);
+
+        spec.direction = dir.direction;
+        spec.cmd = dir.sel;
+
+        if(s_li.length > 1){
+            s_li.shift();
+            spec.values = s_li;
+        }
+    }
+    return spec;
+
+}
+
 function Event_SetSpec(event_ev, spec_s){
     var spec = specParse(spec_s);
     event_ev.spec =  {
         spec_s: spec_s, /* original spec string */
         eventName: spec.cmd,/* the first part of the event for routing */
-        value: spec.value, /* the remainder of the event */
-        allValues: spec.allValues, /* the remainder of the event */
+        values: spec.values, /* the remainder of the event */
+        gathers: {}, /* key:elem_addr -> [props: vars to gather] */
+        getvars: [], /* key:elem_addr -> [props: vars to gather] */
     }
+
+    for(var i = 0; i < event_ev.spec.values.length; i++){
+        var var_k = event_ev.spec.values[i];
+        if(var_k[0] == '#'){
+            var props = PropName(var_k); 
+            event_ev.gathers[prop.name_s] = prop.props;
+        }else{
+            event_ev.getvars.push(var_k);
+        }
+    }
+
     return event_ev;
 }
 
+function CopyVars(values, to, from){
+    for(var i = 0; i < values.length; i ++){
+        var key = values[i];
+        if(key[0] !== '_' || key[0] !== '^' || key[0] !== '#'){
+            var var_k = key[0];
+            var dest_k = var_k;
+            if(/=/.test(var_k)){
+                var var_li = var_k.split('=');
+                var_k = var_li[1];
+                dest_k = var_li[0];
+            }
+
+            if(from[var_k]){
+                to[dest_k] = from[var_k];
+            }
+        }
+    }
+}
+
 function Event_New(target_el, sourceType, spec_s){
+
+    if(/;/.test(spec_s)){
+        var events_li = [];
+        var events_li = eventSpec_s.split(';');
+        for(var i = 0; i < events_li.length; i++){
+            events_li.push(Event_New(target_el, sourceType, events_li[i]);
+            return events_li;
+        }
+        return;
+    }
+
     var event_ev = {
         target: target_el, /* the source of the event, e.g. clicked element */
         sourceType: sourceType, /* the dispatch method e.g click, mousedown, key */
         dest: null, /* the destination that has the event on it */
         vars: {}, /* end result of target vars + gathers */
-        gathers: {}, /* key:elem_addr -> [props: vars to gather] */
         _pior: null, /* event this event is based on */
     }
 
-    return Event_SetSpec(event_ev, spec_s);
+    Event_SetSpec(event_ev, spec_s);
+
+    if(target_el.vars){
+        if(event_ev.spec.getvars){
+            CopyVars(event_ev.spec.getvars, event_ev.vars, target_el.vars);
+        }
+    }
+
+    return event_ev;
+
 }
 
 function Event_Clone(target_el, _event_ev, spec_s){
@@ -42,43 +145,11 @@ function Event_Clone(target_el, _event_ev, spec_s){
     return Event_SetSpec(spec_s);
 }
 
-function specParse(spec_s){
-    if(/:/.test(spec_s)){
-        var s_li = spec_s.split(':'); 
-        if(s_li.length === 1){
-            return {cmd: spec_s};
-        }else if(s_li.length === 2){
-            return {
-                cmd: s_li[0],
-                value: s_li[1],
-                allValues: [s_li[1]],
-            };
-        }else{
-            var o = {cmd: s_li[0], value: s_li[1]};
-            s_li.shift();
-            o.allValues = s_li;
-            return o;
-        }
-    }
-
-    return {};
-}
-
-function propName(name_s){
-    if(/\./.test(name_s)){
-        var props = name_s.split('.');
-        var name = props[0];
-        props.shift();
-        return {name: name, props: props};
-    }
-    return {name: name_s, props: []};
-}
-
 function El_Match(node, name, data){
     var found = false;
     if(node.templ && (!name || node.templ.name === name)){
         if(typeof data === 'function'){
-            return data(node); 
+            return data(node, name); 
         }else if(data){
             for(var key in data){
                 if(data[key] !== node.vars[key]){
@@ -93,6 +164,74 @@ function El_Match(node, name, data){
 
     return null;
 }
+
+function Match_ByCommandOrHandler(node_el, event_s){
+    if(node_el.commands[event_s] || node_el.templ && node_el.templ.on[event_s]){
+        return node_el;
+    }
+    return null;
+}
+
+function El_Query(node, criteria){
+    var direction = QUERY_SELF;
+    var nodeName = null;
+    var match = null;
+
+    if(typeof criteria === 'object'){
+        /* event_ev */
+        if(criteria.direction){
+            direction = event_ev.spec.direction;
+            match = Match_ByCommandOrHandler;
+            nodeName = event_ev.spec.cmd;
+        };
+    }else if(typeof criteria === 'string'){
+        var dir = GetDirection(criteria);
+        direction = dir.direction;
+        if(dir.type == ELEM_QUERY){
+            nodeName = dir.sel;
+        }
+    }
+
+    if(event_ev.spec.gathers){
+        for(var k in event_ev.spec.gathers){
+            if(El_Match(node, k, null)){
+                CopyVars(event_ev.spec.gathers[i], event_ev.vars, node.vars);
+            }
+        }
+    }
+
+    if(El_Match(node, nodeName, match)){
+        return node;
+    }
+
+    if(direction === QUERY_CHILDREN){
+        for(var i = 0, l = node.childNodes.length; i < l; i++){
+            if(node.childNodes[i].nodeType === Node.ELEMENT_NODE){
+                var found = El_Query(node.childNodes[i], event_ev, criteria);
+                if(found != null){
+                    return found; 
+                }
+            }
+        }
+    }
+
+    if(direction === QUERY_PARENTS){
+        while(node.parentNode != null){
+            var parent_el = node.parentNode;
+            if(parent_el == root_el){
+                return null;
+            }
+
+            var found = El_Query(parent_el, event_ev, criteria);
+            if(found != null){
+                return found; 
+            }
+
+            node = parent_el;
+        }
+    }
+}
+
 
 function El_SetChildren(node, templ, key, data){
     if(key){
@@ -120,178 +259,49 @@ function El_SetChildren(node, templ, key, data){
     }
 }
 
-function El_Query(node, root_el, _query_s, data, capture_d){
-    var direction = QUERY_SELF;
+function handleEvent(event_ev){
 
-    var query_s = null;
-    var valsel = null;
-    var valname = null;
-    if(typeof _query_s === 'object'){
-        query_s = _query_s.query;
-        valsel = _query_s.valsel; 
-        if(valsel && valsel[0] === '#'){
-            var valProps = propName(valsel);
-            valname = valProps.name.substring(1);
-            valprops = valProps.props;
+    if(event_ev.length){
+        for(int i = 0; i < event_ev.length; i++){
+            handleEvent(event_ev[i]);
+        }
+    }
+
+    var msg = "[event called]:" + event_ev.eventName + ' ' + event_ev.spec.spec_s);
+    console.log(msg, event_ev.target_el);
+
+    if(event_ev.eventName === 'templ'){
+        var pair = specParse(eventSpec_s);
+        if(target_el.vars[pair.value]){
+            El_SetChildren(event_ev.target, target_el.vars[pair.value], null, null);
+        }
+    }else if(event_ev.eventName == 'style'){
+        if(name == 'unhover'){
+            if(spec.length == 2){
+                var value = spec[1];
+                El_RemoveStyle(value, event_ev.target.templ, event_ev.target);
+            }else if(spec.length == 3){
+                var value = spec[1];
+                var value2 = spec[2];
+                El_RemoveStyle(value, event_ev.target.templ, event_ev.target);
+                El_SetStyle(value2, event_ev.target.templ, event_ev.target);
+            }
+        }else{
+            if(spec.length >= 2){
+                var value = spec[1];
+                El_SetStyle(value, event_ev.target.templ, event_ev.target);
+            }
         }
     }else{
-        query_s = _query_s;
-    }
+        var dest_el = El_Query(event_ev.target_el, event_ev);
 
-    if(query_s[0] === '_'){
-        direction = QUERY_CHILDREN;
-        query_s = query_s.substring(1);
-    }else if(query_s[0] === '^'){
-        direction = QUERY_PARENTS;
-        query_s = query_s.substring(1);
-    }
-
-    var nodeName = null;
-
-    var nameProps = propName(query_s);
-    if(query_s[0] === '#'){
-        nodeName = nameProps.name.substring(1);
-    }
-
-    if(valname && El_Match(node, valname, data)){
-        for(var i = 0; i < valprops.length; i++){
-            var k = valprops[i];
-            if(node.vars[k]){
-                capture_d[k] = node.vars[k]; 
-            }
+        if(dest_el && node_el.commands[event_s]){
+            event_ev.dest = source_el;
+            node_el.commands[event_s](event_ev);
         }
-    }
 
-    if(El_Match(node, nodeName, data)){
-        return node;
-    }
-
-    if(direction === QUERY_CHILDREN){
-        for(var i = 0, l = node.childNodes.length; i < l; i++){
-            if(node.childNodes[i].nodeType === Node.ELEMENT_NODE){
-                var found = El_Query(node.childNodes[i], root_el, _query_s, data, capture_d);
-                if(found != null){
-                    return found; 
-                }
-            }
-        }
-    }
-
-    if(direction === QUERY_PARENTS){
-        while(node.parentNode != null){
-            var parent_el = node.parentNode;
-            if(parent_el == root_el){
-                return null;
-            }
-
-            var found = El_Query(parent_el, root_el, _query_s, data, capture_d);
-            if(found != null){
-                return found; 
-            }
-
-            node = parent_el;
-        }
-    }
-}
-
-function parseSpec(spec_s){
-    return spec_s.split(':');
-}
-
-function handleEvent(event_ev){
-    var name = event_ev.sourceType;
-    var eventSpec_s = event_ev.spec.spec_s;
-    var target_el = event_ev.target;
-
-    if(/;/.test(eventSpec_s)){
-        var events_li = eventSpec_s.split(';');
-        for(var i = 0; i < events_li.length; i++){
-            handleEvent(Event_Clone(event_ev.target, event_ev, events_li[i]));
-        }
-        return;
-    }
-
-    var msg = "[event called]:" + name + " : " + eventSpec_s;
-    var spec = parseSpec(eventSpec_s);
-    if(spec.length > 0 && spec[0]){
-        var cmd = spec[0];
-        if(cmd === 'templ'){
-            var pair = specParse(eventSpec_s);
-            if(target_el.vars[pair.value]){
-                El_SetChildren(event_ev.target, target_el.vars[pair.value], null, null);
-            }
-        }else if(cmd == 'style'){
-            if(name == 'unhover'){
-                if(spec.length == 2){
-                    var value = spec[1];
-                    El_RemoveStyle(value, event_ev.target.templ, event_ev.target);
-                }else if(spec.length == 3){
-                    var value = spec[1];
-                    var value2 = spec[2];
-                    El_RemoveStyle(value, event_ev.target.templ, event_ev.target);
-                    El_SetStyle(value2, event_ev.target.templ, event_ev.target);
-                }
-            }else{
-                if(spec.length >= 2){
-                    var value = spec[1];
-                    El_SetStyle(value, event_ev.target.templ, event_ev.target);
-                }
-            }
-        }else if(spec[0] && (spec[0][0] == '_' || spec[0][0] == '^')){
-            var cmd_s = eventSpec_s.substring(1);
-            var cmd_li = cmd_s.split(':');
-            var cmdName_s = cmd_li[0];
-            var func = null;
-            var subSpec_s = spec[0].substring(1);
-            var node = event_ev.target;
-
-            var source_el = El_Query(node, node.root_el, {query: spec[0], valsel: spec[1]}, function(node_el){
-                if(!node_el){
-                    return null;
-                }
-                if(node_el.commands[cmdName_s] || (node_el.templ && node_el.templ.on[cmdName_s])){
-                    return node_el;
-                }
-                return null;
-            }, event_d);
-
-            if(source_el){
-                if(source_el.commands[cmdName_s]){
-                    func = source_el.commands[cmdName_s];
-                }else if(source_el.templ && source_el.templ.on[cmdName_s]){
-                    subSpec_s = source_el.templ.on[cmdName_s];
-                }
-                if(spec.length > 1){
-                    var k = spec[1];
-                    var dest_k = spec[1];
-                    if(/=/.test(k)){
-                        console.log('splitty from ' + spec[1]);
-                        var k_li = k.split('=');
-                        dest_k = k_li[0];
-                        k = k_li[1];
-                    }
-                    console.log('SET ON SOURCER? orig ' + spec[1] + ' dest:' + dest_k + ' = ' + target_el.vars[k] + ' from ' + k , source_el);
-                    console.log('SET FROM TRAGET? orig ' + spec[1] + ' dest:' + dest_k + ' = ' + target_el.vars[k] + ' from ' + k , target_el);
-                    var varKeys = Object.keys(source_el.templ.vars);
-                    if(varKeys.indexOf(k) != -1 && target_el.vars[k]){
-                        console.log('SET ' + dest_k + ' = ' + target_el.vars[k] + ' from ' + k , source_el);
-                        source_el.vars[dest_k] = target_el.vars[k];
-                    }
-                }
-            }else{
-                console.log('ERROR: source_el not found ' + spec[0], node);
-            }
-
-            if(func){
-                func(event_ev.target, source_el, name, spec, event_d);
-                if(source_el.templ.on && source_el.templ.on[cmdName_s]){
-                    handleEvent(Event_Clone(source_el, event_ev, source_el.templ.on[cmdName_s]);
-                }
-            }else if(subSpec_s){
-                handleEvent(Event_Clone(source_el, event_ev, subSpec_s);
-            }else{
-                console.log('NOT FOUND cmd "'+ cmd +'" not found "'+ cmdName_s +'"');
-            }
+        if(dest_el && dest_el && dest_el.templ != event_ev.target_el && dest_el.templ.on[event_s]){
+            handleEvent(Event_Clone(source_el, event_ev, dest_el.templ.on[event_s]));
         }
     }
 }
@@ -488,8 +498,4 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     targetEl.appendChild(node);
-}
-
-function updateEl(el, targetEl, data){
-    ;
 }
