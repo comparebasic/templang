@@ -53,36 +53,15 @@ function specParse(spec_s){
         spec.direction = dir.direction;
         spec.cmd = dir.sel;
 
-        if(s_li.length > 1){
+        if(s_li.length == 2){
+            spec.values = s_li[1].split('/');
+        }else if(s_li.length > 1){
             s_li.shift();
             spec.values = s_li;
         }
     }
     return spec;
 
-}
-
-function Event_SetSpec(event_ev, spec_s){
-    var spec = specParse(spec_s);
-    event_ev.spec =  {
-        spec_s: spec_s, /* original spec string */
-        eventName: spec.cmd,/* the first part of the event for routing */
-        values: spec.values, /* the remainder of the event */
-        gathers: {}, /* key:elem_addr -> [props: vars to gather] */
-        getvars: [], /* key:elem_addr -> [props: vars to gather] */
-    }
-
-    for(var i = 0; i < event_ev.spec.values.length; i++){
-        var var_k = event_ev.spec.values[i];
-        if(var_k[0] == '#'){
-            var props = PropName(var_k); 
-            event_ev.gathers[prop.name_s] = prop.props;
-        }else{
-            event_ev.getvars.push(var_k);
-        }
-    }
-
-    return event_ev;
 }
 
 function CopyVars(values, to, from){
@@ -104,16 +83,39 @@ function CopyVars(values, to, from){
     }
 }
 
+function Event_SetSpec(event_ev, spec_s){
+    var spec = specParse(spec_s);
+    event_ev.spec =  {
+        spec_s: spec_s, /* original spec string */
+        eventName: spec.cmd,/* the first part of the event for routing */
+        values: spec.values, /* the remainder of the event */
+        gathers: {}, /* key:elem_addr -> [props: vars to gather] */
+        getvars: [], /* key:elem_addr -> [props: vars to gather] */
+    }
+
+    for(var i = 0; i < event_ev.spec.values.length; i++){
+        var var_k = event_ev.spec.values[i];
+        if(var_k[0] == '#'){
+            var props = PropName(var_k); 
+            event_ev.gathers[prop.name_s] = prop.props;
+        }else{
+            event_ev.spec.getvars.push(var_k);
+        }
+    }
+
+    return event_ev;
+}
+
 function Event_New(target_el, sourceType, spec_s){
 
     if(/;/.test(spec_s)){
         var events_li = [];
-        var events_li = eventSpec_s.split(';');
-        for(var i = 0; i < events_li.length; i++){
-            events_li.push(Event_New(target_el, sourceType, events_li[i]);
-            return events_li;
+        var li_s = spec_s.split(';');
+        for(var i = 0; i < li_s.length; i++){
+            events_li.push(Event_New(target_el, sourceType, li_s[i]));
         }
-        return;
+        console.log('returning events', events_li);
+        return events_li;
     }
 
     var event_ev = {
@@ -132,8 +134,8 @@ function Event_New(target_el, sourceType, spec_s){
         }
     }
 
+    console.log('returning event', event_ev);
     return event_ev;
-
 }
 
 function Event_Clone(target_el, _event_ev, spec_s){
@@ -176,13 +178,21 @@ function El_Query(node, criteria){
     var direction = QUERY_SELF;
     var nodeName = null;
     var match = null;
+    var gathers = {};
+
+    if(!node){
+        console.log("El_Query called with empty node");
+        return;
+    }
 
     if(typeof criteria === 'object'){
+        var ev = criteria;
         /* event_ev */
         if(criteria.direction){
-            direction = event_ev.spec.direction;
+            direction = ev.spec.direction;
             match = Match_ByCommandOrHandler;
-            nodeName = event_ev.spec.cmd;
+            nodeName = ev.spec.cmd;
+            gathers = ev.spec.gathers;
         };
     }else if(typeof criteria === 'string'){
         var dir = GetDirection(criteria);
@@ -192,11 +202,9 @@ function El_Query(node, criteria){
         }
     }
 
-    if(event_ev.spec.gathers){
-        for(var k in event_ev.spec.gathers){
-            if(El_Match(node, k, null)){
-                CopyVars(event_ev.spec.gathers[i], event_ev.vars, node.vars);
-            }
+    for(var k in gathers){
+        if(El_Match(node, k, null)){
+            CopyVars(gathers[i], event_ev.vars, node.vars);
         }
     }
 
@@ -262,38 +270,36 @@ function El_SetChildren(node, templ, key, data){
 function handleEvent(event_ev){
 
     if(event_ev.length){
-        for(int i = 0; i < event_ev.length; i++){
+        for(var i = 0; i < event_ev.length; i++){
             handleEvent(event_ev[i]);
         }
+        return;
     }
 
-    var msg = "[event called]:" + event_ev.eventName + ' ' + event_ev.spec.spec_s);
+    var msg = "[event called]:" + event_ev.sourceType + ' ' + event_ev.spec.eventName + ' ' +event_ev.spec.spec_s;
     console.log(msg, event_ev.target_el);
 
-    if(event_ev.eventName === 'templ'){
+    if(event_ev.spec.eventName === 'templ'){
         var pair = specParse(eventSpec_s);
         if(target_el.vars[pair.value]){
             El_SetChildren(event_ev.target, target_el.vars[pair.value], null, null);
         }
-    }else if(event_ev.eventName == 'style'){
-        if(name == 'unhover'){
-            if(spec.length == 2){
-                var value = spec[1];
-                El_RemoveStyle(value, event_ev.target.templ, event_ev.target);
-            }else if(spec.length == 3){
-                var value = spec[1];
-                var value2 = spec[2];
-                El_RemoveStyle(value, event_ev.target.templ, event_ev.target);
+    }else if(event_ev.spec.eventName === 'style'){
+        if(event_ev.sourceType === 'unhover'){
+            if(event_ev.spec.values.length == 2){
+                var value2 = event_ev.spec.values[1];
                 El_SetStyle(value2, event_ev.target.templ, event_ev.target);
-            }
-        }else{
-            if(spec.length >= 2){
-                var value = spec[1];
+            }else{
+                var value = event_ev.spec.values[0];
                 El_SetStyle(value, event_ev.target.templ, event_ev.target);
             }
+        }else{
+            var value = event_ev.spec.values[0];
+            El_SetStyle(value, event_ev.target.templ, event_ev.target);
         }
     }else{
-        var dest_el = El_Query(event_ev.target_el, event_ev);
+        console.log(event_ev);
+        var dest_el = El_Query(event_ev.target, event_ev);
 
         if(dest_el && node_el.commands[event_s]){
             event_ev.dest = source_el;
@@ -354,6 +360,7 @@ function El_RemoveStyle(style_s, templ, node){
 }
 
 function El_SetStyle(style_s, templ, node){
+    console.log('SET STYLE '+style_s, node);
     if(templ.classList){
         node.classList = templ.classList;
     }
@@ -408,6 +415,13 @@ function cash(s, data){
     return shelf;
 }
 
+function Event_Bind(node, name, eventSpec_s){
+    return function(e){
+        handleEvent(Event_New(node, name, eventSpec_s));
+        e.stopPropagation(); e.preventDefault();
+    }
+}
+
 function El_Make(templ, targetEl, rootEl, data){
     if(typeof templ == 'string'){
         templ = window.basic.templates[templ];
@@ -455,23 +469,27 @@ function El_Make(templ, targetEl, rootEl, data){
     node.flags = templ.flags | FLAG_INITIALIZED;
 
 
+
     var onKeys = Object.keys(templ.on);
     for(var i = 0; i < onKeys.length; i++){
         var key = onKeys[i];
         var eventSpec_s = templ.on[key];
+
+        function debug(){
+            console.log("DEBUG: firing key:"+key+" "+eventSpec_s);
+        }
+
         if(key == 'click'){
-            node.onclick = function(){ handleEvent(Event_New(node, 'click', eventSpec_s))};
+            node.onclick = Event_Bind(node, 'click', eventSpec_s);
         }else if(key == 'down'){
-            node.onmousedown = function(){ handleEvent(Event_New(node, 'down', eventSpec_s))};
+            node.onmousedown = Event_Bind(node, 'down', eventSpec_s);
         }else if(key == 'up'){
-            node.onmouseup = function(){ handleEvent(Event_New(node, 'up', eventSpec_s, node))};
+            node.onmouseup = Event_Bind(node, 'up', eventSpec_s);
         }else if(key == 'key'){
-            node.onkeyboard = function(){ handleEvent(Event_New(node, 'key', eventSpec_s, node))};
+            node.onkey = Event_Bind(node, 'key', eventSpec_s);
         }else if(key == 'hover'){
-            node.onmouseover = function(){ handleEvent(Event_New(node, 'hover', eventSpec_s, node))};
-            node.onmouseout = function(){ handleEvent(Event_New(node, 'unhover', eventSpec_s, node))};
-        }else{
-            node.events[key] = eventSpec_s
+            node.onmouseover = Event_Bind(node, 'hover', eventSpec_s);
+            node.onmouseout = Event_Bind(node, 'unhover', eventSpec_s);
         }
     }
 
