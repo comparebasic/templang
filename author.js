@@ -14,13 +14,26 @@
         }
     }
 
-    function splitFunc(target, source, name, spec, event_d){
-        console.log('SPLIT ' + name + ' : ' + spec, event_d);
+    function splitFunc(event_ev){
+
+        console.log(event_ev);
+        console.log('SPLITTING', event_ev.vars);
+        var main = document.getElementById('main'); 
+
+        var type = event_ev.vars['type'];
+        if(type === "preview"){
+            type = "edit-page";
+        }else{
+            type = "preview";
+        }
+
+        var menu = MakeMenu(type);
+        var data = {type: type, menu: menu, split: splitFunc};
+        El_Make("viewport", main, main, data);
     }
 
-    if(window.basic.templates){
-        var main = document.getElementById('main'); 
-        var menu = {key:"preview", items: [
+    function MakeMenu(type){
+        return {key:type, items: [
                 {name: "Preview", key: "preview"},
                 {name: "Edit Page", key: "edit-page"},
                 {name: "Undo/Redo", key: "undo-redo"},
@@ -29,8 +42,16 @@
             ],
             update: setFunc,
         };
+    }
 
-        var data = {type: "preview", menu: menu, split: splitFunc};
+
+    if(window.basic.templates){
+        var main = document.getElementById('main'); 
+
+        var type = "preview";
+        var menu = MakeMenu(type);
+        var data = {type: type, menu: menu, split: splitFunc};
+
         El_Make("viewport", main, main, data);
     }
 })();

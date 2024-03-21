@@ -15,9 +15,11 @@ var ELEM_QUERY = 17;
 function PropName(name_s){
     if(/\./.test(name_s)){
         var props = name_s.split('.');
+        console.log('GATHERS create', props);
         var name = props[0];
         props.shift();
-        return {name: name, props: props.split('/')};
+        console.log('GATHERS create: ' + name, props);
+        return {name: name, props: props};
     }
     return {name: name_s, props: []};
 }
@@ -103,8 +105,8 @@ function Event_SetSpec(event_ev, spec_s){
     for(var i = 0; i < event_ev.spec.values.length; i++){
         var var_k = event_ev.spec.values[i];
         if(var_k[0] == '#'){
-            var props = PropName(var_k); 
-            event_ev.gathers[prop.name_s] = prop.props;
+            var props = PropName(var_k.substring(1)); 
+            event_ev.spec.gathers[props.name] = props.props;
         }else{
             event_ev.spec.getvars.push(var_k);
         }
@@ -188,6 +190,7 @@ function El_Query(node, criteria){
     var match = null;
     var gathers = {};
     var root_el = null;
+    var dest_vars = null;
 
     if(!node){
         console.log("El_Query called with empty node");
@@ -202,6 +205,7 @@ function El_Query(node, criteria){
             match = Match_ByCommandOrHandler;
             nodeName = ev.spec.cmd;
             gathers = ev.spec.gathers;
+            dest_vars = ev.vars;
             root_el = ev.target.root_el;
         }else if(criteria.name){
             var dir = GetDirection(criteria.name);
@@ -220,9 +224,12 @@ function El_Query(node, criteria){
         }
     }
 
-    for(var k in gathers){
-        if(El_Match(node, k, null)){
-            CopyVars(gathers[i], event_ev.vars, node.vars);
+    if(gathers && dest_vars){
+        for(var k in gathers){
+            console.log(k, gathers);
+            if(El_Match(node, k, null)){
+                CopyVars(gathers[k], dest_vars, node.vars);
+            }
         }
     }
 
