@@ -140,29 +140,56 @@
         <div data:child="menu"></div>
         <div data:child-as-value="type" data-on:viewport-change="templ:type"></div>
     </div>
-    <div data:templ="edit-page">
-        <article class="edit-item">
-            <input class="select" type="checkbox" />
-            <span class="item-menu menu-icon">=</span>
-            <div class="content">
-                <h1>The Whole Chicken</h1>
-            </div>
-            <span class="type-label">title</span>
-        </article>
-        <article class="edit-item">
-            <input class="select" type="checkbox" />
-            <span class="item-menu menu-icon">=</span>
-            <span class="content">
-                <p>Making a whole chicken is fun, it's cost effective, can be the base of many many meals</p>
-            </span>
-            <span class="type-label">text</span>
-        </article>
-        <div class="clear"></div>
+    <div data:templ="edit-item-controls">
+        <input class="select" type="checkbox" />
+        <span class="item-menu menu-icon">=</span>
     </div>
-    <div data:templ="preview">
-        <h1>The Whole Chicken</h1>
-        <p>Making a whole chicken is fun, it's cost effective, can be the base of many many meals</p>
+    <div data:templ="edit-item-text">
+        <div data:child="edit-item-controls"></div>
+        <div class="content">
+            <p>${text}</p>
+        </div>
     </div>
+    <div data:templ="edit-item-title">
+        <div data:child="edit-item-controls"></div>
+        <div class="content">
+            <h1>${text}</h1>
+        </div>
+    </div>
+    <div data:templ="edit-item-subtitle">
+        <div data:child="edit-item-controls"></div>
+        <div class="content">
+            <h2>${text}</h2>
+        </div>
+    </div>
+    <div data:classes="edit-gallery" data:templ="edit-item-gallery">
+        <div data:child="edit-item-controls"></div>
+        <div class="content">
+            <div data:children="images" data:children-as="image"></div>
+        </div>
+    </div>
+    <div data:templ="image" data:tag="img" data:atts="src"></div>
+    <div data:templ="preview-item-text">
+        <p>${text}</p>
+    </div>
+    <div data:templ="preview-item-title">
+        <h1>${text}</h1>
+    </div>
+    <div data:templ="preview-item-subtitle">
+        <h2>${text}</h2>
+    </div>
+    <div data:classes="gallery" data:templ="edit-item-gallery">
+        <div data:children="images" data:children-as="image"></div>
+    </div>
+    <div data:templ="edit-item" children="content" children-as="edit-item-${type}"></div>
+
+    <!-- viwports -->
+    <div data:templ="preview">Preview</div>
+    <div data:templ="edit-page">Edit</div>
+    <div data:templ="preview" data:children="_#author.content" data:children-as="preview-items"></div>
+    <!--
+    <div data:templ="edit-page" data:children="_content" children-as="edit-item"> </div>
+    -->
     <div data:templ="undo-redo">
         Undo/Redo 
     </div>
@@ -172,7 +199,7 @@
     <div data:templ="layout">
        Layout 
     </div>
-    <div data:classes="author" data:templ="author" data:vars="count" data:styles="single,double,tripple,quad">
+    <div data:classes="author" data:vars="content" data:templ="author" data:vars="count" data:styles="single,double,tripple,quad">
         <div data:child="viewport"></div>
     </div>
 </div>

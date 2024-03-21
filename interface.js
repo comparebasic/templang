@@ -263,7 +263,6 @@ function El_Query(node, criteria){
     }
 }
 
-
 function El_SetChildren(node, templ, key, data){
     if(key){
         if(key && templ){
@@ -303,7 +302,6 @@ function handleEvent(event_ev){
 
     if(event_ev.spec.eventName === 'templ'){
         var value = event_ev.spec.values[0];
-        console.log("UPDATE TEMPL to " + value + " " + event_ev.vars[value], event_ev);
         if(event_ev.vars[value]){
             El_SetChildren(event_ev.target, event_ev.vars[value], null, null);
         }
@@ -546,7 +544,25 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     if(templ.childrenKey && templ.childrenTempl){
-        El_SetChildren(node, templ.childrenTempl, templ.childrenKey, data);
+        var rendered = false;
+        var templ_s = templ.childrenTempl;
+        var props = PropName(templ_s);
+
+        var dir = GetDirection(props.name);
+        /*
+        if(dir && dir.type == ELEM_QUERY){
+            var source_el = El_Query(node, {name: props.name});
+            if(source_el && source_el.vars[props.props[0]]){
+                var data = source_el.vars[props.props[0]];
+                El_SetChildren(node, templ.childrenTempl, "data", {'data': data});
+                rendered = true;
+            }
+        }
+        */
+
+        if(!rendered){
+            El_SetChildren(node, templ.childrenTempl, templ.childrenKey, data);
+        }
     }
 
     targetEl.appendChild(node);
