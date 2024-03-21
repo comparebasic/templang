@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <title>Compare Basic - Productivity Software</title>
 <style>
-    
+    body {
+        font-family: sans-serif;
+    }
 
     #templates{display:none}
     .menu {
@@ -70,6 +72,51 @@
         clear:both;
     }
 
+    article.edit-item{
+        position: relative;
+    }
+
+    article.edit-item .select {
+        width: 15px;
+        position: absolute;
+        left: 2px;
+        top: 8px;
+    }
+
+    article.edit-item .type-label {
+        display: inline-block;
+        background: #999;
+        border-radius: 6px;
+        font-weight: bold;
+        color: white;
+        margin: 2px 4px;
+        padding: 4px 8px;
+    }
+
+    article.edit-item .content, article.edit-item .content h1 {
+        display: inline-block;
+    }
+
+    article.edit-item .content {
+        margin-left: 30px;
+        margin-right: 30px;
+    }
+
+    article.edit-item .item-menu {
+        width: 15px;
+    }
+
+    .menu-icon {
+        position: absolute;
+        right: 2px;
+        top: 8px;
+    }
+
+    .menu {
+        position: relative;
+        padding-right: 20px;
+    }
+
 </style>
 <script src="dom.js" type="text/javascript"></script>
 <script src="interface.js" type="text/javascript"></script>
@@ -83,10 +130,10 @@
 <div id="templates">
     <li data:templ="menu-item" data:classes="menu-item" data:styles="none,hover,active,active-hover" data:style-if="^key=active" data-on:click="^update:key;style:active" data:vars="key" >${name}</li>
     <div data:templ="menu" data:command="update" data:classes="menu" data:styles="collapsed,expanded" data-on:hover="style:expanded/collapsed" data:vars="type,key" data-on:update="style:collapsed;^set-type:type=key">
-        <div data:style="side-icons">
-            <span data:for="${icons}" data:style="${icon}" data-on:click="_setAction:action" data:vars="action,image" style="background-image:url(${image})">&nbsp;</span>
-        </div>
         <ul data:style="menu-item-container" data:children="items" data:children-as="menu-item"></ul>
+        <div class="menu-icon" data:style="side-icons">
+            <span data:for="${icons}" data:style="${icon}" data-on:click="_setAction:action" data:vars="action,image" style="background-image:url(${image})"> = </span>
+        </div>
     </div>
     <div data:classes="viewport" data:templ="viewport" data:commands="split" data:vars="type,key" data-on:set-type="_viewport-change:type">
         <span data:classes="center-v" data-on:click="^split:#viewport.type">split view</span>
@@ -94,10 +141,27 @@
         <div data:child-as-value="type" data-on:viewport-change="templ:type"></div>
     </div>
     <div data:templ="edit-page">
-        Edit Page
+        <article class="edit-item">
+            <input class="select" type="checkbox" />
+            <span class="item-menu menu-icon">=</span>
+            <div class="content">
+                <h1>The Whole Chicken</h1>
+            </div>
+            <span class="type-label">title</span>
+        </article>
+        <article class="edit-item">
+            <input class="select" type="checkbox" />
+            <span class="item-menu menu-icon">=</span>
+            <span class="content">
+                <p>Making a whole chicken is fun, it's cost effective, can be the base of many many meals</p>
+            </span>
+            <span class="type-label">text</span>
+        </article>
+        <div class="clear"></div>
     </div>
     <div data:templ="preview">
-        Preview 
+        <h1>The Whole Chicken</h1>
+        <p>Making a whole chicken is fun, it's cost effective, can be the base of many many meals</p>
     </div>
     <div data:templ="undo-redo">
         Undo/Redo 
