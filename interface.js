@@ -15,10 +15,8 @@ var ELEM_QUERY = 17;
 function PropName(name_s){
     if(/\./.test(name_s)){
         var props = name_s.split('.');
-        console.log('GATHERS create', props);
         var name = props[0];
         props.shift();
-        console.log('GATHERS create: ' + name, props);
         return {name: name, props: props};
     }
     return {name: name_s, props: []};
@@ -392,6 +390,8 @@ function El_RemoveStyle(style_s, templ, node){
 function El_SetStyle(style_s, templ, node){
     if(templ.classList){
         node.classList = templ.classList;
+    }else{
+        node.classList = [];
     }
 
     if(style_s){

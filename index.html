@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <title>Compare Basic - Productivity Software</title>
 <style>
+    
+
     #templates{display:none}
     .menu {
         display: inline-block;
@@ -38,6 +40,25 @@
     .viewport {
         border: 1px solid #999;
         padding: 12px;
+        float: left;
+        height: 800px; 
+        overflow-x: scroll;
+    }
+
+    .author.single .viewport {
+        width: 100%;
+    }
+
+    .author.double .viewport {
+        width: 40%;
+    }
+
+    .author.tripple .viewport {
+        width: 28%;
+    }
+
+    .author.quad .viewport {
+        width: 20%;
     }
 
     .center-v {
@@ -45,6 +66,10 @@
         left:  50%;
         transform: translateY(-50%);
     }
+    .clear {
+        clear:both;
+    }
+
 </style>
 <script src="dom.js" type="text/javascript"></script>
 <script src="interface.js" type="text/javascript"></script>
@@ -83,14 +108,17 @@
     <div data:templ="layout">
        Layout 
     </div>
+    <div data:classes="author" data:templ="author" data:vars="count" data:styles="single,double,tripple,quad">
+        <div data:child="viewport"></div>
+    </div>
 </div>
 <script src="template.js" type="text/javascript"></script>
 <header>
 </header>
 <section id="main">
     <script src="author.js" type="text/javascript"></script>
-
 </section>
+<div class="clear"></div>
 <footer class="home-footer">
     <div class="inner">
         <p>

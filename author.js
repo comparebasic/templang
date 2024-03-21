@@ -18,7 +18,7 @@
 
         console.log(event_ev);
         console.log('SPLITTING', event_ev.vars);
-        var main = document.getElementById('main'); 
+        var author = El_Query(event_ev.dest, {name: "^#author"});
 
         var type = event_ev.vars['type'];
         if(type === "preview"){
@@ -29,7 +29,32 @@
 
         var menu = MakeMenu(type);
         var data = {type: type, menu: menu, split: splitFunc};
-        El_Make("viewport", main, main, data);
+        El_Make("viewport", author, main, data);
+
+        var count = 1;
+        if(!author.vars['count'] || Number(author.vars['count']) < 1){
+            count = 1;
+        }else{
+            count = Number(author.vars['count']);
+        }
+
+        console.log(count);
+
+        count++;
+        author.vars['count'] = count;
+        var style = 'single';
+        if(count == 1){
+            style = 'single'; 
+        }else if(count == 2){
+            style = 'double'; 
+        }else if(count == 3){
+            style = 'tripple'; 
+        }else if(count == 4){
+            style = 'quad'; 
+        }
+    
+        console.log('setting style for author ' + style);
+        El_SetStyle(style, author.templ, author);
     }
 
     function MakeMenu(type){
@@ -50,8 +75,8 @@
 
         var type = "preview";
         var menu = MakeMenu(type);
-        var data = {type: type, menu: menu, split: splitFunc};
+        var data = {viewport: {type: type, menu: menu, split: splitFunc}};
 
-        El_Make("viewport", main, main, data);
+        El_Make("author", main, main, data);
     }
 })();
