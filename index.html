@@ -56,8 +56,8 @@
 </head>
 <body>
 <div id="templates">
-    <li data:templ="menu-item" data:classes="menu-item" data:styles="none,hover,active,active-hover" data:style-if="^key=active" data-on:click="^update:type=key;style:active" data:vars="key" >${name}</li>
-    <div data:templ="menu" data:command="update" data:classes="menu" data:styles="collapsed,expanded" data-on:hover="style:expanded/collapsed" data:vars="type" data-on:update="style:collapsed;^set-type:type">
+    <li data:templ="menu-item" data:classes="menu-item" data:styles="none,hover,active,active-hover" data:style-if="^key=active" data-on:click="^update:key;style:active" data:vars="key" >${name}</li>
+    <div data:templ="menu" data:command="update" data:classes="menu" data:styles="collapsed,expanded" data-on:hover="style:expanded/collapsed" data:vars="type,key" data-on:update="style:collapsed;^set-type:type">
         <div data:style="side-icons">
             <span data:for="${icons}" data:style="${icon}" data-on:click="_setAction:action" data:vars="action,image" style="background-image:url(${image})">&nbsp;</span>
         </div>

@@ -1,14 +1,15 @@
 (function(){
 
-    function setFunc(target, source, name, spec, event_d){
-        var valKey = spec[1];
-        var value = target.vars[valKey];
-
-        var prevKey = source.vars[valKey]
+    function setFunc(event_ev){
+        console.log('setFunc called ', event_ev.dest.vars);
+        console.log('setFunc called ', event_ev.dest);
+        var prevKey = event_ev.dest.vars['key'];
         if(prevKey){
-            var prev = El_Query(source, null, "_#menu-item", {key: prevKey});
+            var prev = El_Query(event_ev.dest, {name:"_#menu-item" , data: {key: prevKey}});
             if(prev){
                 El_RemoveStyle('active', prev.templ, prev);
+            }else{
+                console.log('PREV NOT FOUND');
             }
         }
     }
