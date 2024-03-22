@@ -1,4 +1,4 @@
-var DEBUG_VARS_GATHER = true;
+var DEBUG_VARS_GATHER = false;
 
 var debug_el_li = [
     "preview",

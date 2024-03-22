@@ -73,33 +73,59 @@ function FilterSetters(var_li){
 }
 
 function CopyVars(values, to, from){
-    for(var i = 0; i < values.length; i ++){
-        var key = values[i];
-        if(key[0] === '_' || key[0] === '#'){
-            console.log('element and child copy vars not supported');
-            continue;
-        }
+    if(Array.isArray(values)){
+        for(var i = 0; i < values.length; i ++){
+            var key = values[i];
+            if(key[0] === '_' || key[0] === '#'){
+                console.log('element and child copy vars not supported');
+                continue;
+            }
 
-        var var_k = key;
-        var dest_k = var_k;
-        if(/=/.test(var_k)){
-            var var_li = var_k.split('=');
-            var_k = var_li[1];
-            dest_k = var_li[0];
-        }
+            var var_k = key;
+            var dest_k = var_k;
+            if(/=/.test(var_k)){
+                var var_li = var_k.split('=');
+                var_k = var_li[1];
+                dest_k = var_li[0];
+            }
 
-        var scope = DataScope(var_k, from);
-        if(scope.data){
-            var value = scope.data;
-            var_k = scope.ukey;
-            to[dest_k] = value;
+            var scope = DataScope(var_k, from);
+            if(scope.data){
+                var value = scope.data;
+                var_k = scope.ukey;
+                console.log('dest_k is I', dest_k);
+                to[dest_k] = value;
 
-            return;
-        }
+                return;
+            }
 
-        if(from[var_k]){
-            to[dest_k] = from[var_k];
+            if(from[var_k]){
+                console.log('dest_k is I.1', dest_k);
+                to[dest_k] = from[var_k];
+            }
         }
+    }else if(typeof values == 'object'){
+        for(var k in values){
+            var valKey = values[k]; 
+
+            var scope = DataScope(k, from);
+            console.log('SCOPE IS ', scope);
+            if(scope.data){
+                var value = null;
+                var dest_k = k;
+                if(typeof scope.data === 'string'){
+                    value = scope.data;
+                    to[dest_k] = value;
+                }
+
+                continue;
+            }
+
+            if(from[k]){
+                console.log('dest_k is III', scope.dest_key);
+                to[k] = from[k];
+            }
+        } 
     }
 }
 
@@ -179,12 +205,15 @@ function Event_New(target_el, sourceType, spec_s){
         if(event_ev.spec.getvars){
             if(DEBUG_VARS_GATHER){
                 console.log('Copy EVENT_NEW var keys: ',event_ev.spec.getvars);
-                console.log('Copy EVENT_NEW var from: ',FilterSetters(target_el.vars));
+                console.log('Copy EVENT_NEW var from: ',target_el.vars);
                 console.log('Copy EVENT_NEW var to: ', event_ev.vars);
                 console.log('Copy EVENT_NEW var to event: ', event_ev);
                 console.log('Copy EVENT_NEW var from target_: ', target_el);
             }
-            CopyVars(event_ev.spec.getvars, event_ev.vars, FilterSetters(target_el.vars));
+            CopyVars(event_ev.spec.getvars, event_ev.vars, target_el.vars);
+            if(DEBUG_VARS_GATHER){
+                console.log('Copy EVENT_NEW var AFTER to event: ', event_ev.vars);
+            }
         }
     }
 
@@ -386,6 +415,9 @@ function handleEvent(event_ev){
                 console.log('Copy HANDLE_EVENT var from ev: ', event_ev);
             }
             CopyVars(Object.keys(event_ev.vars), dest_el.vars, event_ev.vars);
+            if(DEBUG_VARS_GATHER){
+                console.log('Copy HANDLE_EVENT var AFTER  to: ', dest_el.vars);
+            }
             if(dest_el.templ != event_ev.target_el && dest_el.templ.on[event_s]){
                 handleEvent(Event_Clone(dest_el, event_ev, dest_el.templ.on[event_s]));
             }
@@ -558,6 +590,16 @@ function El_Make(templ, targetEl, rootEl, data){
     CopyVars(varKeys, node.vars, data);
     if(DEBUG_VARS_GATHER){
         console.log('Copy EL_MAKE var AFTER to making: ' + templ.name, node.vars);
+    }
+
+    if(templ.mapVars && Object.keys(templ.mapVars).length > 0){
+        if(DEBUG_VARS_GATHER){
+            console.log('Copy EL_MAKE mapVars keys: ', templ.mapVars);
+            console.log('Copy EL_MAKE mapVars from: ', data);
+            console.log('Copy EL_MAKE mapVars to: ', node.vars);
+            console.log('Copy EL_MAKE mapVars templ: ', templ);
+        }
+        CopyVars(templ.mapVars, node.vars, data);
     }
 
     El_SetStyle(null, templ, node);

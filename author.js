@@ -10,6 +10,8 @@ var content = [
     function setFunc(event_ev){
         var prevKey = event_ev.dest.vars['key'];
         console.log('PREVKEY', prevKey);
+        console.log('PREVKEY dest.templ', event_ev.dest.templ);
+        console.log('PREVKEY dest', event_ev.dest.vars);
         if(prevKey){
             var prev = El_Query(event_ev.dest, {name:"_#menu-item" , data: {key: prevKey}});
             if(prev){
