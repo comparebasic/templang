@@ -87,17 +87,12 @@ function CopyVars(values, to, from){
             var_k = var_li[1];
             dest_k = var_li[0];
         }
-        
-        console.log('CopyVars var_k: ' + var_k, from);
 
         var scope = DataScope(var_k, from);
         if(scope.data){
             var value = scope.data;
             var_k = scope.ukey;
             to[dest_k] = value;
-
-            console.log('CopyVars var_k: found from' + var_k, from);
-            console.log('CopyVars var_k: found to ' + var_k, to);
 
             return;
         }
@@ -182,6 +177,13 @@ function Event_New(target_el, sourceType, spec_s){
 
     if(target_el.vars){
         if(event_ev.spec.getvars){
+            if(DEBUG_VARS_GATHER){
+                console.log('Copy EVENT_NEW var keys: ',event_ev.spec.getvars);
+                console.log('Copy EVENT_NEW var from: ',FilterSetters(target_el.vars));
+                console.log('Copy EVENT_NEW var to: ', event_ev.vars);
+                console.log('Copy EVENT_NEW var to event: ', event_ev);
+                console.log('Copy EVENT_NEW var from target_: ', target_el);
+            }
             CopyVars(event_ev.spec.getvars, event_ev.vars, FilterSetters(target_el.vars));
         }
     }
@@ -269,6 +271,11 @@ function El_Query(node, criteria){
     if(gathers && dest_vars){
         for(var k in gathers){
             if(El_Match(node, k, null)){
+                if(DEBUG_VARS_GATHER){
+                    console.log('Copy ELEM_QUERY gather var keys: ', gathers[k]);
+                    console.log('Copy ELEM_QUERY gather var from: ', node.vars);
+                    console.log('Copy ELEM_QUERY gather var to: ', dest_vars);
+                }
                 CopyVars(gathers[k], dest_vars, node.vars);
             }
         }
@@ -371,6 +378,13 @@ function handleEvent(event_ev){
                 dest_el.commands[event_s](event_ev);
             }
 
+            if(DEBUG_VARS_GATHER){
+                console.log('Copy HANDLE_EVENT var keys: ', Object.keys(event_ev.vars));
+                console.log('Copy HANDLE_EVENT var from: ', event_ev.vars);
+                console.log('Copy HANDLE_EVENT var to: ', dest_el.vars);
+                console.log('Copy HANDLE_EVENT var to dest: ', dest_el);
+                console.log('Copy HANDLE_EVENT var from ev: ', event_ev);
+            }
             CopyVars(Object.keys(event_ev.vars), dest_el.vars, event_ev.vars);
             if(dest_el.templ != event_ev.target_el && dest_el.templ.on[event_s]){
                 handleEvent(Event_Clone(dest_el, event_ev, dest_el.templ.on[event_s]));
@@ -535,7 +549,16 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     var varKeys = Object.keys(templ.vars);
+    if(DEBUG_VARS_GATHER){
+        console.log('Copy EL_MAKE var keys: ', varKeys);
+        console.log('Copy EL_MAKE var from: ', data);
+        console.log('Copy EL_MAKE var to: ', node.vars);
+        console.log('Copy EL_MAKE templ: ', templ);
+    }
     CopyVars(varKeys, node.vars, data);
+    if(DEBUG_VARS_GATHER){
+        console.log('Copy EL_MAKE var AFTER to making: ' + templ.name, node.vars);
+    }
 
     El_SetStyle(null, templ, node);
     El_StyleFromSetters(templ.styleSetters, templ, node, data);
@@ -583,7 +606,6 @@ function El_Make(templ, targetEl, rootEl, data){
 
     var childTempl = templ.childTempl;
     if(templ.childSetter){
-        console.log('using childsetter');
         var scope = DataScope(templ.childSetter, data);
         if(scope.data && scope.data[scope.key]){
             childTempl = scope.data[scope.key];

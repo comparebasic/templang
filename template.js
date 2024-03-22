@@ -19,6 +19,7 @@
             styleOptions: {},
             styleSetters: [],
             commandKeys: {},
+            mapVars: {},
         };
 
         for(var i = 0, l = el.attributes.length; i < l; i++){
@@ -43,6 +44,15 @@
                 templ.commandKeys = [att.value];
             }else if(att.name == 'style'){
                 templ.style = att.value;
+            }else if(att.name == 'data:map-vars'){
+                var varNames = att.value.split(',');
+                for(var j = 0; j < varNames.length; j++){
+                    var keys = GetDestK(varNames[j]);
+                    if(keys){
+                        templ.mapVars[keys.dest_key] = keys.key;
+                    }
+
+                }
             }else if(att.name == 'data:vars'){
                 var vars = {};
                 var varNames = att.value.split(',');
