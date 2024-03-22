@@ -386,15 +386,12 @@ function handleEvent(event_ev){
         var childData = {};
         if(dataProps.name){
             var dataNode = El_Query(event_ev.target, {name: dataProps.name});
-            console.log('dataNode target '+dataProps.name, event_ev.target);
-            console.log('dataNode found '+dataProps.name, dataNode);
             if(dataNode && dataProps.props[0]){
                 childData[dataProps.props[0]] = dataNode.vars[dataProps.props[0]];
             }
         }
 
         if(event_ev.vars[type] && childData){
-            console.log('SETTING templ VIA event to ' + event_ev.vars[type], childData); 
             El_SetChildren(event_ev.target, event_ev.vars[type], null, childData);
         }
     }else if(event_ev.spec.eventName === 'style'){
@@ -523,6 +520,9 @@ function El_SetStyle(style_s, templ, node){
 }
 
 function cash(s, data){
+    if(DEBUG_CASH){
+        console.log('CASH of :' + s, data);
+    }
     var state = STATE_TEXT;
     var key = "";
     var shelf = "";
@@ -556,6 +556,9 @@ function cash(s, data){
             }
         }
     }
+    if(DEBUG_CASH){
+        console.log('cash result:', shelf);
+    }
     return shelf;
 }
 
@@ -575,6 +578,9 @@ function El_Make(templ, targetEl, rootEl, data){
         var templ_s = cash(templ.childrenTempl, data);
         if(DEBUG_CHILDREN_AS){
             console.log('Detecting funny thing ' +templ.childrenTempl + ' now with ' + templ_s, data);
+        }
+        if(templ_s){
+            templ = window.basic.templates[templ_s];
         }
     }
 
