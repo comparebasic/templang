@@ -42,22 +42,68 @@ function GetDirection(sel_s){
     return {sel: sel, direction: direction, type: type };
 }
 
+function FilterSetters(var_li){
+    if(typeof var_li === 'object'){
+        var li = [];
+        for(var k in var_li){
+            var x = var_li[k];
+            if(/=/.test('=')){
+                var _li = x.split('=');
+                li.push(_li[0]);
+            }else{
+                li.push(x);
+            }
+
+        }
+    }else if(Array.isArray(var_li)){
+        var li = [];
+        for(var i = 0; i < var_li.length; i++){
+            var x = var_li[i];
+            if(/=/.test('=')){
+                var _li = x.split('=');
+                li.push(_li[0]);
+            }else{
+                li.push(x);
+            }
+
+        }
+    }
+
+    return li;
+}
 
 function CopyVars(values, to, from){
     for(var i = 0; i < values.length; i ++){
         var key = values[i];
-        if(key[0] !== '_' || key[0] !== '^' || key[0] !== '#'){
-            var var_k = key;
-            var dest_k = var_k;
-            if(/=/.test(var_k)){
-                var var_li = var_k.split('=');
-                var_k = var_li[1];
-                dest_k = var_li[0];
-            }
+        if(key[0] === '_' || key[0] === '#'){
+            console.log('element and child copy vars not supported');
+            continue;
+        }
 
-            if(from[var_k]){
-                to[dest_k] = from[var_k];
-            }
+        var var_k = key;
+        var dest_k = var_k;
+        if(/=/.test(var_k)){
+            var var_li = var_k.split('=');
+            var_k = var_li[1];
+            dest_k = var_li[0];
+        }
+        
+        console.log('CopyVars var_k: ' + var_k, from);
+
+        var scope = DataScope(var_k, from);
+        if(scope.data){
+            var value = scope.data;
+            var_k = scope.ukey;
+            to[dest_k] = value;
+
+            console.log('CopyVars var_k: found from' + var_k, from);
+            console.log('CopyVars var_k: found to ' + var_k, to);
+
+            return;
+        }
+
+        if(from[var_k]){
+            to[dest_k] = from[var_k];
         }
     }
 }
@@ -136,7 +182,7 @@ function Event_New(target_el, sourceType, spec_s){
 
     if(target_el.vars){
         if(event_ev.spec.getvars){
-            CopyVars(event_ev.spec.getvars, event_ev.vars, target_el.vars);
+            CopyVars(event_ev.spec.getvars, event_ev.vars, FilterSetters(target_el.vars));
         }
     }
 
@@ -265,10 +311,6 @@ function El_SetChildren(node, templ, key, data){
         if(key && templ){
             node.innerHTML = '';
             var childItems = data[key];
-            if(El_IsDebug(node)){
-                console.log("Making template", templ);
-                console.log("Making template data", childItems);
-            }
             if(childItems){
                 for(var j = 0; j < childItems.length; j++){
                     var childData = childItems[j];
@@ -337,6 +379,20 @@ function handleEvent(event_ev){
     }
 }
 
+function GetDestK(key){
+    var var_k = key;
+    var dest_k = var_k;
+    if(/=/.test(var_k)){
+        var var_li = var_k.split('=');
+        var_k = var_li[1];
+        dest_k = var_li[0];
+    }
+    return {
+        key: var_k,
+        dest_key: dest_k
+    }
+}
+
 function DataScope(sel, data){
     var key = sel;
     var ukey = sel;
@@ -348,17 +404,14 @@ function DataScope(sel, data){
 
     if(key[0] === '^'){
         data = data._parentData;
-        console.log('   initially setting parent ' + key + ' with ' + ukey, data);
     }
 
     var ret = null;
     while(ret === null && data){
-        console.log('   looking for ' + key, data);
         if(data[ukey]){
             ret = data[ukey];
         }else if(key[0] === '^'){
             data = data._parentData;
-            console.log('   setting parent ' + key + ' with ' + ukey, data);
         }else{
             break;
         }
@@ -373,19 +426,14 @@ function DataScope(sel, data){
 
 function El_StyleFromSetters(styleSetters, templ, node, data){
     for(var i = 0; i < styleSetters.length; i++){
-        var setter = styleSetters[i].split('=');
-        if(setter.length == 2){
-            var key = setter[0];
-            var style = setter[1];
-            while(key.length > 1 && key[0] === '^' && data !== undefined){
-                key = key.substring(1);
-                data = data._parentData;
-            }
+        var styleset = styleSetters[i]
+        var spec = specParse(styleset, {values: []});
+        var keys = GetDestK(spec.eventName);
 
-            var scope = DataScope(key, data);
-            if(scope.data && scope.data[scope.key] === node.vars[scope.key]){
-                El_SetStyle(style, templ, node);
-            }
+        var scope = DataScope(keys.key, data);
+        var style = spec.values[0];
+        if(style && scope.data && scope.data === node.vars[keys.dest_key]){
+            El_SetStyle(style, templ, node);
         }
     }
 }
@@ -471,11 +519,6 @@ function El_Make(templ, targetEl, rootEl, data){
         }
     }
 
-    if(Templ_IsDebug(templ)){
-        console.log("Making templ " + templ.name, templ);
-        console.log("Making templ data " + templ.name, data);
-    }
-
     if(!templ){
         return;
     }
@@ -492,20 +535,7 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     var varKeys = Object.keys(templ.vars);
-    if(varKeys.length){
-        for(var i = 0; i < varKeys.length; i++){
-            var key = varKeys[i];
-            var dest_key = key;
-            if(/=/.test(key)){
-                var key_li = key.split('=');
-                key = key_li[1];
-                dest_key = key_li[0];
-            }
-
-            var value = data[key];
-            node.vars[dest_key] = value;
-        }
-    }
+    CopyVars(varKeys, node.vars, data);
 
     El_SetStyle(null, templ, node);
     El_StyleFromSetters(templ.styleSetters, templ, node, data);
@@ -551,10 +581,6 @@ function El_Make(templ, targetEl, rootEl, data){
         }
     }
 
-    if(Templ_IsDebug(templ)){
-        console.log('mid create templ ' + templ.name, templ);
-    }
-
     var childTempl = templ.childTempl;
     if(templ.childSetter){
         console.log('using childsetter');
@@ -569,11 +595,6 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     if(templ.childrenKey && templ.childrenTempl){
-        if(Templ_IsDebug(templ)){
-            console.log("It's a preview node" + templ.childrenTempl + ' from ' + templ.childrenKey, templ);
-            console.log("It's a preview node data", data);
-        }
-
         El_SetChildren(node, templ.childrenTempl, templ.childrenKey, data);
     }
 
