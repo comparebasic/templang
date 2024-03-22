@@ -9,9 +9,6 @@ var content = [
 (function(){
     function setFunc(event_ev){
         var prevKey = event_ev.dest.vars['key'];
-        console.log('PREVKEY', prevKey);
-        console.log('PREVKEY dest.templ', event_ev.dest.templ);
-        console.log('PREVKEY dest', event_ev.dest.vars);
         if(prevKey){
             var prev = El_Query(event_ev.dest, {name:"_#menu-item" , data: {key: prevKey}});
             if(prev){
@@ -28,7 +25,6 @@ var content = [
         var menu = MakeMenu(type);
         var data =  {type: type, menu: menu, split: splitFunc, content:author.vars['content']};
         El_Make("viewport", author, main, data);
-        console.log('adding viewport');
     }
 
     function splitFunc(event_ev){
@@ -41,7 +37,6 @@ var content = [
             type = "preview";
         }
 
-        El_Make("viewport", author, main, data);
         AddViewport(author, type);
 
         var count = 1;
@@ -88,7 +83,6 @@ var content = [
         var type = "preview";
         var data = {content:content};
         var author = El_Make("author", main, main, data);
-        console.log('about to add viewport');
         AddViewport(author, type);
     }
 })();

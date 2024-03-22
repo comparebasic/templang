@@ -12,6 +12,10 @@ var QUERY_CHILDREN = 4;
 var EVENT_QUERY = 16;
 var ELEM_QUERY = 17;
 
+function NestData(child, parentData){
+    child._parentData = parentData;
+}
+
 function PropName(name_s){
     if(/\./.test(name_s)){
         var props = name_s.split('.');
@@ -93,14 +97,12 @@ function CopyVars(values, to, from){
             if(scope.data){
                 var value = scope.data;
                 var_k = scope.ukey;
-                console.log('dest_k is I', dest_k);
                 to[dest_k] = value;
 
                 return;
             }
 
             if(from[var_k]){
-                console.log('dest_k is I.1', dest_k);
                 to[dest_k] = from[var_k];
             }
         }
@@ -109,7 +111,6 @@ function CopyVars(values, to, from){
             var valKey = values[k]; 
 
             var scope = DataScope(k, from);
-            console.log('SCOPE IS ', scope);
             if(scope.data){
                 var value = null;
                 var dest_k = k;
@@ -122,7 +123,6 @@ function CopyVars(values, to, from){
             }
 
             if(from[k]){
-                console.log('dest_k is III', scope.dest_key);
                 to[k] = from[k];
             }
         } 
@@ -350,7 +350,7 @@ function El_SetChildren(node, templ, key, data){
             if(childItems){
                 for(var j = 0; j < childItems.length; j++){
                     var childData = childItems[j];
-                    childData._parentData = data;
+                    NestData(childData, data);
                     El_Make(templ, node, node.root_el, childData);
                 }
             }
@@ -380,9 +380,22 @@ function handleEvent(event_ev){
     // console.log(msg, event_ev);
 
     if(event_ev.spec.eventName === 'templ'){
-        var value = event_ev.spec.values[0];
-        if(event_ev.vars[value]){
-            El_SetChildren(event_ev.target, event_ev.vars[value], null, null);
+        var type = event_ev.spec.values[0];
+        var dataSpec = event_ev.spec.values[1];
+        var dataProps = PropName(dataSpec);
+        var childData = {};
+        if(dataProps.name){
+            var dataNode = El_Query(event_ev.target, {name: dataProps.name});
+            console.log('dataNode target '+dataProps.name, event_ev.target);
+            console.log('dataNode found '+dataProps.name, dataNode);
+            if(dataNode && dataProps.props[0]){
+                childData[dataProps.props[0]] = dataNode.vars[dataProps.props[0]];
+            }
+        }
+
+        if(event_ev.vars[type] && childData){
+            console.log('SETTING templ VIA event to ' + event_ev.vars[type], childData); 
+            El_SetChildren(event_ev.target, event_ev.vars[type], null, childData);
         }
     }else if(event_ev.spec.eventName === 'style'){
         if(event_ev.sourceType === 'unhover'){
@@ -560,7 +573,7 @@ function El_Make(templ, targetEl, rootEl, data){
 
     if(templ.childrenTempl && !templ.childrenKey){
         var templ_s = cash(templ.childrenTempl, data);
-        if(Templ_IsDebug(templ)){
+        if(DEBUG_CHILDREN_AS){
             console.log('Detecting funny thing ' +templ.childrenTempl + ' now with ' + templ_s, data);
         }
     }

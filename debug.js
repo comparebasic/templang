@@ -1,4 +1,5 @@
 var DEBUG_VARS_GATHER = false;
+var DEBUG_CHILDREN_AS = true;
 
 var debug_el_li = [
     "preview",
