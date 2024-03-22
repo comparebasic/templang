@@ -159,7 +159,6 @@ function El_Match(node, name, data){
     }
     var found = false;
     if(node.templ && (!name || node.templ.name === name)){
-        console.log('match on name ' + name, data);
         if(data){
             for(var key in data){
                 if(data[key] !== node.vars[key]){
@@ -211,7 +210,6 @@ function El_Query(node, criteria){
                 nodeName = dir.sel;
                 direction = dir.direction;
                 match = criteria.data;
-                console.log('setting find stuff');
             }
         }
     }else if(typeof criteria === 'string'){
@@ -224,7 +222,6 @@ function El_Query(node, criteria){
 
     if(gathers && dest_vars){
         for(var k in gathers){
-            console.log(k, gathers);
             if(El_Match(node, k, null)){
                 CopyVars(gathers[k], dest_vars, node.vars);
             }
@@ -268,6 +265,10 @@ function El_SetChildren(node, templ, key, data){
         if(key && templ){
             node.innerHTML = '';
             var childItems = data[key];
+            if(El_IsDebug(node)){
+                console.log("Making template", templ);
+                console.log("Making template data", childItems);
+            }
             if(childItems){
                 for(var j = 0; j < childItems.length; j++){
                     var childData = childItems[j];
@@ -298,7 +299,7 @@ function handleEvent(event_ev){
     }
 
     var msg = "[event called]:" + event_ev.sourceType + ' ' + event_ev.spec.eventName + ' ' +event_ev.spec.spec_s;
-    console.log(msg, event_ev);
+    // console.log(msg, event_ev);
 
     if(event_ev.spec.eventName === 'templ'){
         var value = event_ev.spec.values[0];
@@ -323,7 +324,6 @@ function handleEvent(event_ev){
         var dest_el = El_Query(event_ev.target, event_ev);
         if(dest_el){
             var event_s = event_ev.spec.cmd;
-            console.log('dset_el found for '+ event_s, dest_el.commands);
             if(dest_el.commands[event_s]){
                 event_ev.dest = dest_el;
                 dest_el.commands[event_s](event_ev);
@@ -337,27 +337,37 @@ function handleEvent(event_ev){
     }
 }
 
-function dataScope(sel, data){
+function DataScope(sel, data){
     var key = sel;
-    while(key && key.length > 1 && data !== undefined){
-        if(key[0] === '^'){
-            key = key.substring(1);
+    var ukey = sel;
+    if(ukey[0] === '^'){
+        ukey = ukey.substring(1);
+    }else if(key[0] === '_'){
+        ukey = ukey.substring(1);
+    }
+
+    if(key[0] === '^'){
+        data = data._parentData;
+        console.log('   initially setting parent ' + key + ' with ' + ukey, data);
+    }
+
+    var ret = null;
+    while(ret === null && data){
+        console.log('   looking for ' + key, data);
+        if(data[ukey]){
+            ret = data[ukey];
+        }else if(key[0] === '^'){
             data = data._parentData;
-        }else if(key[0] === '_'){
-            key = key.substring(1);
-            if(data[key]){
-                data = data[key];
-            }else{
-                return {key: null, data: null};
-            }
+            console.log('   setting parent ' + key + ' with ' + ukey, data);
         }else{
             break;
         }
     }
 
     return {
-        key:key,
-        data: data || null
+        key: key,
+        ukey: ukey,
+        data: ret || null
     };
 }
 
@@ -372,7 +382,7 @@ function El_StyleFromSetters(styleSetters, templ, node, data){
                 data = data._parentData;
             }
 
-            var scope = dataScope(key, data);
+            var scope = DataScope(key, data);
             if(scope.data && scope.data[scope.key] === node.vars[scope.key]){
                 El_SetStyle(style, templ, node);
             }
@@ -381,7 +391,6 @@ function El_StyleFromSetters(styleSetters, templ, node, data){
 }
 
 function El_RemoveStyle(style_s, templ, node){
-    console.log('removing style '+ style_s, node);
     node.classList.remove(style_s);
 }
 
@@ -427,10 +436,11 @@ function cash(s, data){
             }
         }else if(state == STATE_KEY){
             if(c == '}'){
-                if(!data[key]){
+                var scope = DataScope(key, data);
+                if(!scope.data || (typeof scope.data === 'object')){
                     return "";
                 }
-                shelf += data[key];
+                shelf += scope.data;
                 key = "";
                 state = STATE_TEXT;
                 continue;
@@ -453,6 +463,19 @@ function El_Make(templ, targetEl, rootEl, data){
     if(typeof templ == 'string'){
         templ = window.basic.templates[templ];
     }
+
+    if(templ.childrenTempl && !templ.childrenKey){
+        var templ_s = cash(templ.childrenTempl, data);
+        if(Templ_IsDebug(templ)){
+            console.log('Detecting funny thing ' +templ.childrenTempl + ' now with ' + templ_s, data);
+        }
+    }
+
+    if(Templ_IsDebug(templ)){
+        console.log("Making templ " + templ.name, templ);
+        console.log("Making templ data " + templ.name, data);
+    }
+
     if(!templ){
         return;
     }
@@ -480,7 +503,6 @@ function El_Make(templ, targetEl, rootEl, data){
             }
 
             var value = data[key];
-            console.log('SETTING VAR ' + key + ' = ' + value, templ);
             node.vars[dest_key] = value;
         }
     }
@@ -503,8 +525,6 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     node.flags = templ.flags | FLAG_INITIALIZED;
-
-
 
     var onKeys = Object.keys(templ.on);
     for(var i = 0; i < onKeys.length; i++){
@@ -531,10 +551,15 @@ function El_Make(templ, targetEl, rootEl, data){
         }
     }
 
+    if(Templ_IsDebug(templ)){
+        console.log('mid create templ ' + templ.name, templ);
+    }
+
     var childTempl = templ.childTempl;
     if(templ.childSetter){
-        var scope = dataScope(templ.childSetter, data);
-        if(scope.data[scope.key]){
+        console.log('using childsetter');
+        var scope = DataScope(templ.childSetter, data);
+        if(scope.data && scope.data[scope.key]){
             childTempl = scope.data[scope.key];
         }
     }
@@ -544,26 +569,14 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     if(templ.childrenKey && templ.childrenTempl){
-        var rendered = false;
-        var templ_s = templ.childrenTempl;
-        var props = PropName(templ_s);
-
-        var dir = GetDirection(props.name);
-        /*
-        if(dir && dir.type == ELEM_QUERY){
-            var source_el = El_Query(node, {name: props.name});
-            if(source_el && source_el.vars[props.props[0]]){
-                var data = source_el.vars[props.props[0]];
-                El_SetChildren(node, templ.childrenTempl, "data", {'data': data});
-                rendered = true;
-            }
+        if(Templ_IsDebug(templ)){
+            console.log("It's a preview node" + templ.childrenTempl + ' from ' + templ.childrenKey, templ);
+            console.log("It's a preview node data", data);
         }
-        */
 
-        if(!rendered){
-            El_SetChildren(node, templ.childrenTempl, templ.childrenKey, data);
-        }
+        El_SetChildren(node, templ.childrenTempl, templ.childrenKey, data);
     }
 
     targetEl.appendChild(node);
+    return node;
 }

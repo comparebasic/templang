@@ -118,6 +118,7 @@
     }
 
 </style>
+<script src="debug.js" type="text/javascript"></script>
 <script src="dom.js" type="text/javascript"></script>
 <script src="interface.js" type="text/javascript"></script>
 <link rel="stylesheet" href="style.css" />
@@ -169,6 +170,17 @@
         </div>
     </div>
     <div data:templ="image" data:tag="img" data:atts="src"></div>
+    <div data:classes="gallery" data:templ="edit-item-gallery">
+        <div data:children="images" data:children-as="image"></div>
+    </div>
+    <div data:templ="edit-item" children="content" children-as="edit-item-${type}"></div>
+
+    <!-- viwports -->
+    <div data:templ="preview">Preview</div>
+    <div data:templ="edit-page">Edit</div>
+    <!-- preview-items and children -->
+    <div data:templ="preview" data:children="content" data:children-as="preview-item"></div>
+    <div data:templ="preview-item" data:children-as="preview-item-${^type}"></div>
     <div data:templ="preview-item-text">
         <p>${text}</p>
     </div>
@@ -178,15 +190,6 @@
     <div data:templ="preview-item-subtitle">
         <h2>${text}</h2>
     </div>
-    <div data:classes="gallery" data:templ="edit-item-gallery">
-        <div data:children="images" data:children-as="image"></div>
-    </div>
-    <div data:templ="edit-item" children="content" children-as="edit-item-${type}"></div>
-
-    <!-- viwports -->
-    <div data:templ="preview">Preview</div>
-    <div data:templ="edit-page">Edit</div>
-    <div data:templ="preview" data:children="_#author.content" data:children-as="preview-items"></div>
     <!--
     <div data:templ="edit-page" data:children="_content" children-as="edit-item"> </div>
     -->
@@ -200,7 +203,6 @@
        Layout 
     </div>
     <div data:classes="author" data:vars="content" data:templ="author" data:vars="count" data:styles="single,double,tripple,quad">
-        <div data:child="viewport"></div>
     </div>
 </div>
 <script src="template.js" type="text/javascript"></script>

@@ -19,6 +19,15 @@ var content = [
         }
     }
 
+    function AddViewport(author, type){
+        var main = document.getElementById('main'); 
+
+        var menu = MakeMenu(type);
+        var data =  {type: type, menu: menu, split: splitFunc, content:author.vars['content']};
+        El_Make("viewport", author, main, data);
+        console.log('adding viewport');
+    }
+
     function splitFunc(event_ev){
         var author = El_Query(event_ev.dest, {name: "^#author"});
 
@@ -29,9 +38,8 @@ var content = [
             type = "preview";
         }
 
-        var menu = MakeMenu(type);
-        var data =  {type: type, menu: menu, split: splitFunc, content:content};
         El_Make("viewport", author, main, data);
+        AddViewport(author, type);
 
         var count = 1;
         if(!author.vars['count'] || Number(author.vars['count']) < 1){
@@ -75,9 +83,9 @@ var content = [
         var main = document.getElementById('main'); 
 
         var type = "preview";
-        var menu = MakeMenu(type);
-        var data = {viewport: {type: type, menu: menu, split: splitFunc, content:content}};
-
-        El_Make("author", main, main, data);
+        var data = {content:content};
+        var author = El_Make("author", main, main, data);
+        console.log('about to add viewport');
+        AddViewport(author, type);
     }
 })();
