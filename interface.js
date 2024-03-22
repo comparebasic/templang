@@ -595,6 +595,7 @@ function cash(s, data){
 
 function Event_Bind(node, name, eventSpec_s){
     return function(e){
+        console.log('BIND event '+ name +' spec:' + eventSpec_s);
         handleEvent(Event_New(node, name, eventSpec_s));
         e.stopPropagation(); e.preventDefault();
     }
@@ -629,7 +630,7 @@ function El_Make(templ, targetEl, rootEl, data){
     node.commands = {};
 
     if(templ.body){
-        node.appendChild(document.createTextNode(cash(templ.body, data)));
+        node.innerHTML = cash(templ.body, data);
     }
 
     var varKeys = Object.keys(templ.vars);

@@ -6,17 +6,56 @@
 <style>
     body {
         font-family: sans-serif;
+        font-size: 14px;
+    }
+
+    h1 {
+        font-size: 24px;
+    }
+
+    h2 {
+        color: #cc6600;
+        font-size: 16px;
+        font-weight: bold;
+    }
+
+    .preview-container {
+        max-width: 1000px;
+        margin: 0 auto;
     }
 
     #templates{display:none}
+
+    .menu-cont{
+        position:absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 2;
+        background: white;
+    }
+
     .menu {
         display: inline-block;
         padding: 8px;
         margin: 0;
     }
+
     .menu.expanded {
         border: 1px solid black;
     }
+
+    .menu-icon {
+        position: absolute;
+        right: 2px;
+        top: 8px;
+    }
+
+    .menu {
+        position: relative;
+        padding-right: 20px;
+    }
+
+
     .menu ul.menu-item-container{
         list-style-type: none;
         margin: 0;
@@ -40,15 +79,34 @@
     }
 
     .viewport {
+        position: relative;
         border: 1px solid #999;
         padding: 12px;
         float: left;
-        height: 800px; 
+    }
+
+    .author.single .viewport .close {
+        display: none;
+    }
+
+    .viewport .close {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: white;
+    }
+
+    .viewport .view {
         overflow-x: scroll;
+        max-height: 800px;
+    }
+
+    .author {
+        height: 100vh;
     }
 
     .author.single .viewport {
-        width: 100%;
+        width: 95%;
     }
 
     .author.double .viewport {
@@ -106,16 +164,6 @@
         width: 15px;
     }
 
-    .menu-icon {
-        position: absolute;
-        right: 2px;
-        top: 8px;
-    }
-
-    .menu {
-        position: relative;
-        padding-right: 20px;
-    }
     .preview-image {
         width: 300px;
         margin: 12px;
@@ -149,10 +197,13 @@
             <span data:for="${icons}" data:style="${icon}" data-on:click="_setAction:action" data:vars="action,image" style="background-image:url(${image})"> = </span>
         </div>
     </div>
-    <div data:classes="viewport" data:templ="viewport" data:commands="split" data:vars="type,key" data-on:set-type="_viewport-change:type">
+    <div data:classes="viewport" data:templ="viewport" data:commands="split,close" data:vars="type,key" data-on:set-type="_viewport-change:type">
+        <span data:classes="close" data-on:click="^close:">[X]</span>
         <span data:classes="center-v" data-on:click="^split:#viewport.type">split view</span>
-        <div data:child="menu"></div>
-        <div data:child-as-value="type" data-on:init="templ:^#viewport.type"  data:children-data="^#author.content" data-on:viewport-change="templ:type"></div>
+        <div class="menu-cont" data:child="menu"></div>
+        <div class="view">
+            <div data:child-as-value="type" data-on:init="templ:^#viewport.type"  data:children-data="^#author.content" data-on:viewport-change="templ:type"></div>
+        </div>
     </div>
     <div data:templ="edit-item-controls">
         <input class="select" type="checkbox" />
@@ -164,7 +215,6 @@
     <div data:templ="edit-item" children="content" children-as="edit-item-${type}"></div>
 
     <!-- viwports -->
-    <div data:templ="preview">Preview</div>
     <!-- edit item -->
     <div data:classes="edit-page-container"  data:templ="edit-page" data:children="content" data:children-as="edit-page-item"></div>
     <div data:templ="edit-page-item" data:children-as="edit-page-item-${type}"></div>
@@ -228,18 +278,5 @@
     <script src="author.js" type="text/javascript"></script>
 </section>
 <div class="clear"></div>
-<footer class="home-footer">
-    <div class="inner">
-        <p>
-        <b>Compare Basic</b><br />
-        <span>136 S Dubuque St</span><br />
-        <span>Iowa City, IA 52240</span><br />
-        <br />
-        <span>+1 (917) 306 9451</span><br />
-        <a href="mailto:comparebasic@firecrow.com">comparebasic@firecrow.com</a>
-        </p>
-        <p class="copyright">&copy; Copyright COMPARE BASIC INCORPORATED 2024 </p>
-    </div>
-</footer>
 </body>
 </html>
