@@ -1,5 +1,5 @@
 var DEBUG_VARS_GATHER = false;
-var DEBUG_CHILDREN_AS = true;
+var DEBUG_CHILDREN_AS = false;
 var DEBUG_CASH = false;
 
 var debug_el_li = [

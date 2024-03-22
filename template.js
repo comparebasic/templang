@@ -20,6 +20,7 @@
             styleSetters: [],
             commandKeys: {},
             mapVars: {},
+            childrenDataKeys: [],
         };
 
         for(var i = 0, l = el.attributes.length; i < l; i++){
@@ -70,6 +71,8 @@
                 templ.childrenKey = att.value;
             }else if(att.name == 'data:children-as'){
                 templ.childrenTempl = att.value;
+            }else if(att.name == 'data:children-data'){
+                templ.childrenDataKeys = att.value.split(',');
             }else if(att.name == 'data:atts'){
                 templ.atts = att.value.split(',');
                 console.log('setting atts ', templ.atts);

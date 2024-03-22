@@ -23,7 +23,7 @@ function PropName(name_s){
         props.shift();
         return {name: name, props: props};
     }
-    return {name: name_s, props: []};
+    return name_s;
 }
 
 function GetDirection(sel_s){
@@ -368,6 +368,23 @@ function El_SetChildren(node, templ, key, data){
     }
 }
 
+function addChildData(node, childrenDataKeys, childData){
+    if(childrenDataKeys){
+        for(var i = 0; i < childrenDataKeys.length; i++){
+            var dataQ = childrenDataKeys[i];
+            var props = PropName(dataQ);
+            var dataNode = El_Query(node, {name: props.name});
+            if(dataNode && props.props[0]){
+                childData[props.props[0]] = dataNode.vars[props.props[0]];
+            }else{
+                console.warn("addChildData: data not found", dataNode);
+                console.warn("addChildData: data not found queried", props);
+                console.warn("addChildData: data not found queried node", node);
+            }
+        }
+    }
+}
+
 function handleEvent(event_ev){
     if(event_ev.length){
         for(var i = 0; i < event_ev.length; i++){
@@ -380,19 +397,33 @@ function handleEvent(event_ev){
     // console.log(msg, event_ev);
 
     if(event_ev.spec.eventName === 'templ'){
-        var type = event_ev.spec.values[0];
-        var dataSpec = event_ev.spec.values[1];
-        var dataProps = PropName(dataSpec);
-        var childData = {};
-        if(dataProps.name){
-            var dataNode = El_Query(event_ev.target, {name: dataProps.name});
-            if(dataNode && dataProps.props[0]){
-                childData[dataProps.props[0]] = dataNode.vars[dataProps.props[0]];
+        var props = PropName(event_ev.spec.values[0]);
+        var type = null;
+        if (typeof props === 'object'){
+            var dataNode = El_Query(event_ev.target, {name: props.name});
+            console.log('DATA NODE', dataNode);
+            if(dataNode){
+                type = dataNode.vars[props.props[0]];
             }
+        }else{
+            type = event_ev.vars[props];
         }
 
-        if(event_ev.vars[type] && childData){
-            El_SetChildren(event_ev.target, event_ev.vars[type], null, childData);
+        var childData = {};
+        if(event_ev.target){
+            var childrenDataKeys = event_ev.target.templ && event_ev.target.templ.childrenDataKeys;
+            addChildData(event_ev.target, childrenDataKeys, childData);
+            console.log('DATA ADDED', childrenDataKeys);
+            console.log('DATA ADDED', event_ev.target);
+            console.log('DATA ADDED', event_ev.target.templ);
+        }
+
+        console.log('TEMPL event', event_ev);
+        console.log('TEMPL event type: ' + type, event_ev);
+        console.log('TEMPL event templ: ' + type, event_ev.target.templ);
+        console.log('TEMPL event childData: ' + type, childData);
+        if(type && childData){
+            El_SetChildren(event_ev.target, type, null, childData);
         }
     }else if(event_ev.spec.eventName === 'style'){
         if(event_ev.sourceType === 'unhover'){
@@ -571,7 +602,7 @@ function Event_Bind(node, name, eventSpec_s){
 
 function El_Make(templ, targetEl, rootEl, data){
     var templ_s = templ;
-    if(typeof templ == 'string'){
+    if(typeof templ === 'string'){
         templ = window.basic.templates[templ];
     }
 
@@ -630,8 +661,6 @@ function El_Make(templ, targetEl, rootEl, data){
             var a = templ.atts[i];
             var keys = GetDestK(a);
             var scope = DataScope(keys.key, data); 
-            console.log('setting atts ' + a, scope); 
-            console.log('setting atts data ' + a, data); 
             if(typeof scope.data === 'string'){
                 node.setAttribute(keys.dest_key, scope.data);
             }
@@ -691,11 +720,20 @@ function El_Make(templ, targetEl, rootEl, data){
         El_SetChildren(node, childTempl, null, data);
     }
 
+    if(templ.childrenDataKeys && templ.childrenTempl){
+        addChildData(targetEl, templ.childrenDataKeys, data);
+        El_SetChildren(node, templ.childrenTempl, templ.childrenKey, data);
+    }
+
     if(templ.childrenKey && templ.childrenTempl){
-        console.log('CHILDREN ' + templ.childrenKey + ' '+ templ.childrenTempl, data);
         El_SetChildren(node, templ.childrenTempl, templ.childrenKey, data);
     }
 
     targetEl.appendChild(node);
+    if(templ && templ.on['init']){
+        console.log('FIRING INIT', templ.on['init']);
+        console.log('FIRING INIT templ', templ);
+        handleEvent(Event_New(node, 'init', templ.on['init']));
+    }
     return node;
 }
