@@ -570,11 +570,12 @@ function Event_Bind(node, name, eventSpec_s){
 }
 
 function El_Make(templ, targetEl, rootEl, data){
+    var templ_s = templ;
     if(typeof templ == 'string'){
         templ = window.basic.templates[templ];
     }
 
-    if(templ.childrenTempl && !templ.childrenKey){
+    if(templ && templ.childrenTempl && !templ.childrenKey){
         var templ_s = cash(templ.childrenTempl, data);
         if(DEBUG_CHILDREN_AS){
             console.log('Detecting funny thing ' +templ.childrenTempl + ' now with ' + templ_s, data);
@@ -585,6 +586,7 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     if(!templ){
+        console.warn('Error: template not found: '+ templ_s, data);
         return;
     }
 
@@ -623,6 +625,18 @@ function El_Make(templ, targetEl, rootEl, data){
 
     El_SetStyle(null, templ, node);
     El_StyleFromSetters(templ.styleSetters, templ, node, data);
+    if(templ.atts){
+        for(var i = 0; i < templ.atts.length; i++){
+            var a = templ.atts[i];
+            var keys = GetDestK(a);
+            var scope = DataScope(keys.key, data); 
+            console.log('setting atts ' + a, scope); 
+            console.log('setting atts data ' + a, data); 
+            if(typeof scope.data === 'string'){
+                node.setAttribute(keys.dest_key, scope.data);
+            }
+        }
+    }
 
     var commandKeys = templ.commandKeys;
     if(commandKeys.length){
@@ -678,6 +692,7 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     if(templ.childrenKey && templ.childrenTempl){
+        console.log('CHILDREN ' + templ.childrenKey + ' '+ templ.childrenTempl, data);
         El_SetChildren(node, templ.childrenTempl, templ.childrenKey, data);
     }
 

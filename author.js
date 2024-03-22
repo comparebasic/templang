@@ -2,7 +2,7 @@ var content = [
     {type: "title", text: "The Whole Chicken"},
     {type: "text", text: "Cooking a whole chicken can be a great way to provide a week or so of meals for two."},
     {type: "text", text: "When combined with rice, vegetables, and other ingredients it can make your cooking time worthwhile, on a budget."}, 
-    {type: "gallery", images: ["chicken1.jpg", "chicken2.jpeg", "chicken3.jpg"]},
+    {type: "gallery", images: [{src: "chicken1.jpg"}, {src: "chicken2.jpeg"}, {src: "chicken3.jpg"}]},
     {type: "text", text: "It's important to roas the front and the back of the chicken."}
 ];
 

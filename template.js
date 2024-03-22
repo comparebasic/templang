@@ -70,6 +70,9 @@
                 templ.childrenKey = att.value;
             }else if(att.name == 'data:children-as'){
                 templ.childrenTempl = att.value;
+            }else if(att.name == 'data:atts'){
+                templ.atts = att.value.split(',');
+                console.log('setting atts ', templ.atts);
             }else{
                 templ.tags[att.name] = att.value;
             }
