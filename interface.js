@@ -1,5 +1,8 @@
+var ui = UI_Init();
+
 var FLAG_INITIALIZED = 1;
 var FLAG_UPDATE = 2;
+var FLAG_HAS_DRAG = 3;
 
 var STATE_TEXT = 0;
 var STATE_PRE_KEY = 1;
@@ -594,13 +597,10 @@ function cash(s, data){
 }
 
 function Event_Bind(node, name, eventSpec_s){
-    return function(e){
-        console.log('BIND event '+ name +' spec:' + eventSpec_s);
-        handleEvent(Event_New(node, name, eventSpec_s));
-        e.stopPropagation(); e.preventDefault();
-    }
+    return Event_New(node, name, eventSpec_s);
 }
 
+var el_idx = 0;
 function El_Make(templ, targetEl, rootEl, data){
     var templ_s = templ;
     if(typeof templ === 'string'){
@@ -623,6 +623,7 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     var node = document.createElement(templ.nodeName);
+    node.idx = 'idx_'+String(++el_idx);
     node.vars = {};
     node.events = {};
     node.templ = templ;
@@ -690,16 +691,18 @@ function El_Make(templ, targetEl, rootEl, data){
         var eventSpec_s = templ.on[key];
 
         if(key == 'click'){
-            node.onclick = Event_Bind(node, 'click', eventSpec_s);
+            node.onclick = ui.SetMouseClick(node, Event_Bind(node, 'click', eventSpec_s));
         }else if(key == 'down'){
-            node.onmousedown = Event_Bind(node, 'down', eventSpec_s);
+            node.onmousedown = ui.SetMouseDown(node, Event_Bind(node, 'down', eventSpec_s));
         }else if(key == 'up'){
-            node.onmouseup = Event_Bind(node, 'up', eventSpec_s);
+            node.onmouseup = ui.SetMouseUp(node, Event_Bind(node, 'up', eventSpec_s));
         }else if(key == 'key'){
             node.onkey = Event_Bind(node, 'key', eventSpec_s);
+        }else if(key == 'drag'){
+            node.ondrag = ui.setMouseDrag(node, Event_Bind(node, 'drag', eventSpec_s));
         }else if(key == 'hover'){
-            node.onmouseover = Event_Bind(node, 'hover', eventSpec_s);
-            node.onmouseout = Event_Bind(node, 'unhover', eventSpec_s);
+            node.onmouseover = ui.SetHover(node,  Event_Bind(node, 'hover', eventSpec_s));
+            node.onmouseout = ui.SetUnHover(node, Event_Bind(node, 'unhover', eventSpec_s));
         }
     }
 
@@ -732,8 +735,6 @@ function El_Make(templ, targetEl, rootEl, data){
 
     targetEl.appendChild(node);
     if(templ && templ.on['init']){
-        console.log('FIRING INIT', templ.on['init']);
-        console.log('FIRING INIT templ', templ);
         handleEvent(Event_New(node, 'init', templ.on['init']));
     }
     return node;
