@@ -3,7 +3,9 @@ var template = Template_Init();
 
 var FLAG_INITIALIZED = 1;
 var FLAG_UPDATE = 2;
-var FLAG_HAS_DRAG = 3;
+var FLAG_HAS_DRAG = 4;
+var FLAG_DRAG_CONTAINER = 8;
+var FLAG_CONTAINER = 16;
 
 var STATE_TEXT = 0;
 var STATE_PRE_KEY = 1;
@@ -270,6 +272,7 @@ function El_Query(node, criteria){
     var gathers = {};
     var root_el = null;
     var dest_vars = null;
+    var outerParent_el = null;
 
     if(!node){
         console.log("El_Query called with empty node");
@@ -292,6 +295,9 @@ function El_Query(node, criteria){
                 nodeName = dir.sel;
                 direction = dir.direction;
                 match = criteria.data;
+            }
+            if(criteria.root_el){
+                root_el = criteria.root_el;
             }
         }
     }else if(typeof criteria === 'string'){
@@ -331,19 +337,30 @@ function El_Query(node, criteria){
     }
 
     if(direction === QUERY_PARENTS){
-        while(node.parentNode != null){
-            var parent_el = node.parentNode;
-            if(parent_el === root_el){
+        while(node != null){
+            if(node.parentNode){
+                node = node.parentNode;
+            }else{
+                if(root_el && (node != root_el)){
+                    console.log('ROCKING ON PARENt', root_el);
+                    node = root_el;
+                    root_el = null;
+                }else{
+                    break;
+                }
+            }
+
+            if(node.flags && (node.flags & FLAG_CONTAINER)){
                 return null;
             }
 
-            var found = El_Query(parent_el, criteria);
+            var found = El_Query(node, criteria);
             if(found != null){
                 return found; 
             }
 
-            node = parent_el;
         }
+        console.log('no more parents');
     }
 }
 
@@ -381,7 +398,7 @@ function El_SetChildren(node, templ, key, data){
 
 function getNodeData(node, spec_s){
     var props = PropName(spec_s);
-    var dataNode = El_Query(node, {name: props.name});
+    var dataNode = El_Query(node, {name: props.name, root_el: node.root_el});
     var data = {};
     if(!dataNode){
         console.warn("Warn: getNodeData no element for data found", spec_s);
@@ -402,7 +419,7 @@ function addChildData(node, childrenDataKeys, childData){
         for(var i = 0; i < childrenDataKeys.length; i++){
             var dataQ = childrenDataKeys[i];
             var props = PropName(dataQ);
-            var dataNode = El_Query(node, {name: props.name});
+            var dataNode = El_Query(node, {name: props.name, root_el: node.root_el});
             if(dataNode && props.props[0]){
                 childData[props.props[0]] = dataNode.vars[props.props[0]];
             }else{
@@ -659,11 +676,10 @@ function El_Make(templ, targetEl, rootEl, data){
     node.templ = templ;
     node.root_el = rootEl;
     node.commands = {};
-    targetEl.appendChild(node);
 
     if(templ && templ.dragElementSpec){
         console.log('DRAG elements spec: ', templ.dragElementSpec);
-        templ.dragElements = getNodeData(targetEl, templ.dragElementSpec);
+        templ.dragElements = getNodeData(node, templ.dragElementSpec);
         if(templ.dragElements){
             console.log('FOUND drag elements data');
             if(typeof templ.dragElements._views === 'undefined'){
@@ -775,7 +791,7 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     if(templ.childrenDataKeys && templ.childrenTempl){
-        addChildData(targetEl, templ.childrenDataKeys, data);
+        addChildData(node, templ.childrenDataKeys, data);
         var childrenTempl = templ.childrenTempl;
         if(typeof childrenTempl === 'string'){
             var childrenTempl = window.basic.templates[childrenTempl];
@@ -793,6 +809,7 @@ function El_Make(templ, targetEl, rootEl, data){
         El_SetChildren(node, templ_child, templ.childrenKey, data);
     }
 
+    targetEl.appendChild(node);
     if(templ && templ.on['init']){
         handleEvent(Event_New(node, 'init', templ.on['init']));
     }

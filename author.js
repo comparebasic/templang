@@ -102,11 +102,10 @@ var content = [
     }
 
     function AddViewport(author, type){
-        var main = document.getElementById('main'); 
 
         var menu = MakeMenu(type);
         var data =  {type: type, menu: menu, split: splitFunc, close: closeFunc, content:author.vars['content']};
-        El_Make("viewport", author, main, data);
+        El_Make("viewport", author, author, data);
     }
 
     function MakeMenu(type){
@@ -123,6 +122,7 @@ var content = [
 
     if(window.basic.templates){
         var main = document.getElementById('main'); 
+        main.flags |= FLAG_CONTAINER;
 
         var type = "preview";
         var data = {drag: dragFunc, content:content};
