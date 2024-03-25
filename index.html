@@ -209,13 +209,14 @@
             <span data:for="${icons}" data:style="${icon}" data-on:click="_setAction:action" data:vars="action,image" style="background-image:url(${image})"> = </span>
         </div>
     </div>
+    <div data:templ="viewport-view" data:classes="view" data:drag-elements="^#author.content">
+        <div data:child-as-value="type" data-on:init="templ:^#viewport.type"  data:children-data="^#author.content" data-on:viewport-change="templ:type"></div>
+    </div>
     <div data:classes="viewport" data:templ="viewport" data:commands="split,close" data:vars="type,key" data-on:set-type="_viewport-change:type">
         <span data:classes="close" data-on:click="^close:">[X]</span>
         <span data:classes="center-v" data-on:click="^split:#viewport.type">split view</span>
         <div class="menu-cont" data:child="menu"></div>
-        <div class="view">
-            <div data:child-as-value="type" data-on:init="templ:^#viewport.type"  data:children-data="^#author.content" data-on:viewport-change="templ:type"></div>
-        </div>
+        <div data:child="viewport-view"></div>
     </div>
     <div data:templ="edit-item-controls">
         <input class="select" type="checkbox" />

@@ -29,6 +29,7 @@ function Template_Init(){
             commandKeys: {},
             mapVars: {},
             childrenDataKeys: [],
+            dragElementSpec: into_templ.dragElementSpec,
             atts: [],
         };
 
@@ -130,6 +131,7 @@ function Template_Init(){
             mapVars: {},
             childrenDataKeys: [],
             classList: [],
+            dragElementSpec: null,
         };
 
         for(var i = 0, l = el.attributes.length; i < l; i++){
@@ -144,6 +146,8 @@ function Template_Init(){
                 templ.styleOptions = att.value.split(',');
             }else if(att.name == 'data:classes'){
                 templ.classList = att.value.split(',');
+            }else if(att.name == 'data:drag-elements'){
+                templ.dragElementSpec = att.value;
             }else if(att.name == 'data:style'){
                 templ.styleOptions = [att.value];
             }else if(att.name == 'data:style-if'){
@@ -173,6 +177,7 @@ function Template_Init(){
             }else if(att.name == 'data:for'){
                 templ.forKey = att.value;
             }else if(att.name == 'data:child'){
+                console.log('assignign child', templ.childTempl);
                 templ.childTempl = att.value;
             }else if(att.name == 'data:child-as-value'){
                 templ.childSetter = att.value;

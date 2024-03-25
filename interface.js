@@ -356,7 +356,13 @@ function El_SetChildren(node, templ, key, data){
                 for(var j = 0; j < childItems.length; j++){
                     var childData = childItems[j];
                     NestData(childData, data);
-                    El_Make(templ, node, node.root_el, childData);
+                    var node = El_Make(templ, node, node.root_el, childData);
+                    if(childItems._views){
+                        for(var idx in childItems._views){
+                            var v = childItems._views[idx];
+                            v[node.idx] = node;
+                        }
+                    }
                 }
             }
         }
@@ -370,6 +376,24 @@ function El_SetChildren(node, templ, key, data){
             node.innerHTML = '';
             El_Make(templ, node, node.root_el, data);
         }
+    }
+}
+
+function getNodeData(node, spec_s){
+    var props = PropName(spec_s);
+    var dataNode = El_Query(node, {name: props.name});
+    var data = {};
+    if(!dataNode){
+        console.warn("Warn: getNodeData no element for data found", spec_s);
+        console.warn("Warn: getNodeData no element for data found node", node);
+        return null;
+    }
+    if(dataNode && props.props[0]){
+        return dataNode.vars[props.props[0]];
+        return data;
+    }else{
+        console.warn("Warn: getNodeData no data found");
+        return null;
     }
 }
 
@@ -604,7 +628,12 @@ function El_Make(templ, targetEl, rootEl, data){
         templ = window.basic.templates[templ];
     }
 
+    if(templ.name === 'viewport-view'){
+        console.log("viewport view", templ);
+    }
+
     if(templ && templ.childrenTempl && !templ.childrenKey){
+
         var templ_s = cash(templ.childrenTempl, data);
         if(DEBUG_CHILDREN_AS){
             console.log('Detecting funny thing ' +templ.childrenTempl + ' now with ' + templ_s, data);
@@ -630,6 +659,21 @@ function El_Make(templ, targetEl, rootEl, data){
     node.templ = templ;
     node.root_el = rootEl;
     node.commands = {};
+    targetEl.appendChild(node);
+
+    if(templ && templ.dragElementSpec){
+        console.log('DRAG elements spec: ', templ.dragElementSpec);
+        templ.dragElements = getNodeData(targetEl, templ.dragElementSpec);
+        if(templ.dragElements){
+            console.log('FOUND drag elements data');
+            if(typeof templ.dragElements._views === 'undefined'){
+                templ.dragElements._views = {};
+            }
+            templ.dragElements._views[node.idx] = {};
+        }else{
+            console.log('NOT FOUND drag elements data');
+        }
+    }
 
     if(templ.body){
         node.innerHTML = cash(templ.body, data);
@@ -707,6 +751,11 @@ function El_Make(templ, targetEl, rootEl, data){
         }
     }
 
+    if(templ.name === 'viewport-view'){
+        console.log(templ);
+    }
+
+
     if(templ.children){
         for(var i = 0, l = templ.children.length; i < l; i++){
             El_Make(templ.children[i], node, rootEl, data);
@@ -744,7 +793,6 @@ function El_Make(templ, targetEl, rootEl, data){
         El_SetChildren(node, templ_child, templ.childrenKey, data);
     }
 
-    targetEl.appendChild(node);
     if(templ && templ.on['init']){
         handleEvent(Event_New(node, 'init', templ.on['init']));
     }
