@@ -30,12 +30,6 @@ function UI_Init(){
         }
     }
 
-    function onClick(e){
-        var node = this;
-        handleEvent(node._click_ev);
-        e.stopPropagation(); e.preventDefault();
-    }
-
     function onDown(e){
         var node = this;
         if(node.el_idx && (node.flags & FLAG_HAS_DRAG)){
@@ -46,12 +40,18 @@ function UI_Init(){
     }
 
     function onUp(e){
+        console.log('UP', e);
         var node = this;
         if(node.el_idx && downTarget === node){
             releaseDrag(e, node);
             downTarget = null;
         }
-        handleEvent(node._up_ev);
+        if(node._up_ev){
+            handleEvent(node._up_ev);
+        }
+        if(node._click_ev){
+            handleEvent(node._click_ev);
+        }
         e.stopPropagation(); e.preventDefault();
     }
 
@@ -71,7 +71,7 @@ function UI_Init(){
 
     function setMouseClick(node, event_ev){
         node._click_ev = event_ev;
-        node.onclick = onClick;
+        node.onmouseup = onUp;
     }
 
     function setMouseDown(node, event_ev){

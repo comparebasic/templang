@@ -691,18 +691,18 @@ function El_Make(templ, targetEl, rootEl, data){
         var eventSpec_s = templ.on[key];
 
         if(key == 'click'){
-            node.onclick = ui.SetMouseClick(node, Event_Bind(node, 'click', eventSpec_s));
+            ui.SetMouseClick(node, Event_Bind(node, 'click', eventSpec_s));
         }else if(key == 'down'){
-            node.onmousedown = ui.SetMouseDown(node, Event_Bind(node, 'down', eventSpec_s));
+            ui.SetMouseDown(node, Event_Bind(node, 'down', eventSpec_s));
         }else if(key == 'up'){
-            node.onmouseup = ui.SetMouseUp(node, Event_Bind(node, 'up', eventSpec_s));
+            ui.SetMouseUp(node, Event_Bind(node, 'up', eventSpec_s));
         }else if(key == 'key'){
-            node.onkey = Event_Bind(node, 'key', eventSpec_s);
+            Event_Bind(node, 'key', eventSpec_s);
         }else if(key == 'drag'){
-            node.ondrag = ui.setMouseDrag(node, Event_Bind(node, 'drag', eventSpec_s));
+            ui.setMouseDrag(node, Event_Bind(node, 'drag', eventSpec_s));
         }else if(key == 'hover'){
-            node.onmouseover = ui.SetHover(node,  Event_Bind(node, 'hover', eventSpec_s));
-            node.onmouseout = ui.SetUnHover(node, Event_Bind(node, 'unhover', eventSpec_s));
+            ui.SetHover(node,  Event_Bind(node, 'hover', eventSpec_s));
+            ui.SetUnHover(node, Event_Bind(node, 'unhover', eventSpec_s));
         }
     }
 
