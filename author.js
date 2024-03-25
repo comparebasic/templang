@@ -37,6 +37,10 @@ var content = [
 
 (function(){
 
+    function dragFunc(event_ev){
+        console.log('DRAG FUNC', drag);
+    }
+
     function updateAuthorSegs(author, inc){
         var count = 1;
         if(!author.vars['count'] || Number(author.vars['count']) < 1){
@@ -121,7 +125,7 @@ var content = [
         var main = document.getElementById('main'); 
 
         var type = "preview";
-        var data = {content:content};
+        var data = {drag: dragFunc, content:content};
         var author = El_Make("author", main, main, data);
         AddViewport(author, type);
     }

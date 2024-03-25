@@ -1,9 +1,108 @@
-(function(){
+function Template_Init(){
     if(typeof window.basic == 'undefined'){
         window.basic = {}
     }
     if(typeof window.basic.templates == 'undefined'){
         window.basic.templates = {};
+    }
+
+    function Templ_Merge(into_templ, from_templ){
+        var templ = {
+            nodeName: into_templ.nodeName,
+            name: into_templ.name,
+            classList: into_templ.classList,
+            style: into_templ.style,
+            forKey: into_templ.forKey,
+            childTempl: into_templ.childTempl,
+            childSetter: into_templ.childSetter,
+            childrenKey: into_templ.childrenKey,
+            childrenTempl: into_templ.childrenTempl,
+            flags: into_templ.flags | from_templ.flags,
+            el: into_templ.el,
+            on: {},
+            vars: {},
+            tags: {},
+            children: into_templ.children,
+            body: into_templ.body,
+            styleOptions: [],
+            styleSetters: [],
+            commandKeys: {},
+            mapVars: {},
+            childrenDataKeys: [],
+            atts: [],
+        };
+
+        for(var k in from_templ.on){
+            templ.on[k] = from_templ.on[k];
+        }
+        for(var k in into_templ.on){
+            templ.on[k] = into_templ.on[k];
+        }
+
+        for(var k in from_templ.vars){
+            templ.vars[k] = from_templ.vars[k];
+        }
+        for(var k in into_templ.vars){
+            templ.vars[k] = into_templ.vars[k];
+        }
+
+        for(var k in from_templ.tags){
+            templ.tags[k] = from_templ.tags[k];
+        }
+        for(var k in into_templ.tags){
+            templ.tags[k] = into_templ.tags[k];
+        }
+
+        for(var k in from_templ.commandKeys){
+            templ.commandKeys[k] = from_templ.commandKeys[k];
+        }
+        for(var k in into_templ.commandKeys){
+            templ.commandKeys[k] = into_templ.commandKeys[k];
+        }
+
+        for(var k in from_templ.mapVars){
+            templ.mapVars[k] = from_templ.mapVars[k];
+        }
+        for(var k in into_templ.mapVars){
+            templ.mapVars[k] = into_templ.mapVars[k];
+        }
+
+        for(var i=0; i < from_templ.childrenDataKeys.length; i++){
+            templ.childrenDataKeys.push(from_templ.childrenDataKeys[i]);
+        }
+        for(var i=0; i < into_templ.childrenDataKeys.length; i++){
+            templ.childrenDataKeys.push(to_templ.childrenDataKeys[i]);
+        }
+
+        for(var i=0; i < from_templ.tags.length; i++){
+            templ.tags.push(from_templ.tags[i]);
+        }
+        for(var i=0; i < into_templ.tags.length; i++){
+            templ.tags.push(to_templ.tags[i]);
+        }
+
+        for(var i = 0; i < from_templ.styleOptions.length; i++){
+            templ.styleOptions.push(from_templ.styleOptions[i]);
+        }
+        for(var i = 0; i < into_templ.styleOptions.length; i++){
+            templ.styleOptions.push(into_templ.styleOptions[i]);
+        }
+
+        for(var k in from_templ.styleSetters){
+            templ.styleSetters[k] = from_templ.styleSetters[k];
+        }
+        for(var k in into_templ.styleSetters){
+            templ.styleSetters[k] = into_templ.styleSetters[k];
+        }
+
+        for(var k in from_templ.atts){
+            templ.atts[k] = from_templ.atts[k];
+        }
+        for(var k in into_templ.atts){
+            templ.atts[k] = into_templ.atts[k];
+        }
+
+        return templ;
     }
 
     function bootStrapEl(el, parentEl){
@@ -75,7 +174,6 @@
                 templ.childrenDataKeys = att.value.split(',');
             }else if(att.name == 'data:atts'){
                 templ.atts = att.value.split(',');
-                console.log('setting atts ', templ.atts);
             }else{
                 templ.tags[att.name] = att.value;
             }
@@ -114,4 +212,8 @@
         }
         console.log(window.basic.templates);
     }
-})();
+
+    return {
+        Templ_Merge: Templ_Merge,
+    }
+}

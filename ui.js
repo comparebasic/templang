@@ -21,7 +21,6 @@ function UI_Init(){
     }
 
     function onMouseMove(e){
-        console.log('Mouse Move', e);
         var x = e.clientX;
         var y = e.clientY;
         if(downTarget){
@@ -95,6 +94,7 @@ function UI_Init(){
     }
 
     function setMouseDrag(node, event_ev){
+        console.log("DRAG SET", node);
         node._drage_ev = event_ev;
         node.flags |= FLAG_HAS_DRAG;
     }

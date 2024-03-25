@@ -1,4 +1,5 @@
 var ui = UI_Init();
+var template = Template_Init();
 
 var FLAG_INITIALIZED = 1;
 var FLAG_UPDATE = 2;
@@ -404,7 +405,6 @@ function handleEvent(event_ev){
         var type = null;
         if (typeof props === 'object'){
             var dataNode = El_Query(event_ev.target, {name: props.name});
-            console.log('DATA NODE', dataNode);
             if(dataNode){
                 type = dataNode.vars[props.props[0]];
             }
@@ -416,15 +416,8 @@ function handleEvent(event_ev){
         if(event_ev.target){
             var childrenDataKeys = event_ev.target.templ && event_ev.target.templ.childrenDataKeys;
             addChildData(event_ev.target, childrenDataKeys, childData);
-            console.log('DATA ADDED', childrenDataKeys);
-            console.log('DATA ADDED', event_ev.target);
-            console.log('DATA ADDED', event_ev.target.templ);
         }
 
-        console.log('TEMPL event', event_ev);
-        console.log('TEMPL event type: ' + type, event_ev);
-        console.log('TEMPL event templ: ' + type, event_ev.target.templ);
-        console.log('TEMPL event childData: ' + type, childData);
         if(type && childData){
             El_SetChildren(event_ev.target, type, null, childData);
         }
@@ -612,8 +605,12 @@ function El_Make(templ, targetEl, rootEl, data){
         if(DEBUG_CHILDREN_AS){
             console.log('Detecting funny thing ' +templ.childrenTempl + ' now with ' + templ_s, data);
         }
+        var templ_prev = templ;
         if(templ_s){
             templ = window.basic.templates[templ_s];
+        }
+        if(templ_prev && templ){
+            templ = template.Templ_Merge(templ, templ_prev);
         }
     }
 
@@ -726,11 +723,21 @@ function El_Make(templ, targetEl, rootEl, data){
 
     if(templ.childrenDataKeys && templ.childrenTempl){
         addChildData(targetEl, templ.childrenDataKeys, data);
-        El_SetChildren(node, templ.childrenTempl, templ.childrenKey, data);
+        var childrenTempl = templ.childrenTempl;
+        if(typeof childrenTempl === 'string'){
+            var childrenTempl = window.basic.templates[childrenTempl];
+        }
+        var templ_child = template.Templ_Merge(childrenTempl, templ);
+        El_SetChildren(node, templ_child, templ.childrenKey, data);
     }
 
     if(templ.childrenKey && templ.childrenTempl){
-        El_SetChildren(node, templ.childrenTempl, templ.childrenKey, data);
+        var childrenTempl = templ.childrenTempl;
+        if(typeof childrenTempl === 'string'){
+            var childrenTempl = window.basic.templates[childrenTempl];
+        }
+        var templ_child = template.Templ_Merge(childrenTempl, templ);
+        El_SetChildren(node, templ_child, templ.childrenKey, data);
     }
 
     targetEl.appendChild(node);
