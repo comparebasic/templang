@@ -19,6 +19,12 @@
         font-weight: bold;
     }
 
+    .drag-container {
+        position: absolute;
+        z-index: 15;
+        opacity: 0.7;
+    }
+
     .preview-container {
         max-width: 1000px;
         margin: 0 auto;
@@ -99,6 +105,7 @@
     .viewport .view {
         overflow-x: scroll;
         max-height: 800px;
+        position: relative;
     }
 
     .author {
@@ -129,9 +136,15 @@
     .clear {
         clear:both;
     }
+    
+    .edit-page-item {
+        margin: 1px;
+        padding: 1px;
+    }
 
     article.edit-item{
         position: relative;
+        margin: 1px;
     }
 
     article.edit-item .select {
@@ -215,7 +228,7 @@
     <!-- viwports -->
     <!-- edit item -->
     <div data:classes="edit-page-container"  data:templ="edit-page" data:children="content" data:children-as="edit-page-item"></div>
-    <div data:templ="edit-page-item" data-on:drag="^drag" data:children-as="edit-page-item-${type}"></div>
+    <div data:templ="edit-page-item" data:classes="edit-page-item" data-on:drag="^drag" data:children-as="edit-page-item-${type}"></div>
     <div data:templ="edit-page-item-text">
         <div data:child="edit-item-controls"></div>
         <div class="content">

@@ -200,6 +200,7 @@ function Event_New(target_el, sourceType, spec_s){
         sourceType: sourceType, /* the dispatch method e.g click, mousedown, key */
         dest: null, /* the destination that has the event on it */
         vars: {}, /* end result of target vars + gathers */
+        props: {},
         _pior: null, /* event this event is based on */
     }
 
@@ -527,7 +528,10 @@ function El_RemoveStyle(style_s, templ, node){
 
 function El_SetStyle(style_s, templ, node){
     if(templ.classList){
-        node.classList = templ.classList;
+        node.classList = [];
+        for(var i = 0; i < templ.classList.length; i++){
+            node.classList.add(templ.classList[i]);
+        }
     }else{
         node.classList = [];
     }
@@ -683,9 +687,6 @@ function El_Make(templ, targetEl, rootEl, data){
     node.flags = templ.flags | FLAG_INITIALIZED;
 
     var onKeys = Object.keys(templ.on);
-    if(onKeys.indexOf('drag') !== -1){
-        console.log('MAKING EL with drag:', templ);
-    }
     for(var i = 0; i < onKeys.length; i++){
         var key = onKeys[i];
         var eventSpec_s = templ.on[key];

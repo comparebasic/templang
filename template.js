@@ -10,7 +10,7 @@ function Template_Init(){
         var templ = {
             nodeName: into_templ.nodeName,
             name: into_templ.name,
-            classList: into_templ.classList,
+            classList: [],
             style: into_templ.style,
             forKey: into_templ.forKey,
             childTempl: into_templ.childTempl,
@@ -32,21 +32,11 @@ function Template_Init(){
             atts: [],
         };
 
-        if(from_templ.name == 'edit-item'){
-            console.log('EDIT ITEM templ', from_templ);
-        }
-
         for(var k in from_templ.on){
             templ.on[k] = from_templ.on[k];
-            if(k === 'drag'){
-                console.log('Merge "from" drag', templ);
-            }
         }
         for(var k in into_templ.on){
             templ.on[k] = into_templ.on[k];
-            if(k === 'drag'){
-                console.log('Merge "into" drag', templ);
-            }
         }
 
         for(var k in from_templ.vars){
@@ -98,12 +88,21 @@ function Template_Init(){
             templ.styleOptions.push(into_templ.styleOptions[i]);
         }
 
+
+        for(var i = 0; i < from_templ.classList.length; i++){
+            templ.classList.push(from_templ.classList[i]);
+        }
+        for(var i = 0; i < into_templ.classList.length; i++){
+            templ.classList.push(into_templ.classList[i]);
+        }
+
         for(var k in from_templ.styleSetters){
             templ.styleSetters[k] = from_templ.styleSetters[k];
         }
         for(var k in into_templ.styleSetters){
             templ.styleSetters[k] = into_templ.styleSetters[k];
         }
+
 
         for(var k in from_templ.atts){
             templ.atts[k] = from_templ.atts[k];
@@ -130,6 +129,7 @@ function Template_Init(){
             commandKeys: {},
             mapVars: {},
             childrenDataKeys: [],
+            classList: [],
         };
 
         for(var i = 0, l = el.attributes.length; i < l; i++){
@@ -139,9 +139,6 @@ function Template_Init(){
                 templ.name = att.value;
             }else if(/^data-on:/.test(att.name)){
                 var funcName = att.name.substring("data-on:".length);        
-                if(funcName === 'drag'){
-                    console.log('DRAG ASSIGNED', templ);
-                }
                 templ.on[funcName] = att.value;
             }else if(att.name == 'data:styles'){
                 templ.styleOptions = att.value.split(',');
