@@ -373,11 +373,11 @@ function El_SetChildren(node, templ, key, data){
                 for(var j = 0; j < childItems.length; j++){
                     var childData = childItems[j];
                     NestData(childData, data);
-                    var node = El_Make(templ, node, node.root_el, childData);
+                    var node_el = El_Make(templ, node, node.root_el, childData);
                     if(childItems._views){
                         for(var idx in childItems._views){
                             var v = childItems._views[idx];
-                            v[node.idx] = node;
+                            v[node_el.idx] = node_el;
                         }
                     }
                 }
@@ -676,6 +676,7 @@ function El_Make(templ, targetEl, rootEl, data){
     node.templ = templ;
     node.root_el = rootEl;
     node.commands = {};
+    targetEl.appendChild(node);
 
     if(templ && templ.dragElementSpec){
         console.log('DRAG elements spec: ', templ.dragElementSpec);
@@ -809,7 +810,6 @@ function El_Make(templ, targetEl, rootEl, data){
         El_SetChildren(node, templ_child, templ.childrenKey, data);
     }
 
-    targetEl.appendChild(node);
     if(templ && templ.on['init']){
         handleEvent(Event_New(node, 'init', templ.on['init']));
     }
