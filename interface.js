@@ -683,6 +683,9 @@ function El_Make(templ, targetEl, rootEl, data){
     node.flags = templ.flags | FLAG_INITIALIZED;
 
     var onKeys = Object.keys(templ.on);
+    if(onKeys.indexOf('drag') !== -1){
+        console.log('MAKING EL with drag:', templ);
+    }
     for(var i = 0; i < onKeys.length; i++){
         var key = onKeys[i];
         var eventSpec_s = templ.on[key];
@@ -696,7 +699,7 @@ function El_Make(templ, targetEl, rootEl, data){
         }else if(key == 'key'){
             Event_Bind(node, 'key', eventSpec_s);
         }else if(key == 'drag'){
-            ui.setMouseDrag(node, Event_Bind(node, 'drag', eventSpec_s));
+            ui.SetMouseDrag(node, Event_Bind(node, 'drag', eventSpec_s));
         }else if(key == 'hover'){
             ui.SetHover(node,  Event_Bind(node, 'hover', eventSpec_s));
             ui.SetUnHover(node, Event_Bind(node, 'unhover', eventSpec_s));

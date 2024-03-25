@@ -32,11 +32,21 @@ function Template_Init(){
             atts: [],
         };
 
+        if(from_templ.name == 'edit-item'){
+            console.log('EDIT ITEM templ', from_templ);
+        }
+
         for(var k in from_templ.on){
             templ.on[k] = from_templ.on[k];
+            if(k === 'drag'){
+                console.log('Merge "from" drag', templ);
+            }
         }
         for(var k in into_templ.on){
             templ.on[k] = into_templ.on[k];
+            if(k === 'drag'){
+                console.log('Merge "into" drag', templ);
+            }
         }
 
         for(var k in from_templ.vars){
@@ -129,6 +139,9 @@ function Template_Init(){
                 templ.name = att.value;
             }else if(/^data-on:/.test(att.name)){
                 var funcName = att.name.substring("data-on:".length);        
+                if(funcName === 'drag'){
+                    console.log('DRAG ASSIGNED', templ);
+                }
                 templ.on[funcName] = att.value;
             }else if(att.name == 'data:styles'){
                 templ.styleOptions = att.value.split(',');

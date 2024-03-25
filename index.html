@@ -211,12 +211,11 @@
     <div data:classes="gallery" data:templ="edit-item-gallery">
         <div data:children="images" data:children-as="image"></div>
     </div>
-    <div data:templ="edit-item" data-on:drag="^drag" children="content" children-as="edit-item-${type}"></div>
 
     <!-- viwports -->
     <!-- edit item -->
     <div data:classes="edit-page-container"  data:templ="edit-page" data:children="content" data:children-as="edit-page-item"></div>
-    <div data:templ="edit-page-item" data:children-as="edit-page-item-${type}"></div>
+    <div data:templ="edit-page-item" data-on:drag="^drag" data:children-as="edit-page-item-${type}"></div>
     <div data:templ="edit-page-item-text">
         <div data:child="edit-item-controls"></div>
         <div class="content">
