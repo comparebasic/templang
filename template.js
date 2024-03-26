@@ -148,6 +148,8 @@ function Template_Init(){
                 templ.classList = att.value.split(',');
             }else if(att.name == 'data:drag-elements'){
                 templ.dragElementSpec = att.value;
+                templ.flags |= FLAG_DRAG_CONTAINER;
+                console.log('adding drag contaienr flag in template', templ.flags & FLAG_DRAG_CONTAINER);
             }else if(att.name == 'data:style'){
                 templ.styleOptions = [att.value];
             }else if(att.name == 'data:style-if'){

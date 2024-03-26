@@ -1,23 +1,6 @@
 var ui = UI_Init();
 var template = Template_Init();
 
-var FLAG_INITIALIZED = 1;
-var FLAG_UPDATE = 2;
-var FLAG_HAS_DRAG = 4;
-var FLAG_DRAG_CONTAINER = 8;
-var FLAG_CONTAINER = 16;
-
-var STATE_TEXT = 0;
-var STATE_PRE_KEY = 1;
-var STATE_KEY = 2;
-
-var QUERY_SELF = 1;
-var QUERY_PARENTS = 2;
-var QUERY_CHILDREN = 4;
-
-var EVENT_QUERY = 16;
-var ELEM_QUERY = 17;
-
 function NestData(child, parentData){
     child._parentData = parentData;
 }
@@ -370,6 +353,12 @@ function El_SetChildren(node, templ, key, data){
             node.innerHTML = '';
             var childItems = data[key];
             if(childItems){
+                if(childItems._views){
+                    for(var idx in childItems._views){
+                        var v = childItems._views[idx];
+                        v.el_li = [];
+                    }
+                }
                 for(var j = 0; j < childItems.length; j++){
                     var childData = childItems[j];
                     NestData(childData, data);
@@ -377,7 +366,10 @@ function El_SetChildren(node, templ, key, data){
                     if(childItems._views){
                         for(var idx in childItems._views){
                             var v = childItems._views[idx];
-                            v[node_el.idx] = node_el;
+                            v.el_li.push({
+                                node_idx:node_el.idx,
+                                el:node_el
+                            });
                         }
                     }
                 }
@@ -686,10 +678,13 @@ function El_Make(templ, targetEl, rootEl, data){
             if(typeof templ.dragElements._views === 'undefined'){
                 templ.dragElements._views = {};
             }
-            templ.dragElements._views[node.idx] = {};
+            var _dragView = {_elements: templ.dragElements, el_li: []};
+            templ.dragElements._views[node.idx] = _dragView;
+            node._view = _dragView;
         }else{
             console.log('NOT FOUND drag elements data');
         }
+        node.flags &= ~FLAG_DRAG_CONT_CALCULATED;
     }
 
     if(templ.body){
@@ -746,6 +741,9 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     node.flags = templ.flags | FLAG_INITIALIZED;
+    if(node.flags & FLAG_DRAG_CONTAINER){
+        console.log("El_Make: drag contaienr flag",  node.flags & FLAG_DRAG_CONTAINER);
+    }
 
     var onKeys = Object.keys(templ.on);
     for(var i = 0; i < onKeys.length; i++){

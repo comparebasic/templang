@@ -1,7 +1,7 @@
 function UI_Init(){
     var dragTarget = null; 
 
-    var dragContainer = null;
+    var dragVessel = null;
 
     function swap(orig, place){
         if(orig.nextSibling){
@@ -16,23 +16,39 @@ function UI_Init(){
         swap(event_ev.props.place, event_ev.target);
     }
 
-    function Event_SetupDrag(e, node, orig_ev, orig_spec_s){
-        if(!dragContainer){
-            return null; 
-        }
+    function Event_DragTargetCalc(e, drag_ev){
+        var dragView_li = drag_ev.props.dragContainer._view.el_li;
+        var mouseY = e.clientY;
+        for(var i = 0; i < dragView_li.length; i++){
+            var t = dragView_li[i];
+            if(mouseY > t.pos.y && mouseY < (t.pos.y +t.pos.rect.h)){
+                return i;
+            }
 
+            if(mouseY < t.pos.y){
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    function Event_SetDragContPos(node){
+        if(node._view){
+            if((node.flags & FLAG_DRAG_CONT_CALCULATED) == 0){
+                console.log('DRAG CALC', node);
+                node.flags |= FLAG_DRAG_CONT_CALCULATED;
+                for(var i = 0; i <  node._view.el_li.length; i++){
+                    var elObj = node._view.el_li[i];
+                    elObj.pos = getDragPos(elObj.el);
+                }
+            }
+        }
+    }
+
+    function getDragPos(node){
+        var el = node;
         var x = 0;
         var y = 0;
-        var h = 0;
-        var w = 0;
-        
-        var rect = node.getBoundingClientRect();
-        console.log('getDrag bouding node', node);
-        console.log('getDrag bouding rect', rect);
-        h = rect.height;
-        w = rect.width;
-
-        var el = node;
         do {
             y += el.offsetTop  || 0;
             x += el.offsetLeft || 0;
@@ -41,6 +57,67 @@ function UI_Init(){
             }
             el = el.offsetParent;
         } while(el);
+
+        return {
+            x: x,
+            y: y,
+            rect: node.getBoundingClientRect(),
+        };
+    }
+
+    function getDragAndContPos(node){
+        var dragContainer = null;
+        var el = node;
+        var x = 0;
+        var y = 0;
+        do {
+            if(el.flags && (el.flags & FLAG_DRAG_CONTAINER)){
+                dragContainer = el;     
+            }
+            y += el.offsetTop  || 0;
+            x += el.offsetLeft || 0;
+            if(el.scrollTop){
+                y -= el.scrollTop;
+            }
+            el = el.offsetParent;
+        } while(el);
+        if(dragContainer){
+            return {
+                x: x,
+                y: y,
+                dragContainer: dragContainer,
+            }
+        }else{
+            console.warn('drag container not found');
+            return null;
+        }
+    }
+
+    function Event_SetupDrag(e, node, orig_ev, orig_spec_s){
+        if(!dragVessel){
+            return null; 
+        }
+
+        var x = 0;
+        var y = 0;
+        var h = 0;
+        var w = 0;
+        var dragContainer = null;
+        
+        var rect = node.getBoundingClientRect();
+        h = rect.height;
+        w = rect.width;
+        var dragPos = getDragAndContPos(node);
+        if(dragPos){
+            x = dragPos.x;
+            y = dragPos.y;
+            dragContainer = dragPos.dragContainer;
+            console.log('Found drag container', dragContainer);
+            Event_SetDragContPos(dragContainer);
+        }else{
+            console.log('unable to get drag container');
+            return null;
+        }
 
         var place = document.createElement('DIV');
         var style = window.getComputedStyle(node);
@@ -56,9 +133,9 @@ function UI_Init(){
         }
 
         swap(node, place);
-        dragContainer.appendChild(node);
-        dragContainer.style.left = x + 'px';
-        dragContainer.style.top = y + 'px';
+        dragVessel.appendChild(node);
+        dragVessel.style.left = x + 'px';
+        dragVessel.style.top = y + 'px';
 
         var ev = Event_Clone(node, node._drag_ev, node._drag_ev.spec.spec_s)
         ev.props = {
@@ -68,7 +145,9 @@ function UI_Init(){
             y:y,
             offsetX: e.clientX - x,
             offsetY: e.clientY - y,
-            place: place
+            place: place,
+            vessel: dragVessel,
+            dragContainer: dragContainer
         };
 
         return ev;
@@ -77,9 +156,15 @@ function UI_Init(){
     function onMouseMove(e){
         var x = e.clientX;
         var y = e.clientY;
-        if(dragTarget && dragContainer){
-            dragContainer.style.left = (x - dragTarget.props.offsetX) + 'px';
-            dragContainer.style.top = (y - dragTarget.props.offsetY) + 'px';
+        if(dragTarget && dragVessel){
+
+            dragVessel.style.left = (x - dragTarget.props.offsetX) + 'px';
+            dragVessel.style.top = (y - dragTarget.props.offsetY) + 'px';
+            console.log('Position vessel x' +dragVessel.style.left + ' y' +dragVessel.style.top);
+
+            Event_SetDragContPos(dragTarget.props.dragContainer);
+            var targetIdx = Event_DragTargetCalc(e, dragTarget);
+            console.log('DRAG TO ', targetIdx);
         }
     }
 
@@ -164,14 +249,14 @@ function UI_Init(){
     }
 
     window.addEventListener('load', function(){
-        dragContainer = document.createElement('DIV');
-        dragContainer.classList = [];
-        dragContainer.classList.add('drag-container');
+        dragVessel = document.createElement('DIV');
+        dragVessel.classList = [];
+        dragVessel.classList.add('drag-vessel');
         var body = document.getElementsByTagName('body');
         if(!body || !body[0]){
             return;
         }
-        body[0].appendChild(dragContainer);
+        body[0].appendChild(dragVessel);
         window.addEventListener('mousemove', onMouseMove);
         window.onmouseup = onUp;
     })
