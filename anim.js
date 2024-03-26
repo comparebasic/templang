@@ -88,18 +88,14 @@ function Anim_Init(){
     }
 
     function GetAnim(idtag){
-        console.log('getting ', idtag);
         if(queue[idtag]){
-            console.log('getting ACTIVE ', idtag);
             return queue[idtag];
         }
         if(queueStash[idtag]){
             var a = queueStash[idtag];
-            console.log('getting FROM STASH ', a);
             delete queueStash[idtag];
             return a;
         }
-        console.log('getting NOT FOUND ', idtag);
         return null;
     }
 
