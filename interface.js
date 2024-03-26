@@ -1,5 +1,6 @@
 var ui = UI_Init();
 var template = Template_Init();
+var injest = Content_Init();
 
 function NestData(child, parentData){
     child._parentData = parentData;
