@@ -369,7 +369,8 @@ function El_SetChildren(node, templ, key, data){
                             var v = childItems._views[idx];
                             v.el_li.push({
                                 node_idx:node_el.idx,
-                                el:node_el
+                                el:node_el,
+                                source: childData,
                             });
                         }
                     }
@@ -672,10 +673,8 @@ function El_Make(templ, targetEl, rootEl, data){
     targetEl.appendChild(node);
 
     if(templ && templ.dragElementSpec){
-        console.log('DRAG elements spec: ', templ.dragElementSpec);
         templ.dragElements = getNodeData(node, templ.dragElementSpec);
         if(templ.dragElements){
-            console.log('FOUND drag elements data');
             if(typeof templ.dragElements._views === 'undefined'){
                 templ.dragElements._views = {};
             }
@@ -686,6 +685,7 @@ function El_Make(templ, targetEl, rootEl, data){
             console.log('NOT FOUND drag elements data');
         }
         node.flags &= ~FLAG_DRAG_CONT_CALCULATED;
+        ui.SetMouseDrop(node, null);
     }
 
     if(templ.body){

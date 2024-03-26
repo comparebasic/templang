@@ -2,6 +2,7 @@ function UI_Init(){
     var dragTarget = null; 
 
     var dragVessel = null;
+    var dragSpacer = null;
 
     function swap(orig, place){
         if(orig.nextSibling){
@@ -14,6 +15,7 @@ function UI_Init(){
 
     function Event_ReleaseDrag(event_ev){
         swap(event_ev.props.place, event_ev.target);
+        dragSpacer.remove();
     }
 
     function Event_DragTargetCalc(e, drag_ev){
@@ -22,11 +24,11 @@ function UI_Init(){
         for(var i = 0; i < dragView_li.length; i++){
             var t = dragView_li[i];
             if(mouseY > t.pos.y && mouseY < (t.pos.y +t.pos.rect.h)){
-                return i;
+                return {idx: i, uitem: t};
             }
 
             if(mouseY < t.pos.y){
-                return i;
+                return {idx: i, uitem: t};
             }
         }
         return -1;
@@ -163,8 +165,23 @@ function UI_Init(){
             console.log('Position vessel x' +dragVessel.style.left + ' y' +dragVessel.style.top);
 
             Event_SetDragContPos(dragTarget.props.dragContainer);
-            var targetIdx = Event_DragTargetCalc(e, dragTarget);
-            console.log('DRAG TO ', targetIdx);
+            var targetData = Event_DragTargetCalc(e, dragTarget);
+            console.log('DRAG TO ', targetData);
+            if(targetData && (typeof targetData.idx == 'number') && targetData.uitem.el){
+                if(targetData.uitem.el === dragTarget.target){
+                    dragSpacer.remove();
+                    return;
+                }
+                dragSpacer.style.width = targetData.uitem.pos.rect.width + 'px';
+                dragSpacer.style.height = 40 + 'px';
+                if(targetData.uitem.el.nextSibling){
+                    targetData.uitem.el.parentNode.insertBefore(dragSpacer, targetData.uitem.el.nextSibling);
+                }else{
+                    targetData.uitem.el.parentNode.append(dragSpacer);
+                }
+                console.log('INSERTING spacer after', targetData.uitem.el);
+                console.log('INSERTING spacer', dragSpacer);
+            }
         }
     }
 
@@ -201,9 +218,19 @@ function UI_Init(){
         e.stopPropagation(); e.preventDefault();
     }
 
+    function onScroll(e){
+        var node = this;
+        if(node.flags && (node.flags & FLAG_DRAG_CONTAINER)){
+            node.flags &= ~FLAG_DRAG_CONT_CALCULATED;
+            Event_SetDragContPos(node);
+        }
+    }
+
     function onHover(e){
         var node = this;
-        handleEvent(node._hover_ev);
+        if(node._hover_ev){
+            handleEvent(node._hover_ev);
+        }
         e.stopPropagation(); e.preventDefault();
     }
 
@@ -213,7 +240,9 @@ function UI_Init(){
             console.log('unover clearing dragTarget', dragTarget);
             dragTarget = null;
         }
-        handleEvent(node._unhover_ev);
+        if(node._unhover_ev){
+            handleEvent(node._unhover_ev);
+        }
     }
 
     function setMouseClick(node, event_ev){
@@ -248,7 +277,18 @@ function UI_Init(){
         node.onmouseup = onUp;
     }
 
+    function setMouseDrop(node, event_ev){
+        node._drop_ev = event_ev;
+        node.onscroll = onScroll;
+        node.onmouseover = onHover;
+        node.onmouseout = onUnHover;
+    }
+
     window.addEventListener('load', function(){
+        dragSpacer = document.createElement('DIV');
+        dragSpacer.classList = [];
+        dragSpacer.classList.add('drag-spacer');
+
         dragVessel = document.createElement('DIV');
         dragVessel.classList = [];
         dragVessel.classList.add('drag-vessel');
@@ -257,6 +297,7 @@ function UI_Init(){
             return;
         }
         body[0].appendChild(dragVessel);
+
         window.addEventListener('mousemove', onMouseMove);
         window.onmouseup = onUp;
     })
@@ -268,5 +309,6 @@ function UI_Init(){
         SetHover: setMouseHover,
         SetUnHover: setMouseUnHover,
         SetMouseDrag: setMouseDrag,
+        SetMouseDrop: setMouseDrop,
     }
 }
