@@ -49,8 +49,6 @@ var content = [
             count = Number(author.vars['count']);
         }
 
-        console.log(count);
-
         count += inc;
         author.vars['count'] = count;
         var style = 'single';
@@ -64,7 +62,6 @@ var content = [
             style = 'quad'; 
         }
     
-        console.log('setting style for author ' + style);
         El_SetStyle(style, author.templ, author);
     }
 
@@ -96,7 +93,7 @@ var content = [
             if(prev){
                 El_RemoveStyle('active', prev.templ, prev);
             }else{
-                console.log('PREV NOT FOUND');
+                console.warn('PREV NOT FOUND');
             }
         }
     }
@@ -126,7 +123,6 @@ var content = [
 
         var type = "preview";
         var injested = injest.Content_Injest(content, null);
-        console.log(injested);
         var data = {drag: dragFunc, content:injested};
         var author = El_Make("author", main, main, data);
         AddViewport(author, type);

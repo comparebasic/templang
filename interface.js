@@ -1,6 +1,7 @@
 var ui = UI_Init();
 var template = Template_Init();
 var injest = Content_Init();
+var anim = Anim_Init();
 
 function NestData(child, parentData){
     child._parentData = parentData;
@@ -71,7 +72,7 @@ function CopyVars(values, to, from){
         for(var i = 0; i < values.length; i ++){
             var key = values[i];
             if(key[0] === '_' || key[0] === '#'){
-                console.log('element and child copy vars not supported');
+                console.warn('element and child copy vars not supported');
                 continue;
             }
 
@@ -195,15 +196,15 @@ function Event_New(target_el, sourceType, spec_s){
     if(target_el.vars){
         if(event_ev.spec.getvars){
             if(DEBUG_VARS_GATHER){
-                console.log('Copy EVENT_NEW var keys: ',event_ev.spec.getvars);
-                console.log('Copy EVENT_NEW var from: ',target_el.vars);
-                console.log('Copy EVENT_NEW var to: ', event_ev.vars);
-                console.log('Copy EVENT_NEW var to event: ', event_ev);
-                console.log('Copy EVENT_NEW var from target_: ', target_el);
+                console.debug('Copy EVENT_NEW var keys: ',event_ev.spec.getvars);
+                console.debug('Copy EVENT_NEW var from: ',target_el.vars);
+                console.debug('Copy EVENT_NEW var to: ', event_ev.vars);
+                console.debug('Copy EVENT_NEW var to event: ', event_ev);
+                console.debug('Copy EVENT_NEW var from target_: ', target_el);
             }
             CopyVars(event_ev.spec.getvars, event_ev.vars, target_el.vars);
             if(DEBUG_VARS_GATHER){
-                console.log('Copy EVENT_NEW var AFTER to event: ', event_ev.vars);
+                console.debug('Copy EVENT_NEW var AFTER to event: ', event_ev.vars);
             }
         }
     }
@@ -259,7 +260,7 @@ function El_Query(node, criteria){
     var outerParent_el = null;
 
     if(!node){
-        console.log("El_Query called with empty node");
+        console.warn("El_Query called with empty node");
         return;
     }
 
@@ -296,9 +297,9 @@ function El_Query(node, criteria){
         for(var k in gathers){
             if(El_Match(node, k, null)){
                 if(DEBUG_VARS_GATHER){
-                    console.log('Copy ELEM_QUERY gather var keys: ', gathers[k]);
-                    console.log('Copy ELEM_QUERY gather var from: ', node.vars);
-                    console.log('Copy ELEM_QUERY gather var to: ', dest_vars);
+                    console.debug('Copy ELEM_QUERY gather var keys: ', gathers[k]);
+                    console.debug('Copy ELEM_QUERY gather var from: ', node.vars);
+                    console.debug('Copy ELEM_QUERY gather var to: ', dest_vars);
                 }
                 CopyVars(gathers[k], dest_vars, node.vars);
             }
@@ -326,7 +327,6 @@ function El_Query(node, criteria){
                 node = node.parentNode;
             }else{
                 if(root_el && (node != root_el)){
-                    console.log('ROCKING ON PARENt', root_el);
                     node = root_el;
                     root_el = null;
                 }else{
@@ -344,7 +344,6 @@ function El_Query(node, criteria){
             }
 
         }
-        console.log('no more parents');
     }
 }
 
@@ -481,15 +480,15 @@ function handleEvent(event_ev){
             }
 
             if(DEBUG_VARS_GATHER){
-                console.log('Copy HANDLE_EVENT var keys: ', Object.keys(event_ev.vars));
-                console.log('Copy HANDLE_EVENT var from: ', event_ev.vars);
-                console.log('Copy HANDLE_EVENT var to: ', dest_el.vars);
-                console.log('Copy HANDLE_EVENT var to dest: ', dest_el);
-                console.log('Copy HANDLE_EVENT var from ev: ', event_ev);
+                console.debug('Copy HANDLE_EVENT var keys: ', Object.keys(event_ev.vars));
+                console.debug('Copy HANDLE_EVENT var from: ', event_ev.vars);
+                console.debug('Copy HANDLE_EVENT var to: ', dest_el.vars);
+                console.debug('Copy HANDLE_EVENT var to dest: ', dest_el);
+                console.debug('Copy HANDLE_EVENT var from ev: ', event_ev);
             }
             CopyVars(Object.keys(event_ev.vars), dest_el.vars, event_ev.vars);
             if(DEBUG_VARS_GATHER){
-                console.log('Copy HANDLE_EVENT var AFTER  to: ', dest_el.vars);
+                console.debug('Copy HANDLE_EVENT var AFTER  to: ', dest_el.vars);
             }
             if(dest_el.templ != event_ev.target_el && dest_el.templ.on[event_s]){
                 handleEvent(Event_Clone(dest_el, event_ev, dest_el.templ.on[event_s]));
@@ -587,7 +586,7 @@ function El_SetStyle(style_s, templ, node){
 
 function cash(s, data){
     if(DEBUG_CASH){
-        console.log('CASH of :' + s, data);
+        console.debug('CASH of :' + s, data);
     }
     var state = STATE_TEXT;
     var key = "";
@@ -623,7 +622,7 @@ function cash(s, data){
         }
     }
     if(DEBUG_CASH){
-        console.log('cash result:', shelf);
+        console.debug('cash result:', shelf);
     }
     return shelf;
 }
@@ -640,14 +639,14 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     if(templ.name === 'viewport-view'){
-        console.log("viewport view", templ);
+        console.debug("viewport view", templ);
     }
 
     if(templ && templ.childrenTempl && !templ.childrenKey){
 
         var templ_s = cash(templ.childrenTempl, data);
         if(DEBUG_CHILDREN_AS){
-            console.log('Detecting funny thing ' +templ.childrenTempl + ' now with ' + templ_s, data);
+            console.debug('Detecting funny thing ' +templ.childrenTempl + ' now with ' + templ_s, data);
         }
         var templ_prev = templ;
         if(templ_s){
@@ -682,7 +681,7 @@ function El_Make(templ, targetEl, rootEl, data){
             templ.dragElements._views[node.idx] = _dragView;
             node._view = _dragView;
         }else{
-            console.log('NOT FOUND drag elements data');
+            console.warn('NOT FOUND drag elements data');
         }
         node.flags &= ~FLAG_DRAG_CONT_CALCULATED;
         ui.SetMouseDrop(node, null);
@@ -694,22 +693,22 @@ function El_Make(templ, targetEl, rootEl, data){
 
     var varKeys = Object.keys(templ.vars);
     if(DEBUG_VARS_GATHER){
-        console.log('Copy EL_MAKE var keys: ', varKeys);
-        console.log('Copy EL_MAKE var from: ', data);
-        console.log('Copy EL_MAKE var to: ', node.vars);
-        console.log('Copy EL_MAKE templ: ', templ);
+        console.debug('Copy EL_MAKE var keys: ', varKeys);
+        console.debug('Copy EL_MAKE var from: ', data);
+        console.debug('Copy EL_MAKE var to: ', node.vars);
+        console.debug('Copy EL_MAKE templ: ', templ);
     }
     CopyVars(varKeys, node.vars, data);
     if(DEBUG_VARS_GATHER){
-        console.log('Copy EL_MAKE var AFTER to making: ' + templ.name, node.vars);
+        console.debug('Copy EL_MAKE var AFTER to making: ' + templ.name, node.vars);
     }
 
     if(templ.mapVars && Object.keys(templ.mapVars).length > 0){
         if(DEBUG_VARS_GATHER){
-            console.log('Copy EL_MAKE mapVars keys: ', templ.mapVars);
-            console.log('Copy EL_MAKE mapVars from: ', data);
-            console.log('Copy EL_MAKE mapVars to: ', node.vars);
-            console.log('Copy EL_MAKE mapVars templ: ', templ);
+            console.debug('Copy EL_MAKE mapVars keys: ', templ.mapVars);
+            console.debug('Copy EL_MAKE mapVars from: ', data);
+            console.debug('Copy EL_MAKE mapVars to: ', node.vars);
+            console.debug('Copy EL_MAKE mapVars templ: ', templ);
         }
         CopyVars(templ.mapVars, node.vars, data);
     }
@@ -742,9 +741,6 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     node.flags = templ.flags | FLAG_INITIALIZED;
-    if(node.flags & FLAG_DRAG_CONTAINER){
-        console.log("El_Make: drag contaienr flag",  node.flags & FLAG_DRAG_CONTAINER);
-    }
 
     var onKeys = Object.keys(templ.on);
     for(var i = 0; i < onKeys.length; i++){
@@ -766,11 +762,6 @@ function El_Make(templ, targetEl, rootEl, data){
             ui.SetUnHover(node, Event_Bind(node, 'unhover', eventSpec_s));
         }
     }
-
-    if(templ.name === 'viewport-view'){
-        console.log(templ);
-    }
-
 
     if(templ.children){
         for(var i = 0, l = templ.children.length; i < l; i++){

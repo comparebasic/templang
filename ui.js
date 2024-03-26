@@ -1,8 +1,54 @@
 function UI_Init(){
+    
+    var SPACER_HEIGHT = 40;
+
     var dragTarget = null; 
 
     var dragVessel = null;
-    var dragSpacer = null;
+    var dragHighlighter = null;
+
+    var spacers = {};
+
+    function setSpacer(beforeNode, height){
+        var dragSpacer = document.createElement('DIV');
+        dragSpacer.classList.add('drag-spacer');
+
+        if(beforeNode.nextSibling){
+            beforeNode.parentNode.insertBefore(dragSpacer, beforeNode.nextSibling);
+        }else{
+            beforeNode.parentNode.append(dragSpacer);
+        }
+
+        var idtag = anim.PushAnim([
+            {target:dragSpacer, targetObj: dragSpacer.style, prop: 'height', start:0, end: height,
+                duration: 300, metric: 'px'},
+            {stash: true}
+        ]);
+
+        return idtag;
+    }
+
+    function closeSpacers(){
+        var activeTag = dragTarget && dragTarget.props && dragTarget.props._spacer_idtag;
+        if(Object.keys(spacers).length){
+            console.log('SPACERS', spacers);
+            for(var idtag in spacers){
+                if(idtag != activeTag){
+                    var a = anim.GetAnim(idtag);
+                    if(a && a.phases[0]){
+                        var p = a.phases[0];
+                        var b = [
+                            {target:p.target, targetObj: p.targetObj, prop: p.prop, start:p.end, end:p.start,
+                                duration: 150, metric: 'px'},
+                            {target: p.target, action: anim.RemoveNode}
+                        ];
+                        anim.PushAnim(b);
+                        delete spacers[idtag];
+                    }
+                }
+            }
+        }
+    }
 
     function swap(orig, place){
         if(orig.nextSibling){
@@ -15,7 +61,10 @@ function UI_Init(){
 
     function Event_ReleaseDrag(event_ev){
         swap(event_ev.props.place, event_ev.target);
-        dragSpacer.remove();
+        dragHighlighter.style.display = 'none';
+        for(var k in spacers){
+            // dragSpacer.remove();
+        }
     }
 
     function Event_DragTargetCalc(e, drag_ev){
@@ -23,7 +72,12 @@ function UI_Init(){
         var mouseY = e.clientY;
         for(var i = 0; i < dragView_li.length; i++){
             var t = dragView_li[i];
-            if(mouseY > t.pos.y && mouseY < (t.pos.y +t.pos.rect.h)){
+            var mid = t.pos.y + (t.pos.rect.height / 2);
+            if(mouseY > t.pos.y && mouseY <= mid){
+                return {idx: i-1, uitem: t};
+            }
+
+            if(mouseY > t.pos.y && mouseY > mid && mouseY < (t.pos.y + (t.pos.rect.height))){
                 return {idx: i, uitem: t};
             }
 
@@ -37,7 +91,6 @@ function UI_Init(){
     function Event_SetDragContPos(node){
         if(node._view){
             if((node.flags & FLAG_DRAG_CONT_CALCULATED) == 0){
-                console.log('DRAG CALC', node);
                 node.flags |= FLAG_DRAG_CONT_CALCULATED;
                 for(var i = 0; i <  node._view.el_li.length; i++){
                     var elObj = node._view.el_li[i];
@@ -114,10 +167,9 @@ function UI_Init(){
             x = dragPos.x;
             y = dragPos.y;
             dragContainer = dragPos.dragContainer;
-            console.log('Found drag container', dragContainer);
             Event_SetDragContPos(dragContainer);
         }else{
-            console.log('unable to get drag container');
+            console.warn('unable to get drag container');
             return null;
         }
 
@@ -159,36 +211,35 @@ function UI_Init(){
         var x = e.clientX;
         var y = e.clientY;
         if(dragTarget && dragVessel){
-
             dragVessel.style.left = (x - dragTarget.props.offsetX) + 'px';
             dragVessel.style.top = (y - dragTarget.props.offsetY) + 'px';
-            console.log('Position vessel x' +dragVessel.style.left + ' y' +dragVessel.style.top);
-
             Event_SetDragContPos(dragTarget.props.dragContainer);
             var targetData = Event_DragTargetCalc(e, dragTarget);
-            console.log('DRAG TO ', targetData);
             if(targetData && (typeof targetData.idx == 'number') && targetData.uitem.el){
-                if(targetData.uitem.el === dragTarget.target){
-                    dragSpacer.remove();
-                    return;
+
+                dragHighlighter.style.display = 'block';
+                dragHighlighter.style.width = targetData.uitem.pos.rect.width + 'px';
+                dragHighlighter.style.height = targetData.uitem.pos.rect.height + 'px';
+                dragHighlighter.style.top = targetData.uitem.pos.y + 'px';
+                dragHighlighter.style.left = targetData.uitem.pos.x + 'px';
+
+                if(dragTarget.props.targetData && dragTarget.props.targetData.idx != targetData.idx){
+                    dragTarget.props._spacer_idtag = '';
+                    if(Object.keys(spacers).length){
+                        closeSpacers();
+                    }
+                    if(targetData.uitem.el !== dragTarget.target){
+                        dragTarget.props._spacer_idtag = setSpacer(targetData.uitem.el, SPACER_HEIGHT);
+                        spacers[dragTarget.props._spacer_idtag] = true;
+                    }
                 }
-                dragSpacer.style.width = targetData.uitem.pos.rect.width + 'px';
-                dragSpacer.style.height = 40 + 'px';
-                if(targetData.uitem.el.nextSibling){
-                    targetData.uitem.el.parentNode.insertBefore(dragSpacer, targetData.uitem.el.nextSibling);
-                }else{
-                    targetData.uitem.el.parentNode.append(dragSpacer);
-                }
-                console.log('INSERTING spacer after', targetData.uitem.el);
-                console.log('INSERTING spacer', dragSpacer);
+                dragTarget.props.targetData = targetData;
             }
         }
     }
 
     function onDown(e){
         var node = this;
-        console.log('DOWN ' + node.idx, e);
-        console.log('DOWN', node._drag_ev);
         var node = this;
         if(node._drag_ev && (node.flags & FLAG_HAS_DRAG)){
             var ev = Event_SetupDrag(e, node, node._drag_ev, node._drag_ev.spec.spec_s);
@@ -201,11 +252,8 @@ function UI_Init(){
     }
 
     function onUp(e){
-        console.log('UP', e);
-        console.log('UP', dragTarget);
         var node = this;
         if(dragTarget){
-            console.log('releasing drag', dragTarget);
             Event_ReleaseDrag(dragTarget);
             dragTarget = null;
         }
@@ -237,7 +285,6 @@ function UI_Init(){
     function onUnHover(e){
         var node = this;
         if(node === dragTarget){
-            console.log('unover clearing dragTarget', dragTarget);
             dragTarget = null;
         }
         if(node._unhover_ev){
@@ -285,18 +332,18 @@ function UI_Init(){
     }
 
     window.addEventListener('load', function(){
-        dragSpacer = document.createElement('DIV');
-        dragSpacer.classList = [];
-        dragSpacer.classList.add('drag-spacer');
-
         dragVessel = document.createElement('DIV');
-        dragVessel.classList = [];
         dragVessel.classList.add('drag-vessel');
+
+        dragHighlighter = document.createElement('DIV');
+        dragHighlighter.classList.add('drag-highlighter');
+
         var body = document.getElementsByTagName('body');
         if(!body || !body[0]){
             return;
         }
         body[0].appendChild(dragVessel);
+        body[0].appendChild(dragHighlighter);
 
         window.addEventListener('mousemove', onMouseMove);
         window.onmouseup = onUp;

@@ -149,7 +149,6 @@ function Template_Init(){
             }else if(att.name == 'data:drag-elements'){
                 templ.dragElementSpec = att.value;
                 templ.flags |= FLAG_DRAG_CONTAINER;
-                console.log('adding drag contaienr flag in template', templ.flags & FLAG_DRAG_CONTAINER);
             }else if(att.name == 'data:style'){
                 templ.styleOptions = [att.value];
             }else if(att.name == 'data:style-if'){
@@ -179,7 +178,6 @@ function Template_Init(){
             }else if(att.name == 'data:for'){
                 templ.forKey = att.value;
             }else if(att.name == 'data:child'){
-                console.log('assignign child', templ.childTempl);
                 templ.childTempl = att.value;
             }else if(att.name == 'data:child-as-value'){
                 templ.childSetter = att.value;
