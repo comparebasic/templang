@@ -16,9 +16,11 @@ function Anim_Init(){
     function tick(amount){
         var now = Date.now()
         var delta = now - prevTick;
+        var removes = [];
         for(var k in queue){
             var a = queue[k];
             var p = a.phases[a._phase_i];
+
             if(typeof p._progress === 'undefined'){
                 p._progress = 0;
             }
@@ -28,7 +30,6 @@ function Anim_Init(){
                 var val = null;
                 if(p.duration){
                     if(p._progress >= p.duration){
-                        console.log('END');
                         val = p.end;
                         done = true;
                     }else{
@@ -48,30 +49,38 @@ function Anim_Init(){
             }
 
             if(done){
+                var finalized = false;
                 a._phase_i++;
-                while(done){
+                while(!finalized){
+                    if(a._phase_i >= a.phases.length){
+                        finalized = true
+                        continue;
+                    }
                     p = a.phases[a._phase_i];
-                    if(p && !p.duration){
+                    if(!p.duration){
                         if(p.action){
                             p.action(p, a);
                             a._phase_i++;
                         }else if(p.stash){
                             queueStash[a.idtag] = a;
                             a._phase_i++;
-                            done = false;
                         }else{
-                            done = false;
+                            a._phase_i++;
                         }
                     }
                 }
             }
 
             if(a._phase_i >= a.phases.length){
-                RemoveAnim(a.idtag);
+                removes.push(a.idtag);
             }
         }
 
         prevTick = now;
+        for(var i = 0; i < removes.length; i++){
+            console.log('REMOVEING at end', a.idtag);
+            RemoveAnim(removes[i]);
+        }
     }
 
     function PushAnim(phases){
@@ -82,6 +91,19 @@ function Anim_Init(){
             phases: phases,
             _phase_i: 0
         };
+
+        for(var i = 0; i < phases; i++){
+            var p = phases[i];
+            if(p.target && p._anim_tag){
+                RemoveAnim(p._anim_tag);
+            }
+        }
+        for(var i = 0; i < phases; i++){
+            var p = phases[i];
+            if(p.target){
+                p.target._anim_tag = idtag;
+            }
+        }
 
         Run();
         return idtag;
@@ -101,6 +123,13 @@ function Anim_Init(){
 
     function RemoveAnim(idtag){
         if(queue[idtag]){
+            var a = queue[idtag];
+            for(var i = 0; i <  a.phases.length; i++){
+                var p = a.phases[i];
+                if(p.target){
+                    delete p.target['_anim_tag'];
+                }
+            }
             delete queue[idtag];
         }
         if(Object.keys(queue).length == 0){
@@ -113,12 +142,14 @@ function Anim_Init(){
         prevTick = Date.now();
         if(interval === -1){
             interval = setInterval(tick,TICK_LENGTH);
+            console.log('----- ANIM RUN -----', interval);
         }
-        interval = -1;
     }
 
     function Stop(){
+        console.log('----- ANIM STOPPED -----');
         clearInterval(interval);
+        interval = -1;
     }
 
     return {
