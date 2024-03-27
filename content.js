@@ -37,12 +37,19 @@ function Content_Init(){
         return tag;
     }
 
-    function Content_Injest(content, heir){
+    function Content_Injest(content, heir, root){
         if(content._idtag){
             console.warn("Content_Injest: content already tagged, returning");
             return null;
         }
+
+        if(!root._map){
+           root._map = {};
+        }
         content._idtag = makeIdTag(content, heir);
+        if(content != root){
+            root._map[content._idtag] = content;
+        }
         if(!heir){
             content_weight = injest.weights.WEIGHT_GLOBAL;
             content._heir = [{weight: injest.weights.WEIGHT_GLOBAL, idtag: content._idtag}];
@@ -60,7 +67,7 @@ function Content_Init(){
 
         if(Array.isArray(content)){
             for(var i = 0; i < content.length; i++){
-                Content_Injest(content[i], heir);
+                Content_Injest(content[i], heir, root);
                 heir = content[i]._heir;
             }
         }

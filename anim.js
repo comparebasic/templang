@@ -7,7 +7,6 @@ function Anim_Init(){
 
     function RemoveNode(phase, _){
         if(phase.target){
-            console.log('REMOVING', phase.target);
             phase.target.remove();
         }
     }
@@ -33,7 +32,11 @@ function Anim_Init(){
                         val = p.end;
                         done = true;
                     }else{
-                        val = p.start + ((p.end - p.start) * (p._progress / p.duration));
+                        if(typeof p.start !== 'undefined'){
+                            val = p.start + ((p.end - p.start) * (p._progress / p.duration));
+                        }else if( typeof p.set !== 'undefined'){
+                            val = p.set;
+                        }
                     }
                     if(val !== null){
                         if(p.metric){
@@ -87,7 +90,6 @@ function Anim_Init(){
 
         prevTick = now;
         for(var i = 0; i < removes.length; i++){
-            console.log('REMOVEING at end', removes[i]);
             RemoveAnim(removes[i]);
         }
     }
@@ -157,12 +159,10 @@ function Anim_Init(){
         prevTick = Date.now();
         if(interval === -1){
             interval = setInterval(tick,TICK_LENGTH);
-            console.log('----- ANIM RUN -----', interval);
         }
     }
 
     function Stop(){
-        console.log('----- ANIM STOPPED -----');
         clearInterval(interval);
         interval = -1;
     }

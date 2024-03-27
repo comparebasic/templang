@@ -33,7 +33,7 @@ function UI_Init(){
 
         height -= SPACER_PADDING *2;
         var idtag = anim.PushAnim([
-            {target:dragSpacer, duration: 100},
+            {target:dragSpacer, duration: 100, targetObj: dragSpacer.style, prop: 'height', set:0},
             {target:dragSpacer, targetObj: dragSpacer.style, prop: 'height', start:0, end: height,
                 duration: 300, metric: 'px'},
             {stash: true},
@@ -50,6 +50,7 @@ function UI_Init(){
             var node = event_ev.props.place;
             var rect = node.getBoundingClientRect();
             anim.PushAnim([
+                {target:node, duration: 100, targetObj: node.style, prop: 'height', set:rect.height},
                 {target:node, targetObj: node.style, prop: 'height', start:rect.height, end: 0,
                     duration: 300, metric: 'px'},
             ]);
@@ -107,6 +108,11 @@ function UI_Init(){
         dragHighlighter.style.display = 'none';
         SpacerCtx._spacer_idtag = null;
         closeSpacers();
+        if(event_ev.dest !== null){
+            var content = drag_ev.props.dragContainer._view._elements;
+            var change_cg = changee.RegisterChange(event_ev, content); 
+            console.log('CHANGE FROM DRAG AND DROP:', change_cg);
+        }
     }
 
     function Event_DragTargetCalc(e, drag_ev){
@@ -278,8 +284,7 @@ function UI_Init(){
                 dragHighlighter.style.top = targetData.uitem.pos.y + 'px';
                 dragHighlighter.style.left = targetData.uitem.pos.x + 'px';
 
-                var props = dragTarget.props;
-                if(props.targetData && props.targetData.idx != targetData.idx){
+                if(targetData && targetData.idx != dragTarget.props._prev_idx){
                     var overOrig = false;
                     if(targetData.uitem.el === dragTarget.target || (
                         targetData.current.uitem && targetData.current.idx === targetData.idx-1
@@ -288,15 +293,19 @@ function UI_Init(){
                     }
 
                     if(overOrig){
+                        dragTarget.dest = null; 
                         SpacerCtx._spacer_idtag = null;
                         closeSpacers();
                         openPlace(dragTarget);
                     }else{
+                        dragTarget.dest = targetData; 
                         closePlace(dragTarget);
                         setSpacer(targetData.uitem.el, dragTarget.props.h);
                     }
+                }else{
+                    dragTarget.dest = null; 
                 }
-                dragTarget.props.targetData = targetData;
+                dragTarget.props._prev_idx = targetData.idx;
             }
         }
     }

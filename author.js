@@ -121,7 +121,7 @@ var content = [
         main.flags |= FLAG_CONTAINER;
 
         var type = "preview";
-        var injested = injest.Content_Injest(content, null);
+        var injested = injest.Content_Injest(content, null, content);
         var data = {drag: dragFunc, content:injested};
         var author = El_Make("author", main, main, data);
         AddViewport(author, type);

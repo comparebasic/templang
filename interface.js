@@ -2,6 +2,7 @@ var ui = UI_Init();
 var template = Template_Init();
 var injest = Content_Init();
 var anim = Anim_Init();
+var change = Change_Init();
 
 function NestData(child, parentData){
     child._parentData = parentData;
@@ -185,6 +186,7 @@ function Event_New(target_el, sourceType, spec_s){
     var event_ev = {
         target: target_el, /* the source of the event, e.g. clicked element */
         sourceType: sourceType, /* the dispatch method e.g click, mousedown, key */
+        flags: 0,
         dest: null, /* the destination that has the event on it */
         vars: {}, /* end result of target vars + gathers */
         props: {},
@@ -363,6 +365,7 @@ function El_SetChildren(node, templ, key, data){
                     var childData = childItems[j];
                     NestData(childData, data);
                     var node_el = El_Make(templ, node, node.root_el, childData);
+                    node_el._content_idtag = childItems._idtag;
                     if(childItems._views){
                         for(var idx in childItems._views){
                             var v = childItems._views[idx];
