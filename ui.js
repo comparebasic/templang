@@ -1,55 +1,95 @@
 function UI_Init(){
     
     var SPACER_HEIGHT = 40;
+    var SPACER_PADDING = 20;
 
     var dragTarget = null; 
 
     var dragVessel = null;
     var dragHighlighter = null;
 
-    var SpacerCtx = {spacers: {}};
+    var SpacerCtx = {spacers: {}, confirms: {}};
+
+    function confirmSpacerClosed(a){
+        if(a && a.phases[0].target){
+             a.phases[0].target.remove();
+        }
+
+        if(SpacerCtx.confirms[a.idtag]){
+            delete SpacerCtx.confirms[a.idtag];
+        }
+
+        anim.UnStashAnim(a);
+    }
 
     function setSpacer(beforeNode, height){
+        SpacerCtx._spacer_idtag = null;
+        closeSpacers();
+
         var dragSpacer = document.createElement('DIV');
-        dragSpacer.append(document.createTextNode('place here'));
         dragSpacer.classList.add('drag-spacer');
 
         beforeNode.parentNode.insertBefore(dragSpacer, beforeNode);
 
+        height -= SPACER_PADDING *2;
         var idtag = anim.PushAnim([
+            {target:dragSpacer, duration: 100},
             {target:dragSpacer, targetObj: dragSpacer.style, prop: 'height', start:0, end: height,
                 duration: 300, metric: 'px'},
-            {stash: true}
+            {stash: true},
         ]);
 
-        console.log('SET SPACER ' + idtag);
+        SpacerCtx._spacer_idtag = idtag;
+        SpacerCtx.spacers[idtag] = true;
+
         return idtag;
     }
 
+    function closePlace(event_ev){
+        if(event_ev.props.place){
+            var node = event_ev.props.place;
+            var rect = node.getBoundingClientRect();
+            anim.PushAnim([
+                {target:node, targetObj: node.style, prop: 'height', start:rect.height, end: 0,
+                    duration: 300, metric: 'px'},
+            ]);
+        }
+    }
+
+    function openPlace(event_ev){
+        if(event_ev.props.place){
+            var node = event_ev.props.place;
+            var rect = node.getBoundingClientRect();
+            anim.PushAnim([
+                {target:node, targetObj: node.style, prop: 'height', start:rect.height, end: event_ev.props.h,
+                    duration: 300, metric: 'px'},
+            ]);
+        }
+    }
+
     function closeSpacers(){
-        var removes = [];
         var current = SpacerCtx._spacer_idtag;
         var spacers = SpacerCtx.spacers;
-        console.log('SPACERS', spacers);
+        var animUpdates = {};
         for(var idtag in spacers){
             if(idtag != current){
                 var a = anim.GetAnim(idtag);
                 if(a && a.phases[0]){
-                    var p = a.phases[0];
+                    var p = a.phases[1];
                     var b = [
                         {target:p.target, targetObj: p.targetObj, prop: p.prop, start:p.end, end:p.start,
                             duration: 150, metric: 'px'},
-                        {target: p.target, action: anim.RemoveNode}
+                        {action: confirmSpacerClosed}
                     ];
-                    anim.PushAnim(b);
-                    removes.push(idtag);
+                    animUpdates[idtag] = anim.PushAnim(b);
                 }else{
                     console.warn('closeSpacer: unable to find idtag', idtag);
                 }
             }
         }
-        for(var i = 0; i < removes.length; i++){
-            delete spacers[removes[i]];
+        for(var k in animUpdates){
+            SpacerCtx.confirms[animUpdates[k]] = true;
+            delete SpacerCtx.spacers[k];
         }
     }
 
@@ -73,8 +113,16 @@ function UI_Init(){
         var dragView_li = drag_ev.props.dragContainer._view.el_li;
         var mouseY = e.clientY;
         var mouseX = e.clientX;
+        var current = drag_ev.target;
+        var wasCurrent = null;
+        var wasCurrent_i = 0;
         for(var i = 0; i < dragView_li.length; i++){
             var t = dragView_li[i];
+
+            if(t.el === current){
+                wasCurrent = t;
+                wasCurrent_i = i;
+            }
 
             var rect = {
                 startX: t.pos.x,
@@ -86,7 +134,7 @@ function UI_Init(){
             if((mouseY >= rect.startY && mouseY <= rect.endY) &&
                 (mouseX >= rect.startX && mouseX <= rect.endX)
             ){
-                return {idx: i, uitem: t};
+                return {idx: i, uitem: t, current: {idx: wasCurrent_i, uitem: wasCurrent}};
             }
         }
 
@@ -232,13 +280,20 @@ function UI_Init(){
 
                 var props = dragTarget.props;
                 if(props.targetData && props.targetData.idx != targetData.idx){
-                    SpacerCtx._spacer_idtag = null;
-                    closeSpacers();
-                    if(targetData.uitem.el !== dragTarget.target){
-                        console.log('Set Spacer target ' + targetData.idx);
-                        var idtag = setSpacer(targetData.uitem.el, SPACER_HEIGHT);
-                        SpacerCtx._spacer_idtag = idtag;
-                        SpacerCtx.spacers[idtag] = true;
+                    var overOrig = false;
+                    if(targetData.uitem.el === dragTarget.target || (
+                        targetData.current.uitem && targetData.current.idx === targetData.idx-1
+                    )){
+                        overOrig = true
+                    }
+
+                    if(overOrig){
+                        SpacerCtx._spacer_idtag = null;
+                        closeSpacers();
+                        openPlace(dragTarget);
+                    }else{
+                        closePlace(dragTarget);
+                        setSpacer(targetData.uitem.el, dragTarget.props.h);
                     }
                 }
                 dragTarget.props.targetData = targetData;

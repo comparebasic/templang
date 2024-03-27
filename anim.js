@@ -1,5 +1,5 @@
 function Anim_Init(){
-    var TICK_LENGTH = 32;
+    var TICK_LENGTH = 16;
     var queue = {};
     var queueStash = {};
 
@@ -27,45 +27,54 @@ function Anim_Init(){
             var done = false;
             if(p){
                 p._progress += delta;
-                var val = null;
-                if(p.duration){
+                if(p.duration && p.targetObj){
+                    var val = null;
                     if(p._progress >= p.duration){
                         val = p.end;
                         done = true;
                     }else{
                         val = p.start + ((p.end - p.start) * (p._progress / p.duration));
                     }
-                }
+                    if(val !== null){
+                        if(p.metric){
+                            val += p.metric;
+                        }
 
-                if(val !== null){
-                    if(p.metric){
-                        val += p.metric;
+                        p.targetObj[p.prop] = val;
                     }
-
-                    p.targetObj[p.prop] = val;
+                }else{
+                    if(p._progress >= p.duration){
+                        done = true;
+                    }
                 }
             }else{
                 done = true;
             }
 
             if(done){
-                var finalized = false;
                 a._phase_i++;
-                while(!finalized){
-                    if(a._phase_i >= a.phases.length){
-                        finalized = true
-                        continue;
-                    }
+                if(a._phase_i < a.phases.length){
                     p = a.phases[a._phase_i];
                     if(!p.duration){
-                        if(p.action){
-                            p.action(p, a);
-                            a._phase_i++;
-                        }else if(p.stash){
-                            queueStash[a.idtag] = a;
-                            a._phase_i++;
-                        }else{
-                            a._phase_i++;
+                        var finalmax = a.phases.length;
+                        var i = 0;
+                        while(++i < finalmax){
+                            if(a._phase_i >= a.phases.length){
+                                break;
+                            }
+
+                            if(p.action){
+                                p.action(a);
+                                a._phase_i++;
+                            }else if(p.stash){
+                                queueStash[a.idtag] = a;
+                                a._phase_i++;
+                            }else{
+                                a._phase_i++;
+                            }
+                        }
+                        if(i > finalmax){
+                            console.error('Error: Final max exceeded in Anim');
                         }
                     }
                 }
@@ -78,7 +87,7 @@ function Anim_Init(){
 
         prevTick = now;
         for(var i = 0; i < removes.length; i++){
-            console.log('REMOVEING at end', a.idtag);
+            console.log('REMOVEING at end', removes[i]);
             RemoveAnim(removes[i]);
         }
     }
@@ -114,11 +123,17 @@ function Anim_Init(){
             return queue[idtag];
         }
         if(queueStash[idtag]){
-            var a = queueStash[idtag];
-            delete queueStash[idtag];
-            return a;
+            return queueStash[idtag];
         }
         return null;
+    }
+
+    function UnStashAnim(a){
+        if(a){
+            if(queueStash[a.idtag]){
+                delete queueStash[a.idtag];
+            }
+        }
     }
 
     function RemoveAnim(idtag){
@@ -156,6 +171,7 @@ function Anim_Init(){
         PushAnim: PushAnim, 
         RemoveAnim, RemoveAnim,
         GetAnim: GetAnim,
+        UnStashAnim: UnStashAnim,
         Run: Run,
         Stop: Stop,
     };

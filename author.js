@@ -2,7 +2,6 @@ var content = [
     {type: "title", text: "The Whole Chicken"},
     {type: "text", text: "Cooking a whole chicken can be a great way to provide a week or so of meals for two."},
     {type: "text", text: "When combined with rice, vegetables, and other ingredients it can make your cooking time worthwhile, on a budget."}, 
-
     {type: "subtitle", text: "Ingredients"}, 
     {type: "gallery", images: [{src: "images/chicken_ingredients.jpg", style:"hero"}]},
     {type: "text", text: "These are the ingredients."},
