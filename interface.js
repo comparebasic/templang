@@ -680,7 +680,7 @@ function El_Make(templ, targetEl, rootEl, data){
             if(typeof templ.dragElements._views === 'undefined'){
                 templ.dragElements._views = {};
             }
-            var _dragView = {_elements: templ.dragElements, el_li: []};
+            var _dragView = {viewNode: node, _elements: templ.dragElements, el_li: []};
             _dragView.queue = change.Queue_Make(_dragView);
             templ.dragElements._views[node.idx] = _dragView;
             node._view = _dragView;

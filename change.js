@@ -51,6 +51,21 @@ function Change_Init(){
         return change_cg;
     }
 
+    function Verify(changeView){
+        if(changeView._elements && changeView.el_li){
+            for(var i = 0; i < changeView.el_li.length; i++){
+                if(!Equals(changeView._elements[i], changeView.el_li[i].source._idtag)){
+                    console.warn('Verify found a discrepency at ' + i, changeView);
+                    return false;
+                }
+            }
+            return true;
+        }else{
+            console.log('Verify recieved a changeView without both _elements and el_li');
+        }
+        return false;
+    }
+
     function Equals(a, b){
         if(a === b){
             return true;
@@ -103,7 +118,6 @@ function Change_Init(){
         if(trans_tn.change_cg.flags & flags.FLAG_CHANGE_MOVE){
             var li = content.splice(trans_tn.from_idx, 1);
             var toMove = li[0];
-            content.splice(trans_tn.to_idx, 0, toMove);
 
             var to_idx = trans_tn.to_idx;
             if(trans_tn.from_idx > trans_tn.to_idx){
@@ -112,6 +126,9 @@ function Change_Init(){
             if(to_idx < 0){
                 to_idx = 0;
             }
+
+            content.splice(to_idx, 0, toMove);
+
             return {
                 to_idx: to_idx,
                 from_idx: trans_tn.to_idx,
@@ -123,15 +140,27 @@ function Change_Init(){
     function executeUI(trans_tn, view, aliases){
         // console.log('EXECUTE UI', trans_tn);
         if(trans_tn.change_cg.flags & flags.FLAG_CHANGE_MOVE){
+            var moveBefore = view.el_li[trans_tn.to_idx];
             var li = view.el_li.splice(trans_tn.from_idx, 1);
             var toMove = li[0];
-            var moveBefore = view.el_li[trans_tn.to_idx];
-            view.el_li.splice(trans_tn.to_idx, 0, toMove);
+
+            var to_idx = trans_tn.to_idx;
+            if(trans_tn.from_idx > trans_tn.to_idx){
+                to_idx--;
+            }
+            if(to_idx < 0){
+                to_idx = 0;
+            }
+
+            view.el_li.splice(to_idx, 0, toMove);
 
             console.log('MOVE Item', toMove.el.innerHTML);
             console.log('MOVE BEFORE', moveBefore.el.innerHTML);
             moveBefore.el.parentNode.insertBefore(toMove.el, moveBefore.el);
             console.log('NEXT SIBLING', toMove.el.nextSibling.innerHTML);
+
+            Verify(view);
+            ui.Event_SetDragContPos(view.viewNode);
         }
     }
 

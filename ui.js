@@ -129,6 +129,7 @@ function UI_Init(){
             if(viewSet){
                 change.Dispatch(trans_tn, content, viewSet);
                 change.RunQ(content, viewSet);
+                console.log('CONTENT', content);
             }else{
                 console.warn('ReleaseDrag no viewSet found');
             }
@@ -454,5 +455,6 @@ function UI_Init(){
         SetUnHover: setMouseUnHover,
         SetMouseDrag: setMouseDrag,
         SetMouseDrop: setMouseDrop,
+        Event_SetDragContPos: Event_SetDragContPos,
     }
 }
