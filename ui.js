@@ -68,6 +68,19 @@ function UI_Init(){
         }
     }
 
+    function removeSpacer(idtag){
+        if(SpacerCtx.spacers[idtag]){
+            var a = anim.GetAnim(idtag);
+            if(a){
+                var p = a.phases[1];
+                if(p.target){
+                    p.target.remove();
+                }
+            }
+            delete SpacerCtx.spacers[idtag];
+        }
+    }
+
     function closeSpacers(){
         var current = SpacerCtx._spacer_idtag;
         var spacers = SpacerCtx.spacers;
@@ -95,6 +108,8 @@ function UI_Init(){
     }
 
     function swap(orig, place){
+        console.log('swap orig', orig);
+        console.log('swap place', place);
         if(orig.nextSibling){
             orig.parentNode.insertBefore(place, orig.nextSibling);
         }else{
@@ -106,8 +121,6 @@ function UI_Init(){
     function Event_ReleaseDrag(event_ev){
         swap(event_ev.props.place, event_ev.target);
         dragHighlighter.style.display = 'none';
-        SpacerCtx._spacer_idtag = null;
-        closeSpacers();
         if(event_ev.dest !== null){
             var content = event_ev.props.dragContainer._view._elements;
             var change_cg = change.RegisterChange(event_ev, content); 
@@ -115,10 +128,13 @@ function UI_Init(){
             var viewSet = event_ev.props.dragContainer._view._elements._views;
             if(viewSet){
                 change.Dispatch(trans_tn, content, viewSet);
-                change.RunQueues(content, viewSet);
+                change.RunQ(content, viewSet);
             }else{
                 console.warn('ReleaseDrag no viewSet found');
             }
+            removeSpacer(SpacerCtx._spacer_idtag);
+        }else{
+            closeSpacers();
         }
     }
 

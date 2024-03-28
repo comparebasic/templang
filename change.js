@@ -42,9 +42,9 @@ function Change_Init(){
 
         if(event_ev.sourceType === 'drag'){
             change_cg.from = event_ev.target._content_idtag;
-            console.log('FROM', event_ev.target);
+            // console.log('FROM', event_ev.target);
             change_cg.to = event_ev.dest.uitem.el._content_idtag;
-            console.log('TO', event_ev.target);
+            // console.log('TO', event_ev.target);
             change_cg.flags |= flags.FLAG_POS_BEFORE | flags.FLAG_CHANGE_MOVE;
         }
 
@@ -80,10 +80,8 @@ function Change_Init(){
                 to = t;
                 to_idx = i;
                 if(change_cg.flags & flags.FLAG_POS_BEFORE){
-                    if(from_idx === 0){
+                    if(to_idx < 0){
                         to_idx = 0;        
-                    }else{
-                        to_idx++;
                     }
                 }
             }
@@ -101,9 +99,10 @@ function Change_Init(){
     }
 
     function execute(trans_tn, content){
-        console.log('EXECUTE', trans_tn);
-        if(trans_tn.change_ch.flags & FLAG_CHANGE_MOVE){
-            var toMove = content.splice(trans_tn.from_idx, 1);
+        // console.log('EXECUTE', trans_tn);
+        if(trans_tn.change_cg.flags & flags.FLAG_CHANGE_MOVE){
+            var li = content.splice(trans_tn.from_idx, 1);
+            var toMove = li[0];
             content.splice(trans_tn.to_idx, 0, toMove);
 
             var to_idx = trans_tn.to_idx;
@@ -122,13 +121,17 @@ function Change_Init(){
     }
 
     function executeUI(trans_tn, view, aliases){
-        console.log('EXECUTE UI', trans_tn);
-        if(trans_tn.change_ch.flags & FLAG_CHANGE_MOVE){
-            var toMove = view._elemsents.splice(trans_tn.from_idx, 1);
-            var moveBefore = view._elements[trans_tn.to_idx];
+        // console.log('EXECUTE UI', trans_tn);
+        if(trans_tn.change_cg.flags & flags.FLAG_CHANGE_MOVE){
+            var li = view.el_li.splice(trans_tn.from_idx, 1);
+            var toMove = li[0];
+            var moveBefore = view.el_li[trans_tn.to_idx];
+            view.el_li.splice(trans_tn.to_idx, 0, toMove);
 
-            view._elements.splice(trans_tn.to_idx, 0, toMove);
+            console.log('MOVE Item', toMove.el.innerHTML);
+            console.log('MOVE BEFORE', moveBefore.el.innerHTML);
             moveBefore.el.parentNode.insertBefore(toMove.el, moveBefore.el);
+            console.log('NEXT SIBLING', toMove.el.nextSibling.innerHTML);
         }
     }
 
@@ -137,7 +140,8 @@ function Change_Init(){
         while(i < pending.length){
             var tn = pending[i];
             if(tn._done){
-                var toMove_tn = pending.splice(i, 1);
+                var li = pending.splice(i, 1);
+                var toMove_tn = li[0];
                 done.push(toMove_tn);
             }else{
                 i++;
@@ -145,10 +149,11 @@ function Change_Init(){
         }
     }
 
-    function RuneQueues(content, viewSet){
-        console.log('RUN QUEUES');
+    function RunQ(content, viewSet){
+        // console.log('RUN QUEUES content', content);
+        // console.log('RUN QUEUES viewSet', viewSet);
         for(var i = 0; i < content._queue.pending.length; i++){
-            var tn = content._queue[i];
+            var tn = content._queue.pending[i];
             var aliases = execute(tn, content);
             if(aliases){
                 tn._done = true;
@@ -159,26 +164,30 @@ function Change_Init(){
         if(viewSet){
             for(var k in viewSet){
                 var view = viewSet[k];
-                if(views.queue.pending.length){
-                    for(var i = 0; i < views.queue.pending.length; i++){
-                        var tn = views.queue.pending[i];
+                if(view.queue.pending.length){
+                    for(var i = 0; i < view.queue.pending.length; i++){
+                        var tn = view.queue.pending[i];
                         if(executeUI(tn, view, aliases)){
                             tn._done = true;
                         }
                     }
-                    resolveStatus(views.queue.pending, views.queue.done);
+                    resolveStatus(view.queue.pending, view.queue.done);
                 }
             }
         }
     }
 
     function Dispatch(trans_tn, content, viewSet){
-        content._queue.pending.push(trans_tn);
-        for(var k in viewSet){
-            var view = viewSet[k];
-            console.log('Dispatching:', trans_tn);
-            console.log('Dispatching to:', view);
-            view.queue.pending.push(trans_tn);
+        if(content._queue){
+            content._queue.pending.push(trans_tn);
+            for(var k in viewSet){
+                var view = viewSet[k];
+                // console.log('Dispatching:', trans_tn);
+                // console.log('Dispatching to:', view);
+                view.queue.pending.push(trans_tn);
+            }
+        }else{
+            console.warn('Dispatch content is missing _queue', content);
         }
     }
 
@@ -186,13 +195,13 @@ function Change_Init(){
         return {
             view: view,
             pending: [],
-            applied: [],
+            done: [],
         }
     }
 
     return {
         RegisterChange: RegisterChange,
-        RuneQueues:RuneQueues,
+        RunQ:RunQ,
         GetChangeTrans: GetChangeTrans,
         Dispatch: Dispatch,
         Queue_Make: Queue_Make,

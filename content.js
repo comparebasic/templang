@@ -50,7 +50,7 @@ function Content_Init(){
         if(content != root){
             root._map[content._idtag] = content;
         }else{
-            root._queue = Queue_Make(root);
+            root._queue = change.Queue_Make(root);
         }
         if(!heir){
             content_weight = injest.weights.WEIGHT_GLOBAL;
