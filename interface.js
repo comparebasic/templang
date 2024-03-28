@@ -355,10 +355,13 @@ function El_SetChildren(node, templ, key, data){
             node.innerHTML = '';
             var childItems = data[key];
             if(childItems){
+                var view = null;
                 if(childItems._views){
-                    for(var idx in childItems._views){
-                        var v = childItems._views[idx];
-                        v.el_li = [];
+                    console.log("VIEWS ", childItems._views);
+                    console.log("VIEWS node idtag:", node._idtag);
+                    if(childItems._views[node._idflag]){
+                        var view = childItems._views[node._idflag];
+                        view.el_li = [];
                     }
                 }
                 for(var j = 0; j < childItems.length; j++){
@@ -366,15 +369,12 @@ function El_SetChildren(node, templ, key, data){
                     NestData(childData, data);
                     var node_el = El_Make(templ, node, node.root_el, childData);
                     node_el._content_idtag = childData._idtag;
-                    if(childItems._views){
-                        for(var idx in childItems._views){
-                            var v = childItems._views[idx];
-                            v.el_li.push({
-                                node_idx:node_el.idx,
-                                el:node_el,
-                                source: childData,
-                            });
-                        }
+                    if(view){
+                        view.el_li.push({
+                            node_idx:node_el._idtag,
+                            el:node_el,
+                            source: childData,
+                        });
                     }
                 }
             }
@@ -436,7 +436,7 @@ function handleEvent(event_ev){
     }
 
     var msg = "[event called]:" + event_ev.sourceType + ' ' + event_ev.spec.eventName + ' ' +event_ev.spec.spec_s;
-    // console.log(msg, event_ev);
+    console.log(msg, event_ev);
 
     if(event_ev.spec.eventName === 'templ'){
         var props = PropName(event_ev.spec.values[0]);
@@ -457,6 +457,7 @@ function handleEvent(event_ev){
         }
 
         if(type && childData){
+            console.log("SET C IV?");
             El_SetChildren(event_ev.target, type, null, childData);
         }
     }else if(event_ev.spec.eventName === 'style'){
@@ -666,7 +667,7 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     var node = document.createElement(templ.nodeName);
-    node.idx = 'idx_'+String(++el_idx);
+    node._idtag = 'el_'+String(++el_idx);
     node.vars = {};
     node.events = {};
     node.templ = templ;
@@ -682,8 +683,9 @@ function El_Make(templ, targetEl, rootEl, data){
             }
             var _dragView = {viewNode: node, _elements: templ.dragElements, el_li: []};
             _dragView.queue = change.Queue_Make(_dragView);
-            templ.dragElements._views[node.idx] = _dragView;
+            templ.dragElements._views[node._idtag] = _dragView;
             node._view = _dragView;
+            console.log('setting dragView', node._idtag);
         }else{
             console.warn('NOT FOUND drag elements data');
         }
@@ -782,6 +784,7 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     if(childTempl){
+        console.log("SET C I");
         El_SetChildren(node, childTempl, null, data);
     }
 
@@ -792,6 +795,7 @@ function El_Make(templ, targetEl, rootEl, data){
             var childrenTempl = window.basic.templates[childrenTempl];
         }
         var templ_child = template.Templ_Merge(childrenTempl, templ);
+        console.log("SET C II");
         El_SetChildren(node, templ_child, templ.childrenKey, data);
     }
 
@@ -801,6 +805,7 @@ function El_Make(templ, targetEl, rootEl, data){
             var childrenTempl = window.basic.templates[childrenTempl];
         }
         var templ_child = template.Templ_Merge(childrenTempl, templ);
+        console.log("SET C III");
         El_SetChildren(node, templ_child, templ.childrenKey, data);
     }
 

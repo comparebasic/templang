@@ -154,10 +154,10 @@ function Change_Init(){
 
             view.el_li.splice(to_idx, 0, toMove);
 
-            console.log('MOVE Item', toMove.el.innerHTML);
-            console.log('MOVE BEFORE', moveBefore.el.innerHTML);
+            // console.log('MOVE Item', toMove.el.innerHTML);
+            // console.log('MOVE BEFORE', moveBefore.el.innerHTML);
             moveBefore.el.parentNode.insertBefore(toMove.el, moveBefore.el);
-            console.log('NEXT SIBLING', toMove.el.nextSibling.innerHTML);
+            // console.log('NEXT SIBLING', toMove.el.nextSibling.innerHTML);
 
             Verify(view);
             view.viewNode.flags &= ~FLAG_DRAG_CONT_CALCULATED;

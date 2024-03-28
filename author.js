@@ -77,9 +77,11 @@ var content = [
         AddViewport(author, type);
         updateAuthorSegs(author, 1);
 ;
+        var dragTarget = ui.GetDragTarget();
         if(dragTarget && dragTarget.props.dragContainer._view){
             var viewSet = dragTarget.props.dragContainer._view._elements._views;
-            dragTarget.props.containers = Event_DropContCalc(viewSet);
+            dragTarget.props.containers = ui.Event_GetDropContTargets(viewSet);
+            console.log('UPDATED drop containers', dragTarget.props.closeFunc);
         }
     }
 
