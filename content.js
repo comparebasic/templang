@@ -49,6 +49,8 @@ function Content_Init(){
         content._idtag = makeIdTag(content, heir);
         if(content != root){
             root._map[content._idtag] = content;
+        }else{
+            root._queue = Queue_Make(root);
         }
         if(!heir){
             content_weight = injest.weights.WEIGHT_GLOBAL;

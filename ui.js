@@ -111,7 +111,14 @@ function UI_Init(){
         if(event_ev.dest !== null){
             var content = event_ev.props.dragContainer._view._elements;
             var change_cg = change.RegisterChange(event_ev, content); 
-            console.log('CHANGE FROM DRAG AND DROP:', change_cg);
+            var trans_tn = change.GetChangeTrans(change_cg, content, event_ev.props.dragContainer._view.el_li);
+            var viewSet = event_ev.props.dragContainer._view._elements._views;
+            if(viewSet){
+                change.Dispatch(trans_tn, content, viewSet);
+                change.RunQueues(content, viewSet);
+            }else{
+                console.warn('ReleaseDrag no viewSet found');
+            }
         }
     }
 
