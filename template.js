@@ -7,6 +7,8 @@ function Template_Init(){
     }
 
     function Templ_Merge(into_templ, from_templ){
+        var from_flags = from_templ.flags;
+        from_flags &= ~FLAG_DRAG_CONTAINER;
         var templ = {
             nodeName: into_templ.nodeName,
             name: into_templ.name,
@@ -17,7 +19,7 @@ function Template_Init(){
             childSetter: into_templ.childSetter,
             childrenKey: into_templ.childrenKey,
             childrenTempl: into_templ.childrenTempl,
-            flags: into_templ.flags | from_templ.flags,
+            flags: into_templ.flags | from_flags,
             el: into_templ.el,
             on: {},
             vars: {},
@@ -89,10 +91,12 @@ function Template_Init(){
             templ.styleOptions.push(into_templ.styleOptions[i]);
         }
 
-
+        /*
+        Classes don't presently inherit
         for(var i = 0; i < from_templ.classList.length; i++){
             templ.classList.push(from_templ.classList[i]);
         }
+        */
         for(var i = 0; i < into_templ.classList.length; i++){
             templ.classList.push(into_templ.classList[i]);
         }

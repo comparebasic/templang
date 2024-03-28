@@ -359,9 +359,12 @@ function El_SetChildren(node, templ, key, data){
                 if(childItems._views){
                     console.log("VIEWS ", childItems._views);
                     console.log("VIEWS node idtag:", node._idtag);
-                    if(childItems._views[node._idflag]){
-                        var view = childItems._views[node._idflag];
+                    if(childItems._views[node._idtag]){
+                        view = childItems._views[node._idtag];
                         view.el_li = [];
+                        console.log('resetting view', view);
+                    }else{
+                        console.log('no view');
                     }
                 }
                 for(var j = 0; j < childItems.length; j++){
@@ -370,6 +373,7 @@ function El_SetChildren(node, templ, key, data){
                     var node_el = El_Make(templ, node, node.root_el, childData);
                     node_el._content_idtag = childData._idtag;
                     if(view){
+                        console.log('pushing stuff');
                         view.el_li.push({
                             node_idx:node_el._idtag,
                             el:node_el,
@@ -436,7 +440,7 @@ function handleEvent(event_ev){
     }
 
     var msg = "[event called]:" + event_ev.sourceType + ' ' + event_ev.spec.eventName + ' ' +event_ev.spec.spec_s;
-    console.log(msg, event_ev);
+    // console.log(msg, event_ev);
 
     if(event_ev.spec.eventName === 'templ'){
         var props = PropName(event_ev.spec.values[0]);
@@ -457,7 +461,6 @@ function handleEvent(event_ev){
         }
 
         if(type && childData){
-            console.log("SET C IV?");
             El_SetChildren(event_ev.target, type, null, childData);
         }
     }else if(event_ev.spec.eventName === 'style'){
@@ -642,12 +645,7 @@ function El_Make(templ, targetEl, rootEl, data){
         templ = window.basic.templates[templ];
     }
 
-    if(templ.name === 'viewport-view'){
-        console.debug("viewport view", templ);
-    }
-
     if(templ && templ.childrenTempl && !templ.childrenKey){
-
         var templ_s = cash(templ.childrenTempl, data);
         if(DEBUG_CHILDREN_AS){
             console.debug('Detecting funny thing ' +templ.childrenTempl + ' now with ' + templ_s, data);
@@ -668,6 +666,9 @@ function El_Make(templ, targetEl, rootEl, data){
 
     var node = document.createElement(templ.nodeName);
     node._idtag = 'el_'+String(++el_idx);
+    if(LOG_IDS_AS_ATTS){
+        node.setAttribute('data:idflag', node._idtag);
+    }
     node.vars = {};
     node.events = {};
     node.templ = templ;
@@ -747,6 +748,9 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     node.flags = templ.flags | FLAG_INITIALIZED;
+    if(templ.flags & FLAG_DRAG_CONTAINER){
+        console.log('INIT DRAG CONTAINER ' + node._idtag, templ);
+    }
 
     var onKeys = Object.keys(templ.on);
     for(var i = 0; i < onKeys.length; i++){
@@ -784,7 +788,6 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     if(childTempl){
-        console.log("SET C I");
         El_SetChildren(node, childTempl, null, data);
     }
 
@@ -795,7 +798,6 @@ function El_Make(templ, targetEl, rootEl, data){
             var childrenTempl = window.basic.templates[childrenTempl];
         }
         var templ_child = template.Templ_Merge(childrenTempl, templ);
-        console.log("SET C II");
         El_SetChildren(node, templ_child, templ.childrenKey, data);
     }
 
@@ -805,7 +807,6 @@ function El_Make(templ, targetEl, rootEl, data){
             var childrenTempl = window.basic.templates[childrenTempl];
         }
         var templ_child = template.Templ_Merge(childrenTempl, templ);
-        console.log("SET C III");
         El_SetChildren(node, templ_child, templ.childrenKey, data);
     }
 

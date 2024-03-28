@@ -9,6 +9,10 @@
         font-size: 14px;
     }
 
+    p {
+        margin: 8px 0;
+    }
+
     h1 {
         font-size: 24px;
     }
@@ -42,11 +46,6 @@
         overflow: hidden;
         border: 2px dotted #666;
         margin: 18px;
-    }
-
-    .preview-container {
-        max-width: 1000px;
-        margin: 0 auto;
     }
 
     #templates{display:none}
@@ -125,6 +124,8 @@
         overflow-x: scroll;
         max-height: 800px;
         position: relative;
+        max-width: 1000px;
+        margin: 0 auto;
     }
 
     .author {
@@ -228,7 +229,7 @@
             <span data:for="${icons}" data:style="${icon}" data-on:click="_setAction:action" data:vars="action,image" style="background-image:url(${image})"> = </span>
         </div>
     </div>
-    <div data:templ="viewport-view" data:classes="view" data:drag-elements="^#author.content">
+    <div data:templ="viewport-view">
         <div data:child-as-value="type" data-on:init="templ:^#viewport.type"  data:children-data="^#author.content" data-on:viewport-change="templ:type"></div>
     </div>
     <div data:classes="viewport" data:templ="viewport" data:commands="split,close" data:vars="type,key" data-on:set-type="_viewport-change:type">
@@ -247,7 +248,7 @@
 
     <!-- viwports -->
     <!-- edit item -->
-    <div data:classes="edit-page-container"  data:templ="edit-page" data:children="content" data:children-as="edit-page-item"></div>
+    <div data:classes="edit-page-container,view" data:drag-elements="^#author.content" data:templ="edit-page" data:children="content" data:children-as="edit-page-item"></div>
     <div data:templ="edit-page-item" data:classes="edit-page-item" data-on:drag="^drag" data:children-as="edit-page-item-${type}"></div>
     <div data:templ="edit-page-item-text">
         <div data:child="edit-item-controls"></div>
@@ -278,7 +279,7 @@
         <div data:children="images" data:children-as="edit-page-gallery-image"></div>
     </div>
     <!-- preview-items and children -->
-    <div data:classes="preview-container" data:templ="preview" data:children="content" data:children-as="preview-item"></div>
+    <div data:classes="preview-container,view" data:drag-elements="^#author.content" data:templ="preview" data:children="content" data:children-as="preview-item"></div>
     <div data:templ="preview-item" data:children-as="preview-item-${type}"></div>
     <p data:templ="preview-item-text">${text}</p>
     <h1 data:templ="preview-item-title">${text}</h1>

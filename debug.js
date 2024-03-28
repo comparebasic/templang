@@ -2,6 +2,8 @@ var DEBUG_VARS_GATHER = false;
 var DEBUG_CHILDREN_AS = false;
 var DEBUG_CASH = false;
 
+var LOG_IDS_AS_ATTS = true;
+
 var debug_el_li = [
     "preview",
     "preview-item",
