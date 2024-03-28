@@ -76,6 +76,11 @@ var content = [
 
         AddViewport(author, type);
         updateAuthorSegs(author, 1);
+;
+        if(dragTarget && dragTarget.props.dragContainer._view){
+            var viewSet = dragTarget.props.dragContainer._view._elements._views;
+            dragTarget.props.containers = Event_DropContCalc(viewSet);
+        }
     }
 
     function closeFunc(event_ev){

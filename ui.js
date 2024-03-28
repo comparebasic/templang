@@ -139,13 +139,53 @@ function UI_Init(){
         }
     }
 
+    function Event_GetDropContTargets(viewSet){
+        var targets = [];
+        for(var k in viewSet){
+            var view = viewSet[k].viewNode;
+            console.log('DRAG CONTAINER view', view);
+            if(view._view && view._view.viewNode){
+                console.log('DRAG CONTAINER views rect', );
+                targets.push({
+                    node: view._view.viewNode,
+                    pos: getDragPos(view._view.viewNode)
+                });
+            }
+        }
+        return targets;
+    }
+
     function Event_DragTargetCalc(e, drag_ev){
-        var dragView_li = drag_ev.props.dragContainer._view.el_li;
         var mouseY = e.clientY;
         var mouseX = e.clientX;
         var current = drag_ev.target;
         var wasCurrent = null;
         var wasCurrent_i = 0;
+
+        var containers = drag_ev.props.containers;
+        for(var i = 0; i < containers.length; i++){
+            var cont = containers[i];
+            var t = cont;
+            var rect = {
+                startX: t.pos.x,
+                startY: t.pos.y,
+                endX: t.pos.x + t.pos.rect.width,
+                endY: t.pos.y + t.pos.rect.height
+            };
+
+            if((mouseY >= rect.startY && mouseY <= rect.endY) &&
+                (mouseX >= rect.startX && mouseX <= rect.endX)
+            ){
+                if(cont.node !== drag_ev.props.dragContainer){
+                    console.log('Switching drag container', cont.node.vars);
+                    drag_ev.props.dragContainer = cont.node;
+                    Event_SetDragContPos(dragContainer);
+                }
+            }
+        }
+
+        var dragView_li = drag_ev.props.dragContainer._view.el_li;
+
         for(var i = 0; i < dragView_li.length; i++){
             var t = dragView_li[i];
 
@@ -275,6 +315,10 @@ function UI_Init(){
         dragVessel.style.top = y + 'px';
 
         var ev = Event_Clone(node, node._drag_ev, node._drag_ev.spec.spec_s)
+
+        var viewSet = dragContainer._view._elements._views;
+        var containers = Event_GetDropContTargets(viewSet);
+        console.log('containers are', containers);
         ev.props = {
             w:w,
             h:h,
@@ -285,6 +329,7 @@ function UI_Init(){
             place: place,
             vessel: dragVessel,
             dragContainer: dragContainer,
+            containers: containers,
             spacers: {},
             _spacer_idtag: null
         };
@@ -374,6 +419,12 @@ function UI_Init(){
         var node = this;
         if(node._hover_ev){
             handleEvent(node._hover_ev);
+        }
+        if(this == node && node.flags & FLAG_DRAG_CONTAINER){
+            console.log('drag target', dragTarget);
+            if(dragTarget && dragTarget.props.dragTarget !== node){
+                console.log('switch drag container', node.vars);
+            }
         }
         e.stopPropagation(); e.preventDefault();
     }

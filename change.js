@@ -160,6 +160,7 @@ function Change_Init(){
             console.log('NEXT SIBLING', toMove.el.nextSibling.innerHTML);
 
             Verify(view);
+            view.viewNode.flags &= ~FLAG_DRAG_CONT_CALCULATED;
             ui.Event_SetDragContPos(view.viewNode);
         }
     }
