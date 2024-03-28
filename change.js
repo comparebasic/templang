@@ -27,9 +27,9 @@ function Change_Init(){
         var idflag = 'change_' + (++change_idx);
         var change_cg = {
             idflag: idflag,
-            type: type,
-            flags: flags,
-            content: content._content_idtag,
+            type: 0,
+            flags: 0,
+            content: content._idtag,
             source: content,
             time: Date.now(),
             source_ev: event_ev,
@@ -41,8 +41,10 @@ function Change_Init(){
 
         if(event_ev.sourceType === 'drag'){
             change_cg.from = event_ev.target._content_idtag;
+            console.log('FROM', event_ev.target);
             change_cg.to = event_ev.dest.uitem.el._content_idtag;
-            change_cg.flags |= FLAG_POS_BEFORE;
+            console.log('TO', event_ev.target);
+            change_cg.flags |= flags.FLAG_POS_BEFORE;
         }
 
         return change_cg;

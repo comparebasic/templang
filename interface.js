@@ -365,7 +365,7 @@ function El_SetChildren(node, templ, key, data){
                     var childData = childItems[j];
                     NestData(childData, data);
                     var node_el = El_Make(templ, node, node.root_el, childData);
-                    node_el._content_idtag = childItems._idtag;
+                    node_el._content_idtag = childData._idtag;
                     if(childItems._views){
                         for(var idx in childItems._views){
                             var v = childItems._views[idx];

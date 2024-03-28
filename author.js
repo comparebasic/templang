@@ -122,6 +122,7 @@ var content = [
 
         var type = "preview";
         var injested = injest.Content_Injest(content, null, content);
+        console.log('CONTENT', injested);
         var data = {drag: dragFunc, content:injested};
         var author = El_Make("author", main, main, data);
         AddViewport(author, type);

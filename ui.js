@@ -109,8 +109,8 @@ function UI_Init(){
         SpacerCtx._spacer_idtag = null;
         closeSpacers();
         if(event_ev.dest !== null){
-            var content = drag_ev.props.dragContainer._view._elements;
-            var change_cg = changee.RegisterChange(event_ev, content); 
+            var content = event_ev.props.dragContainer._view._elements;
+            var change_cg = change.RegisterChange(event_ev, content); 
             console.log('CHANGE FROM DRAG AND DROP:', change_cg);
         }
     }
@@ -302,10 +302,10 @@ function UI_Init(){
                         closePlace(dragTarget);
                         setSpacer(targetData.uitem.el, dragTarget.props.h);
                     }
-                }else{
-                    dragTarget.dest = null; 
                 }
                 dragTarget.props._prev_idx = targetData.idx;
+            }else{
+                dragTarget.dest = null; 
             }
         }
     }
@@ -357,7 +357,9 @@ function UI_Init(){
     function onUnHover(e){
         var node = this;
         if(node === dragTarget){
+            /*
             dragTarget = null;
+            */
         }
         if(node._unhover_ev){
             handleEvent(node._unhover_ev);
