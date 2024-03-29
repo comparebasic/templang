@@ -1,3 +1,4 @@
+
 var content = [
     {type: "title", text: "The Whole Chicken"},
     {type: "text", text: "Cooking a whole chicken can be a great way to provide a week or so of meals for two."},
@@ -61,30 +62,24 @@ var content = [
         rect.height = window.innerHeight;
         var remaining = rect.width;
 
-        console.log('COUNTED', count);
         var child = author.firstChild;
         var i = 0;
         while(i < count){
-            console.log('outer i ' + i + ' count ' + count);
             if(child.nodeType === Node.ELEMENT_NODE){
-                console.log('i ' + i + ' count ' + count);
                 if(child.vars && child.vars['width']){
                     remaining -= child.vars['width'];
                 }else{
                     var amount = remaining / (count - i);
                     child.style.width = amount + 'px';
                     child.style.height = rect.height + 'px';
-                    var views = child.getElementsByClassName('view');
-                    for(var j = 0; j < views.length; j++){
-                        views[j].style.height = (rect.height - 16) + 'px';
-                    }
                     remaining -= amount;
                 }
                 i++;
-                console.log('incr');
             }
             child = child.nextSibling;
         }
+
+        changeStyles(null, '.viewport .view', 'height', (window.innerHeight - 16) + 'px');
     }
 
     function splitFunc(event_ev){
@@ -139,7 +134,8 @@ var content = [
                 {name: "Edit Page", key: "edit-page"},
                 {name: "Undo/Redo", key: "undo-redo"},
                 {name: "Library", key: "library"},
-                {name: "Design Layout", key: "layout"}
+                {name: "Design Layout", key: "layout"},
+                {name: "Changer Master", key: "changer"}
             ],
             update: setFunc,
         };
@@ -152,7 +148,8 @@ var content = [
         var type = "preview";
         var injested = injest.Content_Injest(content, null, content);
         console.log('CONTENT', injested);
-        var data = {drag: dragFunc, content:injested};
+        
+        var data = {drag: dragFunc, content:injested, changes: injested._queue};
         var author = El_Make("author", main, main, data);
         AddViewport(author, type);
     }

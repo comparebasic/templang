@@ -355,8 +355,11 @@
     <div data:classes="gallary" data:templ="preview-item-gallery">
         <div data:children="images" data:children-as="image"></div>
     </div>
-    <div data:templ="undo-redo">
-        Undo/Redo 
+    <!-- undeo/redo -->
+    <div data:classes="undo-redo-container,view" data:templ="undo-redo" data:children-data="^#author.content" data:children="content._queue.done" data:children-as="undo-redo-item"></div>
+    <div data:templ="undo-redo-item">
+        <div data:classes="controls" data:child="edit-item-controls"></div>
+        <div data:classes="change-body">${idflag}</div>
     </div>
     <div data:templ="library">
         Library 
@@ -364,7 +367,7 @@
     <div data:templ="layout">
        Layout 
     </div>
-    <div data:classes="author" data:commands="drag" data:vars="content" data:templ="author" data:vars="count" data:styles="single,double,tripple,quad">
+    <div data:classes="author" data:commands="drag" data:vars="content,changes" data:templ="author" data:vars="count" data:styles="single,double,tripple,quad">
     </div>
 </div>
 <header>

@@ -353,7 +353,24 @@ function El_SetChildren(node, templ, key, data){
     if(key){
         if(key && templ){
             node.innerHTML = '';
+
             var childItems = data[key];
+            var props = PropName(key);
+            if(typeof props === 'object'){
+                var childItems = data[props.name];
+                if(props.props){
+                    for(var i = 0; i < props.props.length; i++){
+                        var k = props.props[i];
+                        if(childItems[k]){
+                            childItems = childItems[k];
+                        }else{
+                            childItems = null;
+                            break;
+                        }
+                    }
+                }
+            }
+
             if(childItems){
                 var view = null;
                 if(childItems._views){
@@ -375,6 +392,8 @@ function El_SetChildren(node, templ, key, data){
                         });
                     }
                 }
+            }else{
+                console.warn('El_SetChildren - no childItems for ' + key, data);
             }
         }
     }else if(templ){
@@ -401,7 +420,6 @@ function getNodeData(node, spec_s){
     }
     if(dataNode && props.props[0]){
         return dataNode.vars[props.props[0]];
-        return data;
     }else{
         console.warn("Warn: getNodeData no data found");
         return null;
@@ -634,6 +652,9 @@ function Event_Bind(node, name, eventSpec_s){
 
 var el_idx = 0;
 function El_Make(templ, targetEl, rootEl, data){
+    if(templ === 'undo-redo'){
+        console.log('YAY!');
+    }
     var templ_s = templ;
     if(typeof templ === 'string'){
         templ = window.basic.templates[templ];
