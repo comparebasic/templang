@@ -7,6 +7,13 @@
     body {
         font-family: sans-serif;
         font-size: 14px;
+        margin: 0;
+        padding: 0;
+    }
+
+    section {
+        margin: 0;
+        padding: 0;
     }
 
     p {
@@ -105,8 +112,9 @@
     .viewport {
         position: relative;
         border: 1px solid #999;
-        padding: 12px;
         float: left;
+        padding: 0;
+        box-sizing: border-box;
     }
 
     .author.single .viewport .close {
@@ -122,10 +130,12 @@
 
     .viewport .view {
         overflow-x: scroll;
-        max-height: 800px;
         position: relative;
         max-width: 1000px;
         margin: 0 auto;
+        padding: 12px;
+        box-sizing: border-box;
+        border: 1px solid transparent;
     }
 
     .author {
@@ -151,6 +161,7 @@
     .center-v {
         position: relative;
         left:  50%;
+        top: 8px;
         transform: translateY(-50%);
     }
     .clear {
@@ -158,8 +169,56 @@
     }
     
     .edit-page-item {
+        position: relative;
         margin: 1px;
         padding: 1px;
+        clear:both;
+    }
+
+    .edit-page-item .content {
+        margin: 0 32px;
+    }
+
+    .edit-page-item .content h1,
+    .edit-page-item .content h2,
+    .edit-page-item .content h3,
+    .edit-page-item .content p
+    {
+        margin: 4px;
+        padding: 0;
+    }
+
+    .edit-page-item .controls .select,
+    .edit-page-item .controls .item-menu
+    {
+        visibility: hidden;
+    }
+
+    .edit-page-item:hover .controls .select,
+    .edit-page-item:hover .controls .item-menu
+    {
+        visibility: visible;
+    }
+
+    .edit-page-item .controls .select {
+        position: absolute;
+        left: 4px;
+        top: 4px;
+    }
+
+    .edit-page-item .controls .item-menu {
+        position: absolute;
+        right: 24px;
+        top: 6px;
+    }
+
+    .edit-page-gallery-content {
+        margin: 0 32px;
+    }
+    
+    .edit-page-gallery-image {
+        position: relative;
+        float:left;
     }
 
     article.edit-item{
@@ -207,9 +266,16 @@
     }
 
     .edit-nested {
-        position: relative;
-        margin: 0 60px;
+        margin: 4px 4px 4px 4px;
     }
+
+    .edit-page-item .edit-nested .controls .item-menu {
+        right: 8px;
+        top: 8px;
+        background: white;
+        padding: 4px;
+    }
+
 
 </style>
 <script src="debug.js" type="text/javascript"></script>
@@ -234,11 +300,11 @@
     </div>
     <div data:classes="viewport" data:templ="viewport" data:commands="split,close" data:vars="type,key" data-on:set-type="_viewport-change:type">
         <span data:classes="close" data-on:click="^close:">[X]</span>
-        <span data:classes="center-v" data-on:click="^split:#viewport.type">split view</span>
+        <span data:classes="center-v,top-control" data-on:click="^split:#viewport.type">split view</span>
         <div class="menu-cont" data:child="menu"></div>
         <div data:child="viewport-view"></div>
     </div>
-    <div data:templ="edit-item-controls">
+    <div data::classes="controls" data:templ="edit-item-controls">
         <input class="select" type="checkbox" />
         <span class="item-menu menu-icon">=</span>
     </div>
@@ -250,33 +316,34 @@
     <!-- edit item -->
     <div data:classes="edit-page-container,view" data:drag-elements="^#author.content" data:templ="edit-page" data:children="content" data:children-as="edit-page-item"></div>
     <div data:templ="edit-page-item" data:classes="edit-page-item" data-on:drag="^drag" data:children-as="edit-page-item-${type}"></div>
-    <div data:templ="edit-page-item-text">
-        <div data:child="edit-item-controls"></div>
+    <div data:classes="edit-page-item" data:vars="type" data:templ="edit-page-item-text">
+        <div data:classes="controls" data:child="edit-item-controls"></div>
         <div class="content">
             <p>${text}</p>
         </div>
     </div>
-    <div data:templ="edit-page-item-title">
-        <div data:child="edit-item-controls"></div>
+    <div data:classes="edit-page-item" data:vars="type" data:templ="edit-page-item-title">
+        <div data:classes="controls" data:child="edit-item-controls"></div>
         <div class="content">
             <h1>${text}</h1>
         </div>
     </div>
-    <div data:templ="edit-page-item-subtitle">
-        <div data:child="edit-item-controls"></div>
+    <div data:classes="edit-page-item" data:vars="type" data:templ="edit-page-item-subtitle">
+        <div data:classes="controls" data:child="edit-item-controls"></div>
         <div class="content">
             <h2>${text}</h2>
         </div>
     </div>
-    <div data:classes="edit-page-gallery-image" data:templ="edit-page-gallery-image">
+    <div data:classes="edit-page-gallery-image" data:vars="type" data:templ="edit-page-gallery-image">
         <div class="edit-nested">
-            <div data:child="edit-item-controls"></div>
+            <div data:classes="controls" data:child="edit-item-controls"></div>
+            <img data:classes="edit-image" data:templ="edit-image" data:atts="src"/>
         </div>
-        <img data:classes="edit-image" data:templ="edit-image" data:atts="src"/>
     </div>
-    <div data:classes="edit-page-gallery" data:templ="edit-page-item-gallery">
-        <div data:child="edit-item-controls"></div>
-        <div data:children="images" data:children-as="edit-page-gallery-image"></div>
+    <div data:classes="edit-page-gallery,edit-page-item" data:templ="edit-page-item-gallery">
+        <div data:classes="controls" data:child="edit-item-controls"></div>
+        <div data:classes="edit-page-gallery-content" data:children="images" data:children-as="edit-page-gallery-image"></div>
+        <div class="clear"></div>
     </div>
     <!-- preview-items and children -->
     <div data:classes="preview-container,view" data:drag-elements="^#author.content" data:templ="preview" data:children="content" data:children-as="preview-item"></div>

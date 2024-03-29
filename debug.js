@@ -3,6 +3,7 @@ var DEBUG_CHILDREN_AS = false;
 var DEBUG_CASH = false;
 
 var LOG_IDS_AS_ATTS = true;
+var LOG_INITIAL_VARS = true;
 
 var debug_el_li = [
     "preview",

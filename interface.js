@@ -357,14 +357,9 @@ function El_SetChildren(node, templ, key, data){
             if(childItems){
                 var view = null;
                 if(childItems._views){
-                    console.log("VIEWS ", childItems._views);
-                    console.log("VIEWS node idtag:", node._idtag);
                     if(childItems._views[node._idtag]){
                         view = childItems._views[node._idtag];
                         view.el_li = [];
-                        console.log('resetting view', view);
-                    }else{
-                        console.log('no view');
                     }
                 }
                 for(var j = 0; j < childItems.length; j++){
@@ -373,7 +368,6 @@ function El_SetChildren(node, templ, key, data){
                     var node_el = El_Make(templ, node, node.root_el, childData);
                     node_el._content_idtag = childData._idtag;
                     if(view){
-                        console.log('pushing stuff');
                         view.el_li.push({
                             node_idx:node_el._idtag,
                             el:node_el,
@@ -686,7 +680,6 @@ function El_Make(templ, targetEl, rootEl, data){
             _dragView.queue = change.Queue_Make(_dragView);
             templ.dragElements._views[node._idtag] = _dragView;
             node._view = _dragView;
-            console.log('setting dragView', node._idtag);
         }else{
             console.warn('NOT FOUND drag elements data');
         }
@@ -748,10 +741,6 @@ function El_Make(templ, targetEl, rootEl, data){
     }
 
     node.flags = templ.flags | FLAG_INITIALIZED;
-    if(templ.flags & FLAG_DRAG_CONTAINER){
-        console.log('INIT DRAG CONTAINER ' + node._idtag, templ);
-    }
-
     var onKeys = Object.keys(templ.on);
     for(var i = 0; i < onKeys.length; i++){
         var key = onKeys[i];

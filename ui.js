@@ -214,8 +214,6 @@ function UI_Init(){
                     var elObj = node._view.el_li[i];
                     elObj.pos = getDragPos(elObj.el);
                 }
-                console.log('UPDATED Positions for: ', node._idtag);
-                console.log('UPDATED Positions: ', node._view.el_li);
             }
         }
     }

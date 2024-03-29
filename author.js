@@ -48,20 +48,43 @@ var content = [
             count = Number(author.vars['count']);
         }
 
-        count += inc;
-        author.vars['count'] = count;
-        var style = 'single';
-        if(count == 1){
-            style = 'single'; 
-        }else if(count == 2){
-            style = 'double'; 
-        }else if(count == 3){
-            style = 'tripple'; 
-        }else if(count == 4){
-            style = 'quad'; 
+        var count = 0;
+        var child = author.firstChild;
+        while(child){
+            if(child.nodeType === Node.ELEMENT_NODE){
+                count++;
+            }
+            child = child.nextSibling;
         }
-    
-        El_SetStyle(style, author.templ, author);
+
+        var rect = document.documentElement.getBoundingClientRect();
+        rect.height = window.innerHeight;
+        var remaining = rect.width;
+
+        console.log('COUNTED', count);
+        var child = author.firstChild;
+        var i = 0;
+        while(i < count){
+            console.log('outer i ' + i + ' count ' + count);
+            if(child.nodeType === Node.ELEMENT_NODE){
+                console.log('i ' + i + ' count ' + count);
+                if(child.vars && child.vars['width']){
+                    remaining -= child.vars['width'];
+                }else{
+                    var amount = remaining / (count - i);
+                    child.style.width = amount + 'px';
+                    child.style.height = rect.height + 'px';
+                    var views = child.getElementsByClassName('view');
+                    for(var j = 0; j < views.length; j++){
+                        views[j].style.height = (rect.height - 16) + 'px';
+                    }
+                    remaining -= amount;
+                }
+                i++;
+                console.log('incr');
+            }
+            child = child.nextSibling;
+        }
     }
 
     function splitFunc(event_ev){
@@ -75,20 +98,18 @@ var content = [
         }
 
         AddViewport(author, type);
-        updateAuthorSegs(author, 1);
 ;
         var dragTarget = ui.GetDragTarget();
         if(dragTarget && dragTarget.props.dragContainer._view){
             var viewSet = dragTarget.props.dragContainer._view._elements._views;
             dragTarget.props.containers = ui.Event_GetDropContTargets(viewSet);
-            console.log('UPDATED drop containers', dragTarget.props.closeFunc);
         }
     }
 
     function closeFunc(event_ev){
         if(event_ev.dest){
             event_ev.dest.remove();
-            updateAuthorSegs(author, -1);
+            updateAuthorSegs(author);
         }
     }
 
@@ -109,6 +130,7 @@ var content = [
         var menu = MakeMenu(type);
         var data =  {type: type, menu: menu, split: splitFunc, close: closeFunc, content:author.vars['content']};
         El_Make("viewport", author, author, data);
+        updateAuthorSegs(author);
     }
 
     function MakeMenu(type){
