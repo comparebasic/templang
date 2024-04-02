@@ -1,18 +1,238 @@
-function TempLang_Init(templates_el, framework){
+
+function TempLang_Init(templates_el, funcs, framework){
 
     var STATE_TEXT = 0;
     var STATE_PRE_KEY = 1;
     var STATE_KEY = 2;
 
-    function cash(s, data){
-        if(DEBUG_CASH){
-            console.debug('CASH of :' + s, data);
+    var DIRECTION_SELF = 3;
+    var DIRECTION_PARENT = 4;
+    var DIRECTION_CHILD = 5;
+    var TYPE_HANDLER = 6;
+    var TYPE_FUNC = 7;
+    var TYPE_ELEM = 8;
+
+    function El_Match(node, compare){
+        if(Array.isArray(compare)){
+            for(let i = 0; i < compare.length; i++){
+                var comp = compare[i];
+                if(typeof comp === 'object'){
+                    for(var k in comp){
+                        if(!node.vars && !node.templ){
+                            continue;
+                        }
+                        const key2 = comp[k];
+                        if((node.vars[k] && (node.vars[k] == comp[k])) || (node.templ[k] && node.templ[k][key2])){
+                            return true;
+                        }
+                    }
+                }
+            }
         }
-        var state = STATE_TEXT;
-        var key = "";
-        var shelf = "";
-        for(var i = 0; i < s.length; i++){
-            var c = s.charAt(i);
+        return false;
+    }
+
+    function El_Query(node, spec, compare){
+        if(El_Match(node, compare)){
+            return node;
+        }
+
+        if(spec.direction === DIRECTION_PARENT && node.parentNode){
+            return El_Query(node.parentNode, spec, compare);
+        }
+
+        return null;
+    }
+
+
+    function Args_Parse(args_s){
+        return args_s.split(',');
+    }
+
+    function Spec_Parse(spec_s){
+        var spec = {
+            direction: DIRECTION_SELF, 
+            type: TYPE_HANDLER,
+            mapVars: {},
+            key: null,
+            func: null,
+        };
+        if(!spec_s){
+            return spec;
+        }
+
+        if(spec_s.indexOf(';') != -1){
+            const li = spec_s.split(';');
+            const ret = [];
+            for(let i = 0; i < li.length; i++){
+                ret.push(Spec_Parse(li[i])); 
+            }
+            return ret;
+        }
+        var key = spec_s;
+        if(key[0] === '_'){
+            spec.direction = DIRECTION_CHILD;
+            key = key.substring(1);
+        }else if(key[0] === '^'){
+            spec.direction = DIRECTION_PARENT;
+            key = key.substring(1);
+        }
+
+        if(key[0] === '#'){
+            spec.type = TYPE_ELEM;
+            key = key.substring(1);
+        }
+
+        const openP = key.indexOf('(');
+        let handler = null;
+        let closeP = -1;
+        let rest = null;
+        if(openP != -1){
+            rest = key.substring(openP+1);
+            key = key.substring(0, openP);
+            closeP = rest.indexOf(')');
+        }
+
+        if(rest && closeP != -1){
+            spec.mapVars = Map_Make(rest.substring(0, closeP));
+        }
+
+        spec.key = key;
+
+        return spec;
+    }
+
+    function CopyVars(map, to, from){
+        for(var k in map){
+            if(from[map[k]]){
+                to[k] = from[map[k]];
+            }
+        }
+    }
+
+    function Event_Run(event_ev){
+        const dest_el = El_Query(event_ev.target, event_ev.spec, [
+            {on: event_ev.spec.key},
+            {funcs: event_ev.spec.key}
+        ]);
+
+        let func = null;
+
+        if(dest_el){
+            event_ev.dest = dest_el;
+            if(dest_el.templ && dest_el.templ.funcs[event_ev.spec.key]){
+                func = dest_el.templ.funcs[event_ev.spec.key];
+            }
+        }
+
+        if(func){
+            func(event_ev);
+        }
+    }
+
+    function Event_New(target_el, e, spec){
+        var event_ev = {
+            target: target_el, /* the source of the event, e.g. clicked element */
+            dest: null, /* the destination that has the event on it */
+            e: e,
+            spec: spec,
+            vars: {}, /* end result of target vars + gathers */
+            _pior: null, /* event this event is based on */
+        }
+
+        if(target_el.vars){
+            if(spec.mapVars){
+                CopyVars(spec.mapVars, event_ev.vars, target_el.vars);
+            }
+        }
+
+        return event_ev;
+    }
+
+    function onMouseMove(e){
+        var x = e.clientX;
+        var y = e.clientY;
+    }
+
+    function onDown(e){
+        var node = this;
+        var node = this;
+        if(node._down_ev){
+            Event_Run(node._down_ev);
+        }
+        e.stopPropagation(); e.preventDefault();
+    }
+
+    function onUp(e){
+        var node = this;
+        if(node.templ && node.templ.on.mouseup){
+            Event_Run(Event_New(node, e, node.templ.on.mouseup));
+        }
+        if(node.templ && node.templ.on.click){
+            Event_Run(Event_New(node, e, node.templ.on.click));
+        }
+        e.stopPropagation(); e.preventDefault();
+    }
+
+    function onScroll(e){
+        var node = this;
+    }
+
+    function onHover(e){
+        var node = this;
+        if(node.on.hover){
+            Event_Run(Event_New(node, e, node.on.hover));
+        }
+        e.stopPropagation(); e.preventDefault();
+    }
+
+    function onUnHover(e){
+        var node = this;
+        if(node.on.unhover){
+            Event_Run(Event_New(node, e, node.on.unhover));
+        }
+        e.stopPropagation(); e.preventDefault();
+    }
+
+    function El_SetEvents(node, events){
+        if(events.mouseup || events.click){
+            node.onmouseup = onUp;
+        }
+        if(events.mousedown){
+            node.onmosuedown = onDown;
+        }
+        if(events.hover){
+            node.onmosueover = onHover;
+            node.onmosueout = onUnHover;
+        }
+    }
+
+    function Injest(content, framework){
+        if(Array.isArray(content)){
+            for(let i = 0; i < content.length; i++){
+                content._idtag = ++framework.content_idx;
+                content._idscope = 'content';
+            }
+        }
+    }
+
+    function DataScope(sel, data){
+        if(data[sel]){
+            return data[sel];
+        }
+        return null;
+    }
+
+    function Cash(s, data){
+        if(!s){
+            return "";
+        }
+
+        let state = STATE_TEXT;
+        let key = "";
+        let shelf = "";
+        for(let i = 0; i < s.length; i++){
+            const c = s.charAt(i);
             if(state == STATE_TEXT){
                 if(c == '$'){
                     state = STATE_PRE_KEY;
@@ -28,11 +248,11 @@ function TempLang_Init(templates_el, framework){
                 }
             }else if(state == STATE_KEY){
                 if(c == '}'){
-                    var scope = DataScope(key, data);
-                    if(!scope.data || (typeof scope.data === 'object')){
+                    var value = DataScope(key, data);
+                    if(!value){
                         return "";
                     }
-                    shelf += scope.data;
+                    shelf += value;
                     key = "";
                     state = STATE_TEXT;
                     continue;
@@ -41,112 +261,50 @@ function TempLang_Init(templates_el, framework){
                 }
             }
         }
-        if(DEBUG_CASH){
-            console.debug('cash result:', shelf);
-        }
         return shelf;
     }
 
     function Templ_Merge(into_templ, from_templ){
-        var templ = {
+
+        const templ = {
             nodeName: into_templ.nodeName,
             name: into_templ.name,
             flags: into_templ.flags | from_templ.flags,
             el: into_templ.el,
             on: {},
-            func: {},
+            funcs: {},
             atts: {},
             forKey: null,
             withkey: null,
             mapVars: {},
             children: from_templ.children,
+            body: into_templ.body || from_templ.body,
         };
 
-        // atts
-        for(var k in from_templ.atts){
-            templ[k] = from_templ.atts[k];
-        }
-        for(var k in into_templ.atts){
-            templ[k] = into_templ.atts[k];
-        }
-
-        // mapVars
-        for(var k in from_templ.mapVars){
-            templ[k] = from_templ.mapVars[k];
-        }
-        for(var k in into_templ.mapVars){
-            templ[k] = into_templ.mapVars[k];
+        function copyObj(name){
+            for(let k in from_templ[name]){
+                templ[name][k] = from_templ[name][k];
+            }
+            for(let k in into_templ[name]){
+                templ[name][k] = into_templ[name][k];
+            }
         }
 
-        // _misc 
-        for(var k in from_templ._misc){
-            templ[k] = from_templ._misc[k];
-        }
-        for(var k in into_templ._misc){
-            templ[k] = into_templ._misc[k];
-        }
-
+        copyObj('atts');
+        copyObj('funcs');
+        copyObj('on');
+        copyObj('mapVars');
+        copyObj('_misc');
         templ.classes = into_templ.classes.concat(from_templ.classes);
 
         return templ;
     }
 
-    function El_Make(templ, parent_el, data){
-        if(typeof templ === 'string'){
-            templ = framework.templates[templ];
-        }
-
-        if(!templ){
-            console.warn('El_Make no templ', templ);
-            return;
-        }
-
-        if(templ.forKey){
-            var childList = data[templ.forKey];
-            _templ = framework.templates[templ.nodeName];
-            if(_templ && Array.isArray(childList)){
-                var childTempl = Templ_Merge(_templ, templ);
-                for(var i = 0; i < childList.length; i++){
-                    El_Make(childTempl, parent_el, childList[i]);
-                }
-            }
-            return;
-        }
-
-        var node = document.createElement(templ.nodeName);
-        node.vars = {};
-        node.templ = templ;
-        if(data._idflag){
-            node._content_idflag = data._idflag;
-        }
-        
-        for(var k in templ.mapVars){
-            var value = data[templ.mapVars[k]];
-            if(value){
-                node.vars[k] = value;
-            }
-        }
-
-        for(var i = 0; i < templ.atts.length; i++){
-            var value = data[cash(templ.atts[i], data)];
-            if(value){
-                node.setAttribute(templ.atts, value);
-            }
-        }
-
-        var body = cash(templ.body, data);
-        if(body){
-            node.appendChild(document.createTextNode(body));
-        }
-
-        parent_el.appendChild(node);
-    }
-
     function GetDestK(key){
-        var var_k = key;
-        var dest_k = var_k;
+        const var_k = key;
+        let dest_k = var_k;
         if(/=/.test(var_k)){
-            var var_li = var_k.split('=');
+            const var_li = var_k.split('=');
             var_k = var_li[1];
             dest_k = var_li[0];
         }
@@ -156,13 +314,26 @@ function TempLang_Init(templates_el, framework){
         }
     }
 
-    function Templ_Parse(el, parentEl, dest){
+    function Map_Make(vars_s){
+        const li =  vars_s.split(',');
+        var obj = {};
+        for(let i = 0; i < li.length; i++){
+            const keys = GetDestK(li[i]);
+            if(keys){
+                obj[keys.dest_key] = keys.key;
+            }
+        }
+        return obj;
+    }
+
+    function Templ_Parse(el, parentEl){
         var templ = {
             nodeName: el.nodeName.toUpperCase(),
             name: null,
             flags: 0,
             el: el,
             on: {},
+            funcs: {},
             func: {},
             atts: {},
             forKey: null,
@@ -173,14 +344,24 @@ function TempLang_Init(templates_el, framework){
             _misc: {},
         };
 
-        for(var i = 0, l = el.attributes.length; i < l; i++){
-            var att = el.attributes[i];
+        for(let i = 0, l = el.attributes.length; i < l; i++){
+            const att = el.attributes[i];
             if(att.name == 'templ'){
                 templ.name = att.value.toUpperCase();
             }else if(/^on:/.test(att.name)){
-                var funcName = att.name.substring("on:".length);        
-                templ.on[funcName] = att.value;
-                templ.classList = att.value.split(',');
+                const name = att.name.substring("on:".length);        
+                templ.on[name] = Spec_Parse(att.value);
+            }else if(/^func:/.test(att.name)){
+                const name = att.name.substring("func:".length);        
+                const spec = Spec_Parse(att.value);
+                if(!spec.key){
+                    spec.key = name;
+                }
+                if(funcs[spec.key]){
+                    templ.funcs[name] = funcs[spec.key];
+                }else{
+                    console.warn('No func found for ' + spec.key, templ);
+                }
             }else if(att.name == 'drag'){
                 templ.dragElementSpec = att.value;
                 templ.flags |= FLAG_DRAG_CONTAINER;
@@ -189,14 +370,7 @@ function TempLang_Init(templates_el, framework){
             }else if(att.name == 'func'){
                 templ.commandKeys = [att.value];
             }else if(att.name == 'vars'){
-                var varNames = att.value.split(',');
-                for(var j = 0; j < varNames.length; j++){
-                    var k = varNames[j]
-                    var keys = GetDestK(k);
-                    if(keys){
-                        templ.mapVars[keys.dest_key] = keys.key;
-                    }
-                }
+                templ.mapVars = Map_Make(att.value);
             }else if(att.name == 'for'){
                 templ.forKey = att.value;
             }else if(att.name == 'with'){
@@ -218,7 +392,7 @@ function TempLang_Init(templates_el, framework){
         }
 
         if(templ.name){
-            dest[templ.name] = templ;
+            framework.templates[templ.name] = templ;
         }
 
         if(parentEl){
@@ -230,13 +404,81 @@ function TempLang_Init(templates_el, framework){
         }
 
         if(el.hasChildNodes()){
-            for(var i = 0, l = el.childNodes.length; i < l; i++){
-                var child = el.childNodes[i];
+            for(let i = 0, l = el.childNodes.length; i < l; i++){
+                const child = el.childNodes[i];
                 if(child.nodeType == Node.ELEMENT_NODE){
-                    Templ_Parse(child, templ, dest);
+                    Templ_Parse(child, templ);
                 }
             }
         }
+    }
+
+    function El_Make(templ, parent_el, data){
+        if(typeof templ === 'string'){
+            templ = framework.templates[templ.toUpperCase()];
+        }
+
+        if(!templ){
+            console.warn('El_Make no templ', templ);
+            return;
+        }
+
+        if(templ.forKey){
+            const childList = data[templ.forKey];
+            _templ = framework.templates[templ.nodeName];
+            if(_templ && Array.isArray(childList)){
+                const childTempl = Templ_Merge(_templ, templ);
+                for(let i = 0; i < childList.length; i++){
+                    El_Make(childTempl, parent_el, childList[i]);
+                }
+            }
+            return;
+        }
+
+        const node = document.createElement(templ.nodeName);
+        node.vars = {};
+        node.templ = templ;
+        parent_el.appendChild(node);
+
+        if(data._idflag){
+            node._content_idflag = data._idflag;
+        }
+
+        for(let k in templ.mapVars){
+            const value = data[templ.mapVars[k]];
+            if(value){
+                node.vars[k] = value;
+            }
+        }
+        
+        for(let k in templ.mapVars){
+            const value = data[templ.mapVars[k]];
+            if(value){
+                node.vars[k] = value;
+            }
+        }
+
+        El_SetEvents(node, templ.on);
+        El_SetEvents(node, templ.funcs);
+
+        for(let i = 0; i < templ.atts.length; i++){
+            const value = data[Cash(templ.atts[i], data)];
+            if(value){
+                node.setAttribute(templ.atts, value);
+            }
+        }
+
+        const body = Cash(templ.body, data);
+        if(body){
+            node.appendChild(document.createTextNode(body));
+        }
+
+        if(templ.children){
+            for(let i = 0; i < templ.children.length; i++){
+                El_Make(templ.children[i], node, data);
+            }
+        }
+
     }
 
     if(templates_el){
@@ -247,8 +489,15 @@ function TempLang_Init(templates_el, framework){
         for(var i = 0, l = nodes.length; i < l;i++){
             var el = nodes[i];
             if(el.nodeType == Node.ELEMENT_NODE){
-                Templ_Parse(el, null, framework);
+                Templ_Parse(el, null);
             }
         }
     }
+
+    framework.content_idx = 0;
+    framework.el_idx = 0;
+
+    framework.El_Make = El_Make;
+    framework.Injest = Injest;
+    framework.Cash = Cash;
 }

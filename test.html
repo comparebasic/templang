@@ -3,40 +3,45 @@
 <head>
 <meta charset="utf-8">
 <title>Compare Basic - Productivity Software</title>
+<style>
+    #templates {
+        display: none;
+    }
+</style>
 </head>
 <body>
 <section id="main">
 </section>
 <div id="templates">
     <li templ="item">${text}</li>
-    <ul templ="itemlist" vars="items">
-        <item for="items">
+    <ul templ="itemlist" vars="items" func:bg>
+        <item for="items" vars="color" on:click="^bg(color)" />
     </ul>
 </div>
 <script src="templang.js" type="text/javascript"></script>
 <script type="text/javascript">
-    templates = {};
+    var templang = {};
 
     var templates_el =  document.getElementById('templates');
-    TempLang_Init(templates_el, templates);
-    console.log('TEMPLATES', templates);
+    const funcs = {bg: (event_ev) => {
+        document.documentElement.style.background = event_ev.vars['color'];
+    }};
 
-    /*
+    TempLang_Init(templates_el, funcs, templang);
+
+    console.log('TEMPLATES', templang.templates);
+
     var content = [
-        {text: "one"},
-        {text: "two"},
-        {text: "three"},
-        {text: "four"},
+        {text: "yellow", color: '#ff0'},
+        {text: "red", color: '#f00'},
+        {text: "blue",  color: '#00f'},
+        {text: "grey", color: '#999'},
     ];
-    var injested = injest.Content_Injest(content, null, content);
 
-    var data = {items: injested};
+    templang.Injest(content, templang);
+    var data = {items: content};
     var main = document.getElementById('main'); 
-    for(var i = 0; i < injested.length; i++){
-        var author = El_Make("itemlist", main, main, data);
-    }
-    */
+    templang.El_Make("itemlist", main, data);
 </script>
-<script src="dom.js" type="text/javascript"></script>
 </body>
 </html>
