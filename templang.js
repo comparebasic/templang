@@ -59,6 +59,9 @@ function TempLang_Init(templates_el, framework){
     const TYPE_FUNC = 7;
     const TYPE_ELEM = 8;
 
+    const FLAG_NODE_STATE_HOVER = 1;
+    const FLAG_NODE_STATE_DRAG = 2;
+
     function Templ_SetFuncs(templ, funcs){
         for(let k in templ.funcs){
             if(typeof templ.funcs[k] === 'string'){
@@ -166,6 +169,13 @@ function TempLang_Init(templates_el, framework){
         return args_s.split(',');
     }
 
+    function MultiProp_Parse(args_s){
+        if(args_s.indexOf('/') != -1){
+            return args_s.split('/');
+        }else{
+            return args_s;
+        }
+    }
 
     function Statements(stmt_s, func){
         if(stmt_s.indexOf(';') != -1){
@@ -184,6 +194,8 @@ function TempLang_Init(templates_el, framework){
             direction: DIRECTION_SELF, 
             type: TYPE_HANDLER,
             mapVars: {},
+            varList: [],
+            varIsPair: false,
             key: null,
             func: null,
         };
@@ -216,7 +228,16 @@ function TempLang_Init(templates_el, framework){
         }
 
         if(rest && closeP != -1){
-            spec.mapVars = Map_Make(rest.substring(0, closeP));
+            const arg = MultiProp_Parse(rest.substring(0, closeP));
+            if(typeof arg === 'string'){
+                spec.mapVars = Map_Make(arg);
+                spec.varList = [arg];
+            }else if(Array.isArray(arg)){
+                if(arg.length == 2){
+                    spec.varIsPair = true;
+                }
+                spec.varList = arg;
+            }
         }
 
         spec.key = key;
@@ -233,17 +254,23 @@ function TempLang_Init(templates_el, framework){
     }
 
     function Event_Run(event_ev){
-        let dest_el = null;
-        if(event_ev.spec.key === 'set'){
-            dest_el = El_Query(event_ev.target, {direction: event_ev.spec.direction},  {vars: Object.keys(event_ev.spec.mapVars)});
-        }else{
-            dest_el = El_Query(event_ev.target, event_ev.spec, [
-                {on: event_ev.spec.key},
-                {funcs: event_ev.spec.key}
-            ]);
+        /*
+        console.log('Event_Run', event_ev);
+        */
+        let dest_el = event_ev.dest;
+        if(!dest_el){
+            if(event_ev.spec.key === 'set'){
+                dest_el = El_Query(event_ev.target, {direction: event_ev.spec.direction},  {vars: Object.keys(event_ev.spec.mapVars)});
+            }else{
+                dest_el = El_Query(event_ev.target, event_ev.spec, [
+                    {on: event_ev.spec.key},
+                    {funcs: event_ev.spec.key}
+                ]);
+            }
         }
 
         let func = null;
+        let sub_ev = null;
 
         if(dest_el){
             event_ev.dest = dest_el;
@@ -252,12 +279,61 @@ function TempLang_Init(templates_el, framework){
             }
         }
 
-        if(event_ev.spec.key === 'set' && dest_el){
+        if(event_ev.spec.key === 'style'){
+            if(event_ev.eventType === 'hover'){
+                if(event_ev.spec.varIsPair){
+                    event_ev.target.classList.add(event_ev.spec.varList[0]); 
+                    event_ev.target.classList.remove(event_ev.spec.varList[1]); 
+                }
+            }else if(event_ev.eventType === 'unhover'){
+                if(event_ev.spec.varIsPair){
+                    event_ev.target.classList.add(event_ev.spec.varList[1]); 
+                    event_ev.target.classList.remove(event_ev.spec.varList[0]); 
+                }
+            }
+        }if(event_ev.spec.key === 'unhover'){
+            if(event_ev.dest.templ && event_ev.dest.templ.on.hover){
+                sub_ev = {spec: event_ev.dest.templ.on.hover, target: event_ev.dest, eventType: "unhover"};
+            }
+        }else if(event_ev.spec.key === 'set' && dest_el){
             for(var k in event_ev.spec.mapVars){
                 El_SetVar(dest_el, k, event_ev.vars[k]);
             }
-        }else if(func){
+            if(dest_el.templ.on.set){
+               sub_ev = {spec: dest_el.templ.on.set};
+            }
+        }
+
+        if(sub_ev){
+           Event_Run(Event_Merge(sub_ev, event_ev)); 
+        }
+
+        if(func){
             func(event_ev);
+        }
+    }
+
+    function GetTypeFromE(e){
+        if(e && e.type){
+            if(e.type === 'mouseover'){
+                return 'hover';
+            }else if(e.type === 'mouseout'){
+                return 'unhover';
+            }else{
+                return e.type;
+            }
+        }
+    }
+
+    function Event_Merge(sub_ev, event_ev){
+         return {
+            target: sub_ev.target || event_ev.target,
+            dest: event_ev.dest,
+            e: event_ev.e,
+            spec: sub_ev.spec,
+            vars: event_ev.vars,
+            eventType: sub_ev.eventType || event_ev.eventType,
+            _pior: event_ev,
         }
     }
 
@@ -267,6 +343,7 @@ function TempLang_Init(templates_el, framework){
             dest: null, /* the destination that has the event on it */
             e: e,
             spec: spec,
+            eventType: GetTypeFromE(e),
             vars: {}, /* end result of target vars + gathers */
             _pior: null, /* event this event is based on */
         }
@@ -311,16 +388,24 @@ function TempLang_Init(templates_el, framework){
 
     function onHover(e){
         var node = this;
-        if(node.on.hover){
-            Event_Run(Event_New(node, e, node.on.hover));
+        if(node.flags & FLAG_NODE_STATE_HOVER){
+            return;
+        }
+        node.flags |= FLAG_NODE_STATE_HOVER;
+        if(node.templ && node.templ.on.hover){
+            Event_Run(Event_New(node, e, node.templ.on.hover));
         }
         e.stopPropagation(); e.preventDefault();
     }
 
     function onUnHover(e){
         var node = this;
-        if(node.on.unhover){
-            Event_Run(Event_New(node, e, node.on.unhover));
+        if((node.flags & FLAG_NODE_STATE_HOVER) == 0){
+            return;
+        }
+        node.flags &= ~FLAG_NODE_STATE_HOVER;
+        if(node.templ && node.templ.on.hover){
+            Event_Run(Event_New(node, e, node.templ.on.hover));
         }
         e.stopPropagation(); e.preventDefault();
     }
@@ -333,8 +418,8 @@ function TempLang_Init(templates_el, framework){
             node.onmosuedown = onDown;
         }
         if(events.hover){
-            node.onmosueover = onHover;
-            node.onmosueout = onUnHover;
+            node.onmouseover = onHover;
+            node.onmouseout = onUnHover;
         }
     }
 
