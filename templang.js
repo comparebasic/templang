@@ -42,7 +42,6 @@ public API:
 */
 
 function TempLang_Init(templates_el, framework){
-
     (function (host){
         if(window.location.host !== host && window.location.host !== 'localhost'){
             throw Error('This file is intended to be served from "' + host + '". The framework is licenced under the MIT license, which means you are welcome to remove this function and it\'s caller and host this file from any domain of your choosing.');
@@ -50,16 +49,29 @@ function TempLang_Init(templates_el, framework){
     })('templang.org');
 
 
-    var STATE_TEXT = 0;
-    var STATE_PRE_KEY = 1;
-    var STATE_KEY = 2;
+    const STATE_TEXT = 0;
+    const STATE_PRE_KEY = 1;
+    const STATE_KEY = 2;
 
-    var DIRECTION_SELF = 3;
-    var DIRECTION_PARENT = 4;
-    var DIRECTION_CHILD = 5;
-    var TYPE_HANDLER = 6;
-    var TYPE_FUNC = 7;
-    var TYPE_ELEM = 8;
+    const DIRECTION_SELF = 3;
+    const DIRECTION_PARENT = 4;
+    const DIRECTION_CHILD = 5;
+    const TYPE_HANDLER = 6;
+    const TYPE_FUNC = 7;
+    const TYPE_ELEM = 8;
+
+    function Templ_SetFuncs(templ, funcs){
+        for(let k in templ.funcs){
+            if(typeof templ.funcs[k] === 'string'){
+                if(funcs[k]){
+                    templ.funcs[k] = funcs[k];
+                }else{
+                    console.warn('Func not found "'+ k + '"', templ);
+                    console.warn('Func not found "'+ k + '" funcs', funcs);
+                }
+            }
+        }
+    }
 
     function El_Match(node, compare){
         if(Array.isArray(compare)){
@@ -81,6 +93,17 @@ function TempLang_Init(templates_el, framework){
         return false;
     }
 
+    function El_VarFrom(node, name, direction){
+        if(direction === DIRECTION_PARENT){
+            while(node){
+                if(node.vars && (typeof node.vars[name] !== 'undefined')){
+                    return node.vars[name];
+                }
+                node = node.parentNode;
+            }
+        }
+    }
+
     function El_Query(node, spec, compare){
         if(El_Match(node, compare)){
             return node;
@@ -93,9 +116,45 @@ function TempLang_Init(templates_el, framework){
         return null;
     }
 
+    function GatherData(node, cond, dest){
+        propval = El_VarFrom(node, cond.key, cond.var_direction);
+        if(propval !== null){
+            dest[cond.key] = propval
+        }
+    }
+
+    function El_SetClasses(node, templ, data){
+        if(!data){
+            data = {};
+            GatherData(node, templ.classIfCond, data);
+        }
+
+        const cond = templ.classIfCond;
+        if(cond && cond.key){
+            const propval = data[cond.key];
+            if(propval !== null && propval === node.vars[cond.dest_key]){
+                node.classList.add(cond.value); 
+            }else{
+                node.classList.remove(cond.value); 
+            }
+        }
+    }
 
     function Args_Parse(args_s){
         return args_s.split(',');
+    }
+
+
+    function Statements(stmt_s, func){
+        if(stmt_s.indexOf(';') != -1){
+            const li = stmt_s.split(';');
+            const ret = [];
+            for(let i = 0; i < li.length; i++){
+                ret.push(func(li[i])); 
+            }
+            return ret;
+        }
+        return func(stmt_s);
     }
 
     function Spec_Parse(spec_s){
@@ -110,14 +169,6 @@ function TempLang_Init(templates_el, framework){
             return spec;
         }
 
-        if(spec_s.indexOf(';') != -1){
-            const li = spec_s.split(';');
-            const ret = [];
-            for(let i = 0; i < li.length; i++){
-                ret.push(Spec_Parse(li[i])); 
-            }
-            return ret;
-        }
         var key = spec_s;
         if(key[0] === '_'){
             spec.direction = DIRECTION_CHILD;
@@ -317,8 +368,9 @@ function TempLang_Init(templates_el, framework){
     function Templ_Merge(into_templ, from_templ){
 
         const templ = {
-            nodeName: into_templ.nodeName,
-            name: into_templ.name,
+            nodeName: from_templ.nodeName,
+            name: into_templ.name || from_templ.name,
+            isMerged: true,
             flags: into_templ.flags | from_templ.flags,
             el: into_templ.el,
             on: {},
@@ -328,7 +380,8 @@ function TempLang_Init(templates_el, framework){
             withkey: null,
             mapVars: {},
             children: from_templ.children,
-            body: into_templ.body || from_templ.body,
+            body: into_templ.body.trim() || from_templ.body.trim(),
+            classIfCond: {},
         };
 
         function copyObj(name){
@@ -344,6 +397,7 @@ function TempLang_Init(templates_el, framework){
         copyObj('funcs');
         copyObj('on');
         copyObj('mapVars');
+        copyObj('classIfCond');
         copyObj('_misc');
         templ.classes = into_templ.classes.concat(from_templ.classes);
 
@@ -351,16 +405,48 @@ function TempLang_Init(templates_el, framework){
     }
 
     function GetDestK(key){
-        const var_k = key;
+        let var_k = key;
         let dest_k = var_k;
+        var set_v = null;
+        var var_direction = DIRECTION_SELF;
+        var dest_direction = DIRECTION_SELF;
         if(/=/.test(var_k)){
             const var_li = var_k.split('=');
             var_k = var_li[1];
             dest_k = var_li[0];
         }
+        if(var_k.indexOf(':') != -1){
+            const li = var_k.split(':');
+            var_k = li[0];
+            set_v = li[1];
+        }
+
+        if(var_k.length){ 
+            if(var_k[0] === '_'){
+                var_direction = DIRECTION_CHILD;
+                var_k = var_k.substring(1);
+            }else if(var_k[0] === '^'){
+                var_direction = DIRECTION_PARENT;
+                var_k = var_k.substring(1);
+            }
+        }
+
+        if(dest_k.length){ 
+            if(dest_k[0] === '_'){
+                dest_direction = DIRECTION_CHILD;
+                dest_k = dest_k.substring(1);
+            }else if(dest_k[0] === '^'){
+                dest_direction = DIRECTION_PARENT;
+                dest_k = dest_k.substring(1);
+            }
+        }
+
         return {
             key: var_k,
-            dest_key: dest_k
+            dest_key: dest_k,
+            value: set_v,
+            dest_direction: dest_direction,
+            var_direction: var_direction,
         }
     }
 
@@ -381,6 +467,7 @@ function TempLang_Init(templates_el, framework){
             nodeName: el.nodeName.toUpperCase(),
             name: null,
             flags: 0,
+            isMerged: false,
             el: el,
             on: {},
             funcs: {},
@@ -391,6 +478,7 @@ function TempLang_Init(templates_el, framework){
             mapVars: {},
             children: [],
             classes: [],
+            classIfCond: {},
             _misc: {},
         };
 
@@ -400,23 +488,21 @@ function TempLang_Init(templates_el, framework){
                 templ.name = att.value.toUpperCase();
             }else if(/^on:/.test(att.name)){
                 const name = att.name.substring("on:".length);        
-                templ.on[name] = Spec_Parse(att.value);
+                templ.on[name] = Statements(att.value, Spec_Parse);
             }else if(/^func:/.test(att.name)){
                 const name = att.name.substring("func:".length);        
-                const spec = Spec_Parse(att.value);
+                const spec = Statements(att.value, Spec_Parse);
                 if(!spec.key){
                     spec.key = name;
                 }
                 if(framework.funcs[spec.key]){
                     templ.funcs[name] = framework.funcs[spec.key];
                 }else{
-                    console.warn('No func found for ' + spec.key, templ);
+                    templ.funcs[name] = spec.key;
                 }
             }else if(att.name == 'drag'){
                 templ.dragElementSpec = att.value;
                 templ.flags |= FLAG_DRAG_CONTAINER;
-            }else if(att.name == 'class-if'){
-                templ.styleSetters = att.value.split(';');
             }else if(att.name == 'func'){
                 templ.commandKeys = [att.value];
             }else if(att.name == 'vars'){
@@ -436,6 +522,8 @@ function TempLang_Init(templates_el, framework){
                 templ.atts = att.value.split(',');
             }else if(att.name == 'class'){
                 templ.classes = att.value.split(' ');
+            }else if(att.name == 'class-if'){
+                templ.classIfCond = Statements(att.value, GetDestK);
             }else{
                 templ._misc[att.name] = att.value;
             }
@@ -464,24 +552,40 @@ function TempLang_Init(templates_el, framework){
     }
 
     function El_Make(templ, parent_el, data){
+        /*
+        console.log('El_Make');
+        console.log('  El_Make templ', templ);
+        console.log('  El_Make data', data);
+        */
+
         if(typeof templ === 'string'){
             templ = framework.templates[templ.toUpperCase()];
+        }else if(!templ.name){
+            const forKey = templ.forKey;
+
+            parent_templ = framework.templates[templ.nodeName];
+            if(parent_templ){
+                templ = Templ_Merge(templ, parent_templ);
+            }
+
+            if(forKey){
+                const childList = data[forKey];
+                childList._prevData = data;
+                if(Array.isArray(childList)){
+                    for(let i = 0; i < childList.length; i++){
+                        El_Make(templ, parent_el, childList[i]);
+                    }
+                }else{
+                    console.warn('Warning: for children key not found '+ forKey, data);
+                    console.warn('Warning: for children key not found templ', templ);
+                }
+                return;
+            }
+
         }
 
         if(!templ){
             console.warn('El_Make no templ', templ);
-            return;
-        }
-
-        if(templ.forKey){
-            const childList = data[templ.forKey];
-            _templ = framework.templates[templ.nodeName];
-            if(_templ && Array.isArray(childList)){
-                const childTempl = Templ_Merge(_templ, templ);
-                for(let i = 0; i < childList.length; i++){
-                    El_Make(childTempl, parent_el, childList[i]);
-                }
-            }
             return;
         }
 
@@ -508,8 +612,17 @@ function TempLang_Init(templates_el, framework){
             }
         }
 
+        if(templ.classes){
+            for(let i = 0; i < templ.classes.length; i++){
+                node.classList.add(templ.classes[i]);
+            }
+        }
+
+        Templ_SetFuncs(templ, framework.funcs);
         El_SetEvents(node, templ.on);
         El_SetEvents(node, templ.funcs);
+        El_SetClasses(node, templ, null);
+        console.log('classes set', node);
 
         for(let i = 0; i < templ.atts.length; i++){
             const value = data[Cash(templ.atts[i], data)];
@@ -525,10 +638,19 @@ function TempLang_Init(templates_el, framework){
 
         if(templ.children){
             for(let i = 0; i < templ.children.length; i++){
+                if(templ.name){
+                    if(data[templ.name]){
+                        data = data[templ.name];
+                    }else{
+                        const nameLower = templ.name.toLowerCase();
+                        if(data[nameLower]){
+                            data = data[nameLower];
+                        }
+                    }
+                }
                 El_Make(templ.children[i], node, data);
             }
         }
-
     }
 
     if(templates_el){
