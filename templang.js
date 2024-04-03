@@ -12,14 +12,11 @@ see https://templang.org/example.html for an example of the framework
 
 public API:
 
-    Templag_Init(templates_el, funcs, framework) -> undefined
+    Templag_Init(templates_el, framework) -> undefined
        - templates_el: this is the root node that contains HTML template tags
          to use with TempLang 
-       - funcs: this is an object whose values will be found to any element
-         instantiated with a funcs:<funcName> attribute
        - framework: this is an empty object that will be filled in with the
          TempLang public API functions
-
 
     upon success the "framework" object will have been modified to contain the
     following:
@@ -44,7 +41,7 @@ public API:
         - data: a data object with data used to fill the cash string
 */
 
-function TempLang_Init(templates_el, funcs, framework){
+function TempLang_Init(templates_el, framework){
 
     (function (host){
         if(window.location.host !== host && window.location.host !== 'localhost'){
@@ -410,8 +407,8 @@ function TempLang_Init(templates_el, funcs, framework){
                 if(!spec.key){
                     spec.key = name;
                 }
-                if(funcs[spec.key]){
-                    templ.funcs[name] = funcs[spec.key];
+                if(framework.funcs[spec.key]){
+                    templ.funcs[name] = framework.funcs[spec.key];
                 }else{
                     console.warn('No func found for ' + spec.key, templ);
                 }
@@ -535,10 +532,13 @@ function TempLang_Init(templates_el, funcs, framework){
     }
 
     if(templates_el){
-        var nodes = templates_el.childNodes;
-        if(!framework.templates){
+        if(typeof framework.funcs === 'undefined'){
+            framework.funcs = {};
+        }
+        if(typeof framework.templates === 'undefined'){
             framework.templates = {};
         }
+        var nodes = templates_el.childNodes;
         for(var i = 0, l = nodes.length; i < l;i++){
             var el = nodes[i];
             if(el.nodeType == Node.ELEMENT_NODE){
