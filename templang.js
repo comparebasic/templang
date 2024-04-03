@@ -89,8 +89,20 @@ function TempLang_Init(templates_el, framework){
                 }
             }
         }else{
-            if(compare.vars && typeof node.vars[compare.vars] !== 'undefined'){
-                return true;
+            let typeofVars = typeof compare.vars;
+            if(typeofVars === 'string'){
+                if(compare.vars && typeof node.vars[compare.vars] !== 'undefined'){
+                    return true;
+                }
+            }else if(typeofVars === 'object'){
+                if(Array.isArray(compare.vars)){
+                    for(var i = 0; i < compare.vars.length; i++){
+                        if(typeof node.vars[compare.vars[i]] === 'undefined'){
+                            return false;;
+                        }
+                    }
+                    return true;
+                }
             }
         }
         return false;
@@ -221,10 +233,15 @@ function TempLang_Init(templates_el, framework){
     }
 
     function Event_Run(event_ev){
-        const dest_el = El_Query(event_ev.target, event_ev.spec, [
-            {on: event_ev.spec.key},
-            {funcs: event_ev.spec.key}
-        ]);
+        let dest_el = null;
+        if(event_ev.spec.key === 'set'){
+            dest_el = El_Query(event_ev.target, {direction: event_ev.spec.direction},  {vars: Object.keys(event_ev.spec.mapVars)});
+        }else{
+            dest_el = El_Query(event_ev.target, event_ev.spec, [
+                {on: event_ev.spec.key},
+                {funcs: event_ev.spec.key}
+            ]);
+        }
 
         let func = null;
 
@@ -235,7 +252,11 @@ function TempLang_Init(templates_el, framework){
             }
         }
 
-        if(func){
+        if(event_ev.spec.key === 'set' && dest_el){
+            for(var k in event_ev.spec.mapVars){
+                El_SetVar(dest_el, k, event_ev.vars[k]);
+            }
+        }else if(func){
             func(event_ev);
         }
     }
@@ -622,6 +643,7 @@ function TempLang_Init(templates_el, framework){
     }
 
     function El_Make(templ, parent_el, data){
+
         /*
         console.log('El_Make');
         console.log('  El_Make templ', templ);
