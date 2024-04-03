@@ -48,7 +48,6 @@ function TempLang_Init(templates_el, framework){
         }
     })('templang.org');
 
-
     const STATE_TEXT = 0;
     const STATE_PRE_KEY = 1;
     const STATE_KEY = 2;
@@ -89,6 +88,10 @@ function TempLang_Init(templates_el, framework){
                     }
                 }
             }
+        }else{
+            if(compare.vars && typeof node.vars[compare.vars] !== 'undefined'){
+                return true;
+            }
         }
         return false;
     }
@@ -105,6 +108,13 @@ function TempLang_Init(templates_el, framework){
     }
 
     function El_Query(node, spec, compare){
+        /*
+        console.log('EL_Query', spec);
+        console.log('EL_Query node', node);
+        console.log('EL_Query node vars', node.vars);
+        console.log('EL_Query compare', compare);
+        */
+
         if(El_Match(node, compare)){
             return node;
         }
@@ -382,6 +392,7 @@ function TempLang_Init(templates_el, framework){
             children: from_templ.children,
             body: into_templ.body.trim() || from_templ.body.trim(),
             classIfCond: {},
+            setters: from_templ.setters,
         };
 
         function copyObj(name){
@@ -479,6 +490,7 @@ function TempLang_Init(templates_el, framework){
             children: [],
             classes: [],
             classIfCond: {},
+            setters: [],
             _misc: {},
         };
 
@@ -524,6 +536,7 @@ function TempLang_Init(templates_el, framework){
                 templ.classes = att.value.split(' ');
             }else if(att.name == 'class-if'){
                 templ.classIfCond = Statements(att.value, GetDestK);
+                templ.setters.push({scope: 'class', destK: templ.classIfCond});
             }else{
                 templ._misc[att.name] = att.value;
             }
@@ -549,6 +562,63 @@ function TempLang_Init(templates_el, framework){
                 }
             }
         }
+    }
+
+    function El_RegisterSetters(node, templ){
+        for(var i = 0; i < templ.setters.length; i++){
+            const set = templ.setters[i];
+            const scope = set.scope;
+            const destK = set.destK;
+            const source = El_Query(node, {direction: destK.var_direction}, {vars: destK.key}); 
+            if(source){
+                if(!source.varSetters[destK.key]){
+                    source.varSetters[destK.key] = {};
+                }
+                const setter = {node: node, set: set, isMatch: false};
+                source.varSetters[destK.key][node._idtag] = setter;
+                El_RunIndividualSetter(source, setter, destK.key, source.vars[destK.key]);
+            }else{
+                console.warn("El_RegisterSetters '" + destK.key + "' not found in tree", node);
+            }
+        }
+    }
+
+    function El_RunSetter(setter, value){
+        const set = setter.set;
+        const node = setter.node;
+        if(set.scope === 'class'){
+            if(setter.isMatch){
+                node.classList.add(set.destK.value);
+            }else{
+                node.classList.remove(set.destK.value);
+            }
+        }
+    }
+    
+    function El_RunIndividualSetter(node, setter, prop, value){
+        const setNode = setter.node;
+        const setterSet = setter.set;
+        let isMatch = false;
+        if(setNode.vars && typeof setNode.vars[setterSet.destK.dest_key] !== 'undefined' &&
+                setNode.vars[setterSet.destK.dest_key] === value){
+            isMatch = true;
+        }
+
+        if(isMatch !== setter.isMatch){
+            setter.isMatch = isMatch;
+            El_RunSetter(setter, value);
+        }
+    }
+
+    function El_RunNodeSetters(node, prop, value){
+        for(let k in node.varSetters[prop]){
+            El_RunIndividualSetter(node, node.varSetters[prop][k], prop, value);
+        }
+    }
+
+    function El_SetVar(node, prop, value){
+        node.vars[prop] = value;
+        El_RunNodeSetters(node, prop, value);
     }
 
     function El_Make(templ, parent_el, data){
@@ -591,7 +661,9 @@ function TempLang_Init(templates_el, framework){
 
         const node = document.createElement(templ.nodeName);
         node.vars = {};
+        node.varSetters = {};
         node.templ = templ;
+        node._idtag = 'element_'+(++framework.el_idx);
         parent_el.appendChild(node);
 
         if(data._idflag){
@@ -621,8 +693,7 @@ function TempLang_Init(templates_el, framework){
         Templ_SetFuncs(templ, framework.funcs);
         El_SetEvents(node, templ.on);
         El_SetEvents(node, templ.funcs);
-        El_SetClasses(node, templ, null);
-        console.log('classes set', node);
+        El_RegisterSetters(node, templ);
 
         for(let i = 0; i < templ.atts.length; i++){
             const value = data[Cash(templ.atts[i], data)];
