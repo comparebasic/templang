@@ -13,7 +13,6 @@ see https://templang.org for technical documentation
      * [Elem Query and Match]
      */
     function El_Match(node, compare){
-        let match = false;
         if(Array.isArray(compare)){
             for(let i = 0; i < compare.length; i++){
                 var comp = compare[i];
@@ -30,32 +29,46 @@ see https://templang.org for technical documentation
                 }
             }
         }else{
-            let typeofVars = typeof compare.vars;
-            if(typeofVars === 'string'){
-                if(compare.vars && node.vars && (typeof node.vars[compare.vars] !== 'undefined')){
-                    return true;
-                }
-            }else if(typeofVars === 'object'){
-                if(Array.isArray(compare.vars)){
-                    for(var i = 0; i < compare.vars.length; i++){
-                        if(typeof node.vars[compare.vars[i]] === 'undefined'){
-                            return false;
-                        }
-                    }
-                    match = true;
-                }
+            let match = true;
+            if(!compare.name && !compare.vars){
+                match = false;
             }
 
             if(compare.name){
                 if(node.templ && node.templ.name !== compare.name){
-                    return false;
-                }else{
-                    match = true;
+                    match = false;
                 }
             }
+
+            if(match && compare.vars){
+                let typeofVars = typeof compare.vars;
+                if(typeofVars === 'string'){
+                    if(compare.vars && node.vars && (typeof node.vars[compare.vars] === 'undefined')){
+                        match = false;
+                    }
+                }else if(typeofVars === 'object'){
+                    if(Array.isArray(compare.vars)){
+                        for(let i = 0; i < compare.vars.length; i++){
+                            if(typeof node.vars[compare.vars[i]] === 'undefined'){
+                                match = false;
+                                break;
+                            }
+                        }
+                    }else{
+                        for(let k in compare.vars){
+                            if(node.vars[k] != compare.vars[k]){
+                                match = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return match;
         }
 
-        return match;
+        return false;
     }
 
     function El_VarFrom(node, name, direction){
