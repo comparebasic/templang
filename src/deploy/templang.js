@@ -81,7 +81,7 @@ function TempLang_Init(templates_el, framework){
             }
 
             if(compare.name){
-                if(node.templ && node.templ.name !== compare.name){
+                if((!node.templ) || node.templ.name !== compare.name){
                     match = false;
                 }
             }
@@ -89,10 +89,12 @@ function TempLang_Init(templates_el, framework){
             if(match && compare.vars){
                 let typeofVars = typeof compare.vars;
                 if(typeofVars === 'string'){
+                    console.debug('vars is string', compare.vars);
                     if(compare.vars && node.vars && (typeof node.vars[compare.vars] === 'undefined')){
                         match = false;
                     }
                 }else if(typeofVars === 'object'){
+                    console.debug('vars is object', compare.vars);
                     if(Array.isArray(compare.vars)){
                         for(let i = 0; i < compare.vars.length; i++){
                             if(typeof node.vars[compare.vars[i]] === 'undefined'){
@@ -111,6 +113,8 @@ function TempLang_Init(templates_el, framework){
                 }
             }
 
+            console.debug('yay match', compare);
+            console.debug('yay match node', node);
             return match;
         }
 
@@ -495,8 +499,6 @@ function TempLang_Init(templates_el, framework){
         }
         for(var i = 0; i < order.length; i++){
             if(order[i] === DIRECTION_DATA){
-                console.debug('searching data: ' + key, framework._ctx.data);
-
                 const data = framework._ctx.data;
                 if(data[key]){
                     if(nest){
@@ -554,6 +556,7 @@ function TempLang_Init(templates_el, framework){
             const source = El_Query(node, {direction: destK.var_direction}, compare); 
 
             if(source){
+                console.debug('source', source)
                 if(!source.varSetters[destK.key]){
                     source.varSetters[destK.key] = {};
                 }
@@ -1308,9 +1311,6 @@ function TempLang_Init(templates_el, framework){
                         framework._ctx.current_idx++
                 ){
                     framework._ctx.data = framework._ctx.currentData[framework._ctx.current_idx];
-
-                    console.debug('forKey make', templ);
-                    console.debug('AS', templ);
 
                     if(par_templ.asKey){
                         const templ_s = Cash(par_templ.asKey.key, framework._ctx.data).result;
