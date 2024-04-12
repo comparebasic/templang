@@ -482,6 +482,8 @@ function TempLang_Init(templates_el, framework){
         }
         for(var i = 0; i < order.length; i++){
             if(order[i] === DIRECTION_DATA){
+                console.debug('searching data: ' + key, framework._ctx.data);
+
                 const data = framework._ctx.data;
                 if(data[key]){
                     if(nest){
@@ -568,6 +570,7 @@ function TempLang_Init(templates_el, framework){
                 El_SetStateStyle(node, node.templ, value, false);
             }
         }else if(set.scope === 'as'){
+            console.log('RUNNING as', set);
             if(value){
                 ResetCtx({data: node._data, preserveVars: true}); 
 
@@ -755,20 +758,23 @@ function TempLang_Init(templates_el, framework){
      * `as`, `for` or `with` attributes 
      */
     function Templ_Merge(into_templ, from_templ){
+        if(!into_templ){
+            into_templ = {};
+        }
         const templ = {
             nodeName: from_templ.nodeName,
             name: into_templ.name || from_templ.name,
             isMerged: true,
             flags: into_templ.flags | from_templ.flags,
-            el: into_templ.el,
+            el: into_templ.el || from_templ.el,
             asKey: from_templ.asKey,
             on: {},
             funcs: {},
             forKey: null,
             withkey: null,
             mapVars: {},
-            children: from_templ.children,
-            body: into_templ.body.trim() || from_templ.body.trim(),
+            children: (from_templ.children.length && from_templ.children) || into_templ.children || [],
+            body: (into_templ.body && into_templ.body.trim()) || from_templ.body.trim(),
             classIfCond: {},
             baseStyle: '',
             setters: from_templ.setters,
@@ -779,8 +785,10 @@ function TempLang_Init(templates_el, framework){
             for(let k in from_templ[name]){
                 templ[name][k] = from_templ[name][k];
             }
-            for(let k in into_templ[name]){
-                templ[name][k] = into_templ[name][k];
+            if(into_templ){
+                for(let k in into_templ[name]){
+                    templ[name][k] = into_templ[name][k];
+                }
             }
         }
 
@@ -788,8 +796,10 @@ function TempLang_Init(templates_el, framework){
             for(let i = 0; i < from_templ[name].length; i++){
                 templ[name][i] = from_templ[name][i];
             }
-            for(let i = 0; i < into_templ[name].length; i++){
-                templ[name][i] = into_templ[name][i];
+            if(into_templ){
+                for(let i = 0; i < into_templ[name].length; i++){
+                    templ[name][i] = into_templ[name][i];
+                }
             }
         }
 
@@ -798,12 +808,16 @@ function TempLang_Init(templates_el, framework){
         copyObj('mapVars');
         copyObj('classIfCond');
         copyObj('_misc');
-        templ.classes = into_templ.classes.concat(from_templ.classes);
         templ.baseStyle = from_templ.baseStyle;
-        if(into_templ.baseStyle && into_templ.baseStyle){
-            templ.baseStyle += ';';
+        if(into_templ.classes){
+            templ.classes = into_templ.classes.concat(from_templ.classes);
+            if(into_templ.baseStyle && into_templ.baseStyle){
+                templ.baseStyle += ';';
+            }
+            templ.baseStyle += into_templ.baseStyle;
+        }else{
+            templ.classes = [].concat(from_templ.classes);
         }
-        templ.baseStyle += into_templ.baseStyle;
 
         return templ;
     }
@@ -1258,6 +1272,8 @@ function TempLang_Init(templates_el, framework){
             if(parent_templ){
                 templ = Templ_Merge(templ, parent_templ);
             }
+        }else{
+            forKey = templ.forKey;
         }
 
 
@@ -1272,12 +1288,23 @@ function TempLang_Init(templates_el, framework){
          */
         if(forKey){
             if(Data_Search(forKey, true, [DIRECTION_DATA]) && Array.isArray(framework._ctx.currentData)){
+                const par_templ = templ;
+                let sub_templ = Templ_Merge(null, par_templ);
                 for(framework._ctx.current_idx = 0;
                         framework._ctx.current_idx < framework._ctx.currentData.length;
                         framework._ctx.current_idx++
                 ){
                     framework._ctx.data = framework._ctx.currentData[framework._ctx.current_idx];
-                    El_Make(templ, parent_el);
+
+                    console.debug('forKey make', templ);
+                    console.debug('AS', templ);
+
+                    if(par_templ.asKey){
+                        const templ_s = Cash(par_templ.asKey.key, framework._ctx.data).result;
+                        sub_templ = framework.templates[templ_s.toUpperCase()];
+                    }
+
+                    El_Make(sub_templ, parent_el);
                 }
 
                 Data_Outdent();
@@ -1343,6 +1370,9 @@ function TempLang_Init(templates_el, framework){
             El_SetEvents(node, templ.on);
             El_SetEvents(node, templ.funcs);
             El_RegisterSetters(node, templ);
+        }else{
+            console.log('Reusing Node', reuseNode);
+            console.log('Reusing Node templ', templ);
         }
 
         /* Copy in the body if it's there, Cash is used for templating values 
@@ -1365,7 +1395,8 @@ function TempLang_Init(templates_el, framework){
         /* Make children the same was as this, recursively if they were
          * part of the original template 
          */
-        if(templ.children){
+        if(templ.children.length){
+            console.log("Making children", templ.children);
             for(let i = 0; i < templ.children.length; i++){
                 if(templ.name){
                     if(data[templ.name]){
@@ -1396,13 +1427,14 @@ function TempLang_Init(templates_el, framework){
             }else{
                 templ_s = keys.key;
             }
+
+            console.log('MakeAs asKey', keys);
         }
 
         if(framework.templates[templ_s.toUpperCase()]){
             new_templ = framework.templates[templ_s.toUpperCase()];
             templ = Templ_Merge(new_templ, templ); 
         }
-
 
         while(node.hasChildNodes()){
             node.firstChild.remove();
