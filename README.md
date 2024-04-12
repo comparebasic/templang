@@ -10,15 +10,6 @@ MIT licence from [Compare Basic Incorporated](https://comparebasic.com)
 
 # Repository Layout
 
-##  Deploy File
-
-Status: Not Ready for much
-
-Please use this as an inspirational system for a while, this will change as we deploy products on it, but it is not yet ready for production use.
-
-[Deploy file: src/deploy/templang.js](src/deploy/templang.js)
-
-
 ##  Development Files
 
 The development files have been split out by section, for easy browsing
@@ -45,8 +36,17 @@ The development files have been split out by section, for easy browsing
  - [Core Functions For Element Creation](src/devel/templang_element.js)
  - [Initialized the Framework Object](src/devel/templan_init.js)
 
+##  Deploy File
 
-# TempLang: Documentation
+Status: Not Ready for much
+
+Please use this as an inspirational system for a while, this will change as we deploy products on it, but it is not yet ready for production use.
+
+[Deploy file: src/deploy/templang.js](src/deploy/templang.js)
+
+
+
+## TempLang: Documentation
 
 see [https://templang.org](https://templang.org) for an example of the framework
 
