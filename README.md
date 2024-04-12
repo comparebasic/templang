@@ -8,7 +8,45 @@ Web template framework. Bring event routing and element creation together quickl
 MIT licence from [Compare Basic Incorporated](https://comparebasic.com)
 
 
-## TempLang: Documentation
+# Repository Layout
+
+##  Deploy File
+
+Status: Not Ready for much
+
+Please use this as an inspirational system for a while, this will change as we deploy products on it, but it is not yet ready for production use.
+
+[Deploy file: src/deploy/templang.js](src/deploy/templang.js)
+
+
+##  Development Files
+
+The development files have been split out by section, for easy browsing
+
+
+### Sections:
+
+#### Internal Stuff:
+
+ - [Elem Query and Match](src/devel/templang_query.js)
+ - [Helper Functions](src/devel/templang_helpers.js)
+ - [Data And Context Functions](src/devel/templang_data.js)
+ - [Setters Run and Register](src/devel/templang_setters.js)
+ - [Parsing Templates](src/devel/templang_parse.js)
+ - [Events Native and Synthetic](src/devel/templang_events.js)
+ - [Bind and Assign Browser Events](src/devel/templang_bind_ev.js)
+
+
+#### External Stuff:
+
+ - [Styles and Stylesheet Management](src/devel/templang_styles.js)
+ - [Cash Variable-In-String Parser](src/devel/templang_cash.js)
+ - [Injest and Tag Data](src/devel/templang_injest.js)
+ - [Core Functions For Element Creation](src/devel/templang_element.js)
+ - [Initialized the Framework Object](src/devel/templan_init.js)
+
+
+# TempLang: Documentation
 
 see [https://templang.org](https://templang.org) for an example of the framework
 
@@ -48,39 +86,3 @@ see [https://templang.org](https://templang.org) for an example of the framework
         - data: a data object with data used to fill the cash string
 
 
-# Repository Layout
-
-##  Deploy File
-
-Status: Not Ready for much
-
-Please use this as an inspirational system for a while, this will change as we deploy products on it, but it is not yet ready for production use.
-
-[Deploy file: src/deploy/templang.js](src/deploy/templang.js)
-
-
-##  Development Files
-
-The development files have been split out by section, for easy browsing
-
-
-### Sections:
-
-#### Internal Stuff:
-
- - [Elem Query and Match](src/devel/templang_query.js)
- - [Helper Functions](src/devel/templang_helpers.js)
- - [Data And Context Functions](src/devel/templang_data.js)
- - [Setters Run and Register](src/devel/templang_setters.js)
- - [Parsing Templates](src/devel/templang_parse.js)
- - [Events Native and Synthetic](src/devel/templang_events.js)
- - [Bind and Assign Browser Events](src/devel/templang_bind_ev.js)
-
-
-#### External Stuff:
-
- - [Styles and Stylesheet Management](src/devel/templang_styles.js)
- - [Cash Variable-In-String Parser](src/devel/templang_cash.js)
- - [Injest and Tag Data](src/devel/templang_injest.js)
- - [Core Functions For Element Creation](src/devel/templang_element.js)
- - [Initialized the Framework Object](src/devel/templan_init.js)
