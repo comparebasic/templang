@@ -7,6 +7,29 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 see https://templang.org for technical documentation
+
+
+How to Read This for Documentation:
+
+Sections:
+
+[Initialized the Framework Object]
+[Core Functions For Element Creation]
+[Data And Context Functions]
+[Setters Run and Register]
+[Parsing Templates]
+[Helper Functions]
+[Cash Variable-in-strin Parser]
+[Styles and Stylesheet Management]
+[Elem Query and Match]
+[Events Native and Synthetic]
+[Bind and Assign Browser Events]
+[Injest and Tag Data]
+
+
+
+
+
 */
 
 function TempLang_Init(templates_el, framework){
@@ -31,56 +54,9 @@ function TempLang_Init(templates_el, framework){
 
     const isTouchDevice = !!('ontouchstart' in window);
 
-    function ResetCtx(args){
-        if(typeof framework._ctx === 'undefined'){
-           framework._ctx =  {vars: {}, data: {}, current_idx: 0, currentData: {}, prevData:[], ev: null};
-        }
-        /*
-        console.log('      resetting          vars was:', framework._ctx.vars);
-        */
-        if(args.data){
-            const data = args.data;
-            framework._ctx.data = data;
-            framework._ctx.currentData = data;
-            framework._ctx.current_idx = 0;
-            if(framework._ctx.prevData.indexOf(data) == -1){
-                framework._ctx.prevData.push(data);
-            }
-        }else{
-            framework._ctx.currentData = null;
-            framework._ctx.current_idx = 0;
-        }
-
-        if(args.ev !== undefined){
-            framework._ctx.ev = args.ev;
-        }
-
-        if(!args.preserveVars){
-            framework._ctx.vars = {};
-        }
-    }
-
-    function ClearCtx(){
-        framework._ctx.vars = {};
-        framework._ctx.data = {};
-        framework._ctx.currentData = {};
-        framework._ctx.prevData = [];
-    }
-
-    function PopDataCtx(data){
-        const idx = framework._ctx.prevData.length;
-        if(idx == 0){
-           return null; 
-        }
-
-        idx--;
-        if(data === framework._ctx.prevData[idx]){
-            return framework._ctx.prevData.pop();
-        }
-
-       return null; 
-    }
-
+    /*
+     * [Styles and Stylesheet Management]
+     */
     function GetstyleSheet(sheet_s){
         var name_s = sheet_s;
         if(sheet_s === null){
@@ -104,6 +80,28 @@ function TempLang_Init(templates_el, framework){
             }
         }
         return null;
+    }
+
+    function GetStyleRule(sheetObj, cls){
+        if(sheetObj.cls[cls]){
+            return sheetObj.cls[cls];
+        }
+        for(var i = 0; i < sheetObj.sheet.rules.length; i++){
+            var rule = sheetObj.sheet.rules[i];
+            if(rule.selectorText == cls){
+                sheetObj.cls[cls] = rule;
+                return rule;
+            }
+        }
+        return null;
+    }
+
+    function ChangeStyle(sheet_s, name, att, value){
+        var sheetObj = GetstyleSheet(sheet_s);
+        if(sheetObj){
+            var rule = GetStyleRule(sheetObj, name);
+            rule.style[att] = value;
+        }
     }
 
     function El_SetStateStyle(node, templ, stateStyle, add){
@@ -137,27 +135,23 @@ function TempLang_Init(templates_el, framework){
         }
     }
 
-    function GetStyleRule(sheetObj, cls){
-        if(sheetObj.cls[cls]){
-            return sheetObj.cls[cls];
+    function El_SetClasses(node, templ, data){
+        if(!data){
+            data = {};
+            GatherData(node, templ.classIfCond, data);
         }
-        for(var i = 0; i < sheetObj.sheet.rules.length; i++){
-            var rule = sheetObj.sheet.rules[i];
-            if(rule.selectorText == cls){
-                sheetObj.cls[cls] = rule;
-                return rule;
+
+        const cond = templ.classIfCond;
+        if(cond && cond.key){
+            const propval = data[cond.key];
+            if(propval !== null && propval === node.vars[cond.dest_key]){
+                node.classList.add(cond.value); 
+            }else{
+                node.classList.remove(cond.value); 
             }
         }
-        return null;
     }
 
-    function ChangeStyle(sheet_s, name, att, value){
-        var sheetObj = GetstyleSheet(sheet_s);
-        if(sheetObj){
-            var rule = GetStyleRule(sheetObj, name);
-            rule.style[att] = value;
-        }
-    }
 
     function AddStyle(sheet_s, rule_s){
         var sheetObj = GetstyleSheet(sheet_s);
@@ -166,19 +160,39 @@ function TempLang_Init(templates_el, framework){
         }
     }
 
-    function Templ_SetFuncs(templ, funcs){
-        for(let k in templ.funcs){
-            if(typeof templ.funcs[k] === 'string'){
-                if(funcs[k]){
-                    templ.funcs[k] = funcs[k];
-                }else{
-                    console.warn('Func not found "'+ k + '"', templ);
-                    console.warn('Func not found "'+ k + '" funcs', funcs);
+
+    function CopyVars(map, to, from){
+        if(Array.isArray(map)){
+            for(let i = 0; i < map.length; i++){
+                if(from[map[i]] !== undefined){
+                    const _k = map[i];
+                    const _v = from[map[i]]
+                    to[_k] = _v;
+                    // framework._ctx.vars[_k] = _v;
+                }
+            }
+        }else{
+            for(var k in map){
+                let value;
+                if(map[k].cash.isCash){
+                    value = Cash(map[k].key, from).result;
+                }else if(from[map[k].key] !== undefined){
+                    value = from[map[k].key];
+                }
+                
+                if(value !== undefined){
+                    const _k = map[k].dest_key;
+                    to[_k] = value;
+                    framework._ctx.vars[_k] = value;
                 }
             }
         }
     }
 
+
+    /* 
+     * [Elem Query and Match]
+     */
     function El_Match(node, compare){
         let match = false;
         if(Array.isArray(compare)){
@@ -237,14 +251,6 @@ function TempLang_Init(templates_el, framework){
     }
 
     function El_Query(node, spec, compare){
-
-        /*
-        console.log('EL_Query', spec);
-        console.log('EL_Query node', node);
-        console.log('EL_Query node vars', node.vars);
-        console.log('EL_Query compare', compare);
-        */
-
         if(compare._tries === undefined){
             compare._tries = 1;
         }else{
@@ -275,148 +281,12 @@ function TempLang_Init(templates_el, framework){
         return null;
     }
 
-    function GatherData(node, cond, dest){
-        propval = El_VarFrom(node, cond.key, cond.var_direction);
-        if(propval !== null){
-            dest[cond.key] = propval
-        }
-    }
 
-
-    function El_SetClasses(node, templ, data){
-        if(!data){
-            data = {};
-            GatherData(node, templ.classIfCond, data);
-        }
-
-        const cond = templ.classIfCond;
-        if(cond && cond.key){
-            const propval = data[cond.key];
-            if(propval !== null && propval === node.vars[cond.dest_key]){
-                node.classList.add(cond.value); 
-            }else{
-                node.classList.remove(cond.value); 
-            }
-        }
-    }
-
-    function Args_Parse(args_s){
-        return args_s.split(',');
-    }
-
-    function MultiProp_Parse(args_s){
-        if(args_s.indexOf('/') != -1){
-            return args_s.split('/');
-        }else{
-            return args_s;
-        }
-    }
-
-    function Statements(stmt_s, func, c){
-        if(!c){
-            c = ';';
-        }
-        if(stmt_s.indexOf(c) != -1){
-            const li = stmt_s.split(c);
-            const ret = [];
-            for(let i = 0; i < li.length; i++){
-                ret.push(func(li[i])); 
-            }
-            return ret;
-        }
-        return func(stmt_s);
-    }
-
-    function Spec_Parse(spec_s){
-        var spec = {
-            direction: DIRECTION_SELF, 
-            type: TYPE_HANDLER,
-            mapVars: {},
-            varList: [],
-            varIsPair: false,
-            key: null,
-            func: null,
-        };
-        if(!spec_s){
-            return spec;
-        }
-
-        var key = spec_s;
-        if(key[0] === '_'){
-            spec.direction = DIRECTION_CHILD;
-            key = key.substring(1);
-        }else if(key[0] === '^'){
-            spec.direction = DIRECTION_PARENT;
-            key = key.substring(1);
-        }
-
-        if(key[0] === '#'){
-            spec.type = TYPE_ELEM;
-            key = key.substring(1);
-        }
-
-        const openP = key.indexOf('(');
-        let handler = null;
-        let closeP = -1;
-        let rest = null;
-        if(openP != -1){
-            rest = key.substring(openP+1);
-            key = key.substring(0, openP);
-            closeP = rest.indexOf(')');
-        }
-
-        if(rest && closeP != -1){
-            const arg = MultiProp_Parse(rest.substring(0, closeP));
-            if(typeof arg === 'string'){
-                spec.mapVars = Map_Make(arg);
-                spec.varList = [arg];
-            }else if(Array.isArray(arg)){
-                if(arg.length == 2){
-                    spec.varIsPair = true;
-                }
-                spec.varList = arg;
-            }
-        }
-
-        spec.key = key;
-
-        return spec;
-    }
-
-    function CopyVars(map, to, from){
-        if(Array.isArray(map)){
-            for(let i = 0; i < map.length; i++){
-                if(from[map[i]] !== undefined){
-                    const _k = map[i];
-                    const _v = from[map[i]]
-                    to[_k] = _v;
-                    // framework._ctx.vars[_k] = _v;
-                }
-            }
-        }else{
-            for(var k in map){
-                let value;
-                if(map[k].cash.isCash){
-                    value = Cash(map[k].key, from).result;
-                }else if(from[map[k].key] !== undefined){
-                    value = from[map[k].key];
-                }
-                
-                if(value !== undefined){
-                    const _k = map[k].dest_key;
-                    to[_k] = value;
-                    framework._ctx.vars[_k] = value;
-                }
-            }
-        }
-    }
-
+    /*
+     * [Events Native and Synthetic]
+    */
     function Event_Run(event_ev){
         let r = false;
-        /*
-        console.log('Event_Run '+event_ev.spec.key, event_ev);
-        */
-
         if(framework._ctx.ev === null){
             framework._ctx.ev = event_ev;
         }
@@ -469,9 +339,6 @@ function TempLang_Init(templates_el, framework){
         }else if(event_ev.spec.key === 'set'){
             var tg = event_ev.dest || event_ev.target;
             for(var k in event_ev.spec.mapVars){
-                /*
-                console.log('Setting var: ' + k + ' -> ' + event_ev.vars[k], tg.templ && tg.templ.name);
-                */
                 r = El_SetVar(tg, k, event_ev.vars[k]);
             }
             if(event_ev.dest && event_ev.dest.templ.on.set){
@@ -520,6 +387,7 @@ function TempLang_Init(templates_el, framework){
         }
     }
 
+    /* Events are merged when they trigger a related event */
     function Event_Merge(sub_ev, event_ev){
          const ev = {
             target: sub_ev.target || event_ev.target,
@@ -538,13 +406,6 @@ function TempLang_Init(templates_el, framework){
             }
             CopyVars(ev.spec.mapVars, ev.vars, event_ev.vars);
         }
-
-        /*
-        console.log('Event_Merge ' + ev.spec.key + ' vars: ', ev.vars);
-        console.log('    Event_Merge mapVars ' + event_ev.spec.key + ' vars: ', ev.spec.mapVars);
-        console.log('    Event_Merge orig ' + event_ev.spec.key + ' vars: ', event_ev.vars);
-        console.log('    Event_Merge sub ' + sub_ev.spec.key + ' vars: ', sub_ev.vars);
-        */
 
         return ev;
     }
@@ -566,12 +427,12 @@ function TempLang_Init(templates_el, framework){
             }
         }
 
-        /*
-        console.log('Event "' + spec.key + '" vars:', event_ev.vars);
-        */
-
         return event_ev;
     }
+
+    /* 
+     * [Bind and Assign Browser Events]
+     */
 
     function onMouseMove(e){
         var x = e.clientX;
@@ -654,6 +515,9 @@ function TempLang_Init(templates_el, framework){
         }
     }
 
+    /*
+     * [Injest and Tag Data]
+     */
     function Injest(content){
         const framework = this;
         if(Array.isArray(content)){
@@ -663,14 +527,11 @@ function TempLang_Init(templates_el, framework){
         }
     }
 
-    function DataScope(sel, data){
-        if(data && data[sel]){
-            return data[sel];
-        }
-        return null;
-    }
-
-
+    /* 
+     *[Cash Variable-in-strin Parser]
+     *
+     * This is the function that allows variables to exist in strings
+     */
     function Cash(s, data, prepare){
         const result = {
             arg: s,
@@ -735,120 +596,18 @@ function TempLang_Init(templates_el, framework){
         return result;
     }
 
-    function El_MakeAs(node, parentNode, data){
-        let templ = null;
-        templ = node.templ;
 
-        let templ_s = '';
-        if(templ.asKey){
-            const keys = templ.asKey;
+    /*
+     * [Helper Functions]
+     */
 
-            templ_s = keys.key;
-            if(keys.cash.isCash){
-                templ_s = Cash(keys.key, data).result; 
-            }else{
-                templ_s = keys.key;
-            }
-        }
-
-        if(framework.templates[templ_s.toUpperCase()]){
-            new_templ = framework.templates[templ_s.toUpperCase()];
-            templ = Templ_Merge(new_templ, templ); 
-        }
-
-
-        while(node.hasChildNodes()){
-            node.firstChild.remove();
-        }
-        
-        El_Make(templ, parentNode, node);
-    }
-
-    function Templ_Merge(into_templ, from_templ){
-
-        const templ = {
-            nodeName: from_templ.nodeName,
-            name: into_templ.name || from_templ.name,
-            isMerged: true,
-            flags: into_templ.flags | from_templ.flags,
-            el: into_templ.el,
-            asKey: from_templ.asKey,
-            on: {},
-            funcs: {},
-            atts: {},
-            forKey: null,
-            withkey: null,
-            mapVars: {},
-            children: from_templ.children,
-            body: into_templ.body.trim() || from_templ.body.trim(),
-            classIfCond: {},
-            baseStyle: '',
-            setters: from_templ.setters,
-            _misc: {},
-        };
-
-        function copyObj(name){
-            for(let k in from_templ[name]){
-                templ[name][k] = from_templ[name][k];
-            }
-            for(let k in into_templ[name]){
-                templ[name][k] = into_templ[name][k];
-            }
-        }
-
-        function copyList(name){
-            for(let i = 0; i < from_templ[name].length; i++){
-                templ[name][i] = from_templ[name][i];
-            }
-            for(let i = 0; i < into_templ[name].length; i++){
-                templ[name][i] = into_templ[name][i];
-            }
-        }
-
-        copyObj('atts');
-        copyObj('funcs');
-        copyObj('on');
-        copyObj('mapVars');
-        copyObj('classIfCond');
-        copyObj('_misc');
-        templ.classes = into_templ.classes.concat(from_templ.classes);
-        templ.baseStyle = from_templ.baseStyle;
-        if(into_templ.baseStyle && into_templ.baseStyle){
-            templ.baseStyle += ';';
-        }
-        templ.baseStyle += into_templ.baseStyle;
-
-        return templ;
-    }
-
-    function blankDestKLiteral(key){
-        let key_direction = DIRECTION_SELF;
-        if(key[0] === '_'){
-            key_direction = DIRECTION_CHILD;
-            key = key.substring(1);
-        }else if(key[0] === '^'){
-            key_direction = DIRECTION_PARENT;
-            key = key.substring(1);
-        }else if(key[0] === '.'){
-            key_direction = DIRECTION_DATA;
-            key = key.substring(1);
-        }
-
-        return {
-            key: key,
-            dest_key: key,
-            value: null,
-            dest_direction: DIRECTION_SELF,
-            var_direction: key_direction,
-            cash: {
-                arg: key,
-                result: key,
-                isCash: false,
-                vars: [],
-            }
-        };
-    }
-
+    /* 
+     * This is the workhorse behind the alias and whery method.
+     * It makese sense of things like
+     *
+     * ^type - refering to the `type` variable of a parent
+     * key=value - refers to a property named `key` derived from a peroperty named `value`
+     */
     function GetDestK(key){
         let var_k = key;
         let dest_k = var_k;
@@ -917,6 +676,139 @@ function TempLang_Init(templates_el, framework){
         }
     }
 
+    function blankDestKLiteral(key){
+        let key_direction = DIRECTION_SELF;
+        if(key[0] === '_'){
+            key_direction = DIRECTION_CHILD;
+            key = key.substring(1);
+        }else if(key[0] === '^'){
+            key_direction = DIRECTION_PARENT;
+            key = key.substring(1);
+        }else if(key[0] === '.'){
+            key_direction = DIRECTION_DATA;
+            key = key.substring(1);
+        }
+
+        return {
+            key: key,
+            dest_key: key,
+            value: null,
+            dest_direction: DIRECTION_SELF,
+            var_direction: key_direction,
+            cash: {
+                arg: key,
+                result: key,
+                isCash: false,
+                vars: [],
+            }
+        };
+    }
+
+    function GatherData(node, cond, dest){
+        propval = El_VarFrom(node, cond.key, cond.var_direction);
+        if(propval !== null){
+            dest[cond.key] = propval
+        }
+    }
+
+
+    function MultiProp_Parse(args_s){
+        if(args_s.indexOf('/') != -1){
+            return args_s.split('/');
+        }else{
+            return args_s;
+        }
+    }
+
+    function Statements(stmt_s, func, c){
+        if(!c){
+            c = ';';
+        }
+        if(stmt_s.indexOf(c) != -1){
+            const li = stmt_s.split(c);
+            const ret = [];
+            for(let i = 0; i < li.length; i++){
+                ret.push(func(li[i])); 
+            }
+            return ret;
+        }
+        return func(stmt_s);
+    }
+
+
+    /* 
+    * Spec parse is the frist line of interpreting handler declarations 
+    */
+    function Spec_Parse(spec_s){
+        var spec = {
+            direction: DIRECTION_SELF, 
+            type: TYPE_HANDLER,
+            mapVars: {},
+            varList: [],
+            varIsPair: false,
+            key: null,
+            func: null,
+        };
+        if(!spec_s){
+            return spec;
+        }
+
+        var key = spec_s;
+        if(key[0] === '_'){
+            spec.direction = DIRECTION_CHILD;
+            key = key.substring(1);
+        }else if(key[0] === '^'){
+            spec.direction = DIRECTION_PARENT;
+            key = key.substring(1);
+        }
+
+        if(key[0] === '#'){
+            spec.type = TYPE_ELEM;
+            key = key.substring(1);
+        }
+
+        const openP = key.indexOf('(');
+        let handler = null;
+        let closeP = -1;
+        let rest = null;
+        if(openP != -1){
+            rest = key.substring(openP+1);
+            key = key.substring(0, openP);
+            closeP = rest.indexOf(')');
+        }
+
+        if(rest && closeP != -1){
+            const arg = MultiProp_Parse(rest.substring(0, closeP));
+            if(typeof arg === 'string'){
+                spec.mapVars = Map_Make(arg);
+                spec.varList = [arg];
+            }else if(Array.isArray(arg)){
+                if(arg.length == 2){
+                    spec.varIsPair = true;
+                }
+                spec.varList = arg;
+            }
+        }
+
+        spec.key = key;
+
+        return spec;
+    }
+
+
+    function Templ_SetFuncs(templ, funcs){
+        for(let k in templ.funcs){
+            if(typeof templ.funcs[k] === 'string'){
+                if(funcs[k]){
+                    templ.funcs[k] = funcs[k];
+                }else{
+                    console.warn('Func not found "'+ k + '"', templ);
+                    console.warn('Func not found "'+ k + '" funcs', funcs);
+                }
+            }
+        }
+    }
+
     function Map_Make(vars_s){
         const li =  vars_s.split(',');
         var obj = {};
@@ -935,6 +827,13 @@ function TempLang_Init(templates_el, framework){
         return obj;
     }
 
+    /* 
+     * [Parsing Templates]
+     *
+     * This is the main parse function, it interprets HTML elmeents which
+     * contain tags and attributes used to form templates used to inflate
+     * elements.
+     */
     function Templ_Parse(el, parentEl){
         var templ = {
             nodeName: el.nodeName.toUpperCase(),
@@ -945,7 +844,6 @@ function TempLang_Init(templates_el, framework){
             on: {},
             funcs: {},
             func: {},
-            atts: {},
             forKey: null,
             withkey: null,
             mapVars: {},
@@ -1027,8 +925,6 @@ function TempLang_Init(templates_el, framework){
             }else if(att.name == 'if-not'){
                 templ.forKey = att.value;
                 templ.childrenKey = att.value;
-            }else if(att.name == 'atts'){
-                templ.atts = att.value.split(',');
             }else if(att.name == 'class'){
                 templ.classes = att.value.split(' ');
             }else if(att.name == 'class-if'){
@@ -1061,6 +957,67 @@ function TempLang_Init(templates_el, framework){
         }
     }
 
+    /* 
+     * Merging happens when a template populates a different one, usually using
+     * `as`, `for` or `with` attributes 
+     */
+    function Templ_Merge(into_templ, from_templ){
+        const templ = {
+            nodeName: from_templ.nodeName,
+            name: into_templ.name || from_templ.name,
+            isMerged: true,
+            flags: into_templ.flags | from_templ.flags,
+            el: into_templ.el,
+            asKey: from_templ.asKey,
+            on: {},
+            funcs: {},
+            forKey: null,
+            withkey: null,
+            mapVars: {},
+            children: from_templ.children,
+            body: into_templ.body.trim() || from_templ.body.trim(),
+            classIfCond: {},
+            baseStyle: '',
+            setters: from_templ.setters,
+            _misc: {},
+        };
+
+        function copyObj(name){
+            for(let k in from_templ[name]){
+                templ[name][k] = from_templ[name][k];
+            }
+            for(let k in into_templ[name]){
+                templ[name][k] = into_templ[name][k];
+            }
+        }
+
+        function copyList(name){
+            for(let i = 0; i < from_templ[name].length; i++){
+                templ[name][i] = from_templ[name][i];
+            }
+            for(let i = 0; i < into_templ[name].length; i++){
+                templ[name][i] = into_templ[name][i];
+            }
+        }
+
+        copyObj('funcs');
+        copyObj('on');
+        copyObj('mapVars');
+        copyObj('classIfCond');
+        copyObj('_misc');
+        templ.classes = into_templ.classes.concat(from_templ.classes);
+        templ.baseStyle = from_templ.baseStyle;
+        if(into_templ.baseStyle && into_templ.baseStyle){
+            templ.baseStyle += ';';
+        }
+        templ.baseStyle += into_templ.baseStyle;
+
+        return templ;
+    }
+
+    /*
+     * [Setters Run and Register]
+     */
     function El_RegisterSetters(node, templ){
         for(var i = 0; i < templ.setters.length; i++){
             const set = templ.setters[i];
@@ -1074,13 +1031,6 @@ function TempLang_Init(templates_el, framework){
             const source = El_Query(node, {direction: destK.var_direction}, compare); 
 
             if(source){
-                /*
-                console.log('Source of setter :' , set);
-                console.log('Source of setter source', source);
-                console.log('Source of setter source node', node);
-                console.log('--');
-                */
-
                 if(!source.varSetters[destK.key]){
                     source.varSetters[destK.key] = {};
                 }
@@ -1134,40 +1084,25 @@ function TempLang_Init(templates_el, framework){
         }
 
         if(isMatch == null || isMatch !== setter.isMatch){
-            /*
-            console.log('El_RunIndividualSetter '+ setter.set.scope +' | isMatch ' + prop + ' -> ' + value + ' vs '  + setNode.vars[setterSet.destK.dest_key] +  ' ' +isMatch + ' vs ' + setter.isMatch, setter);
-            */
             setter.isMatch = isMatch;
             El_RunSetter(setter, value);
-        }else{
-            /*
-            console.log('El_RunIndividualSetter '+ setter.set.scope  + ' not a mismatch', isMatch);
-            console.log('El_RunIndividualSetter '+ setter.set.scope +' | isMatch ' + prop + ' -> ' + value + ' vs '  + setNode.vars[setterSet.destK.dest_key] +  ' ' +isMatch + ' vs ' + setter.isMatch, setter);
-            console.log('El_RunIndividualSetter '+setter.set.scope , setterSet.destK);
-            console.log('El_RunIndividualSetter '+setter.set.scope , setNode);
-            */
         }
     }
 
     function El_RunNodeSetters(node, prop, value){
-        /*
-        console.log('--> node setters for ' + (node.templ.name || node.templ.nodeName), node.varSetters);
-        */
         for(let k in node.varSetters[prop]){
             El_RunIndividualSetter(node, node.varSetters[prop][k], prop, value);
         }
     }
 
+    /* 
+     * Set a variable on an object, this is instrumental in running listeners
+     * which trigger most of the interactive behaviour of the framework. 
+     */
     function El_SetVar(node, prop, value){
         if(node.vars[prop] !== value){
             if(!node.templ.name && node.templ.nodeName == 'DIV'){
-                /*
-                console.log('El_SetVar: ' + prop + ' ' + value, node);
-                */
             }else{
-                /*
-                console.log('    El_SetVar: ' + prop + ' ' + value, node);
-                */
             }
             El_RunNodeSetters(node, prop, value);
             node.vars[prop] = value;
@@ -1177,6 +1112,9 @@ function TempLang_Init(templates_el, framework){
         return false;
     }
 
+    /*
+     * [Data And Context Functions]
+     */
     function Data_MakeCtx(data){
         if(!data._ctx){
             return {_ctx: {vars: {}}, current: data, prevData: []};
@@ -1191,14 +1129,65 @@ function TempLang_Init(templates_el, framework){
         framework._ctx.current_idx = 0;
     }
 
+    function ResetCtx(args){
+        if(typeof framework._ctx === 'undefined'){
+           framework._ctx =  {vars: {}, data: {}, current_idx: 0, currentData: {}, prevData:[], ev: null};
+        }
+        if(args.data){
+            const data = args.data;
+            framework._ctx.data = data;
+            framework._ctx.currentData = data;
+            framework._ctx.current_idx = 0;
+            if(framework._ctx.prevData.indexOf(data) == -1){
+                framework._ctx.prevData.push(data);
+            }
+        }else{
+            framework._ctx.currentData = null;
+            framework._ctx.current_idx = 0;
+        }
+
+        if(args.ev !== undefined){
+            framework._ctx.ev = args.ev;
+        }
+
+        if(!args.preserveVars){
+            framework._ctx.vars = {};
+        }
+    }
+
+    function ClearCtx(){
+        framework._ctx.vars = {};
+        framework._ctx.data = {};
+        framework._ctx.currentData = {};
+        framework._ctx.prevData = [];
+    }
+
+    function PopDataCtx(data){
+        const idx = framework._ctx.prevData.length;
+        if(idx == 0){
+           return null; 
+        }
+
+        idx--;
+        if(data === framework._ctx.prevData[idx]){
+            return framework._ctx.prevData.pop();
+        }
+
+       return null; 
+    }
+
+    function DataScope(sel, data){
+        if(data && data[sel]){
+            return data[sel];
+        }
+        return null;
+    }
+
     function Data_Search(key, nest, order){
         let value = null;
         if(!order){
             order = [DIRECTION_VARS, DIRECTION_CURRENT_DATA, DIRECTION_DATA, DIRECTION_PREV_DATA];
         }
-        /*
-        console.log('Data_Search key:"' + key+'" nest:'+(!!nest), framework._ctx);
-        */
         for(var i = 0; i < order.length; i++){
             if(order[i] === DIRECTION_DATA){
                 const data = framework._ctx.data;
@@ -1242,8 +1231,20 @@ function TempLang_Init(templates_el, framework){
         return null;
     }
 
+    /* 
+     * [Core Functions For Element Creation]
+     */
+
+
+    /*   This the main way of making an element internally
+     *
+     *   @templ - this is the template string or object to create
+     *   @parent_el - this is the element that it will be placed inside of
+     *   @reuseNode - this is only used for internal updates
+     */
     function El_Make(templ, parent_el, reuseNode){
 
+        /* Begin by sorting out which template or combination of templates to use */
         let isTemplNodeName = false;
         if(typeof templ === 'string'){
             templ = framework.templates[templ.toUpperCase()];
@@ -1266,17 +1267,14 @@ function TempLang_Init(templates_el, framework){
 
 
         let data = framework._ctx.data;
-        /*
-        console.log('El_Make');
-        console.log('  El_Make templ', templ);
-        console.log('  El_Make data', data);
-        */
-
         if(!templ){
             console.warn('El_Make no templ', templ);
             return;
         }
 
+        /* Now handle if the element has an attirbute that makes it a bunch of children 
+         * instead of a single elemenet
+         */
         if(forKey){
             if(Data_Search(forKey, true, [DIRECTION_DATA]) && Array.isArray(framework._ctx.currentData)){
                 for(framework._ctx.current_idx = 0;
@@ -1296,6 +1294,8 @@ function TempLang_Init(templates_el, framework){
             return;
         }
 
+        /* Begin makeing the actual node 
+         */
         const node = reuseNode || document.createElement(templ.nodeName);
 
         node.vars = {};
@@ -1306,10 +1306,13 @@ function TempLang_Init(templates_el, framework){
             parent_el.appendChild(node);
         }
 
+        /* if the data comes from an injested data source, store the flag here
+         */
         if(data._idflag){
             node._content_idflag = data._idflag;
         }
 
+        /* Copy vars in from the data to this element */
         for(let k in templ.mapVars){
             const map = templ.mapVars[k];
             const value = Data_Search(map.key, false, [
@@ -1328,11 +1331,16 @@ function TempLang_Init(templates_el, framework){
             }
         }
 
+        /* Add the classes if they exist */
         if(templ.classes){
             for(let i = 0; i < templ.classes.length; i++){
                 node.classList.add(templ.classes[i]);
             }
         }
+
+        /* In-depth setup starts now, this is listeners and fnction/handler bindings
+           as well as updating syles based on data
+        */
 
         Templ_SetFuncs(templ, framework.funcs);
         El_SetStateStyle(node, templ, null, false);
@@ -1342,23 +1350,26 @@ function TempLang_Init(templates_el, framework){
             El_RegisterSetters(node, templ);
         }
 
-        for(let i = 0; i < templ.atts.length; i++){
-            const value = data[Cash(templ.atts[i], data).result];
-            if(value){
-                node.setAttribute(templ.atts, value);
-            }
-        }
-
+        /* Copy in the body if it's there, Cash is used for templating values 
+         * from the data */
         const body = Cash(templ.body, data).result;
         if(body){
             node.appendChild(document.createTextNode(body));
         }
 
+        /* _misc has every non-templang html property for the elements
+         * it looks at the data for these to see if they include variables
+         * otherwise they are placed as literals of what they were 
+         * in the templates
+         */
         for(var k in templ._misc){
             const val = Cash(templ._misc[k], data).result;
             node.setAttribute(k, val);
         }
 
+        /* Make children the same was as this, recursively if they were
+         * part of the original template 
+         */
         if(templ.children){
             for(let i = 0; i < templ.children.length; i++){
                 if(templ.name){
@@ -1376,6 +1387,57 @@ function TempLang_Init(templates_el, framework){
         }
     }
 
+    function El_MakeAs(node, parentNode, data){
+        let templ = null;
+        templ = node.templ;
+
+        let templ_s = '';
+        if(templ.asKey){
+            const keys = templ.asKey;
+
+            templ_s = keys.key;
+            if(keys.cash.isCash){
+                templ_s = Cash(keys.key, data).result; 
+            }else{
+                templ_s = keys.key;
+            }
+        }
+
+        if(framework.templates[templ_s.toUpperCase()]){
+            new_templ = framework.templates[templ_s.toUpperCase()];
+            templ = Templ_Merge(new_templ, templ); 
+        }
+
+
+        while(node.hasChildNodes()){
+            node.firstChild.remove();
+        }
+        
+        El_Make(templ, parentNode, node);
+    }
+
+
+    /* 
+     *  Public:
+     *
+     *   Main function for inflating a template with data to make elements
+     *
+     *   Make(templ, parent_el, data) -> undefined
+     *       - templ: string or template object that was added to framework.templates
+     *       - parent_el: where to place the newly created element
+     *       - data: data used to populate the nodes that are designated by the "templ"
+     *
+     *   Wrapper for El_Make which sets up the data 
+     */
+    function Make(name, root_el, data){
+        ResetCtx({data: data, ev: null}); 
+        El_Make(name, root_el);
+    }
+
+
+    /*
+     * [Initialized the Framework Object]
+     */
     if(typeof framework.funcs === 'undefined'){
         framework.funcs = {};
     }
@@ -1388,6 +1450,7 @@ function TempLang_Init(templates_el, framework){
 
     ResetCtx({});
 
+    /* Parse templates from the elment in the page */
     if(templates_el){
         var nodes = templates_el.childNodes;
         for(var i = 0, l = nodes.length; i < l;i++){
@@ -1398,11 +1461,7 @@ function TempLang_Init(templates_el, framework){
         }
     }
 
-    function Make(name, root_el, data){
-        ResetCtx({data: data, ev: null}); 
-        El_Make(name, root_el);
-    }
-
+    /* Setup default styles */
     if(!GetstyleSheet(null)){
         const sheet = document.createElement('style');
         document.head.appendChild(sheet);
@@ -1411,9 +1470,9 @@ function TempLang_Init(templates_el, framework){
     AddStyle(null, '.full-height{height: '+ window.innerHeight + 'px}');
     AddStyle(null, '.full-width{width: '+ window.innerHeight + 'px}');
 
+    /* Amend relevant public properties to the framework object */
     framework.content_idx = 0;
     framework.el_idx = 0;
-
     framework.Make = Make;
     framework.Injest = Injest;
     framework.Cash = Cash;
