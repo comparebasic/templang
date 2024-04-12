@@ -6,47 +6,10 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-
-[TempLang: Documentation]
-see https://templang.org/example.html for an example of the framework
-
-public API:
-
-    Templag_Init(templates_el, framework) -> undefined
-       - templates_el: this is the root node that contains HTML template tags
-         to use with TempLang 
-       - framework: this is an empty object that will be filled in with the
-         TempLang public API functions
-
-    upon success the "framework" object will have been modified to contain the
-    following:
-
-        {
-            El_Make: El_Make,
-            Injest: Injest,
-            Cash: Cash,
-        }
-
-    El_Make(templ, parent_el, data) -> undefined
-        - templ: string or template object that was added to framework.templates
-        - parent_el: where to place the newly created element
-        - data: data used to populate the nodes that are designated by the "templ"
-
-    Injest(content) -> undefined
-        - content: an array that will be tagged with tracking properties such
-          as _idscope, and _idtag that are used internally by TempLang
-
-    Cash(s, data) -> string
-        - s: string to parse in the form of "Hi there ${prop}"
-        - data: a data object with data used to fill the cash string
+see https://templang.org for technical documentation
 */
 
 function TempLang_Init(templates_el, framework){
-    (function (host){
-        if(window.location.host !== host && window.location.host !== 'localhost'){
-            throw Error('This file is intended to be served from "' + host + '". The framework is licenced under the MIT license, which means you are welcome to remove this function and it\'s caller and host this file from any domain of your choosing.');
-        }
-    })('templang.org');
 
     const STATE_TEXT = 0;
     const STATE_PRE_KEY = 1;
