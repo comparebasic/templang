@@ -68,6 +68,56 @@ function TempLang_Init(templates_el, framework){
 
     const isTouchDevice = !!('ontouchstart' in window);
 
+    function ResetCtx(args){
+        if(typeof framework._ctx === 'undefined'){
+           framework._ctx =  {vars: {}, data: {}, current_idx: 0, currentData: {}, prevData:[], ev: null};
+        }
+        /*
+        console.log('      resetting          vars was:', framework._ctx.vars);
+        */
+        if(args.data){
+            const data = args.data;
+            framework._ctx.data = data;
+            framework._ctx.currentData = data;
+            framework._ctx.current_idx = 0;
+            if(framework._ctx.prevData.indexOf(data) == -1){
+                framework._ctx.prevData.push(data);
+            }
+        }else{
+            framework._ctx.currentData = null;
+            framework._ctx.current_idx = 0;
+        }
+
+        if(args.ev !== undefined){
+            framework._ctx.ev = args.ev;
+        }
+
+        if(!args.preserveVars){
+            framework._ctx.vars = {};
+        }
+    }
+
+    function ClearCtx(){
+        framework._ctx.vars = {};
+        framework._ctx.data = {};
+        framework._ctx.currentData = {};
+        framework._ctx.prevData = [];
+    }
+
+    function PopDataCtx(data){
+        const idx = framework._ctx.prevData.length;
+        if(idx == 0){
+           return null; 
+        }
+
+        idx--;
+        if(data === framework._ctx.prevData[idx]){
+            return framework._ctx.prevData.pop();
+        }
+
+       return null; 
+    }
+
     function GetstyleSheet(sheet_s){
         var name_s = sheet_s;
         if(sheet_s === null){
@@ -101,7 +151,7 @@ function TempLang_Init(templates_el, framework){
 
         let custom_rule = 'custom-' + node._idtag.replace('_', '-');
 
-        let style_s = Cash(templ.baseStyle, node.vars);
+        let style_s = Cash(templ.baseStyle, node.vars).result;
         if(style_s){
             const rule = '.' + custom_rule + ' {' + style_s + '}';
             if(!GetStyleRule(GetstyleSheet(null), custom_rule)){
@@ -167,6 +217,7 @@ function TempLang_Init(templates_el, framework){
     }
 
     function El_Match(node, compare){
+        let match = false;
         if(Array.isArray(compare)){
             for(let i = 0; i < compare.length; i++){
                 var comp = compare[i];
@@ -185,21 +236,30 @@ function TempLang_Init(templates_el, framework){
         }else{
             let typeofVars = typeof compare.vars;
             if(typeofVars === 'string'){
-                if(compare.vars && typeof node.vars[compare.vars] !== 'undefined'){
+                if(compare.vars && node.vars && (typeof node.vars[compare.vars] !== 'undefined')){
                     return true;
                 }
             }else if(typeofVars === 'object'){
                 if(Array.isArray(compare.vars)){
                     for(var i = 0; i < compare.vars.length; i++){
                         if(typeof node.vars[compare.vars[i]] === 'undefined'){
-                            return false;;
+                            return false;
                         }
                     }
-                    return true;
+                    match = true;
+                }
+            }
+
+            if(compare.name){
+                if(node.templ && node.templ.name !== compare.name){
+                    return false;
+                }else{
+                    match = true;
                 }
             }
         }
-        return false;
+
+        return match;
     }
 
     function El_VarFrom(node, name, direction){
@@ -214,6 +274,7 @@ function TempLang_Init(templates_el, framework){
     }
 
     function El_Query(node, spec, compare){
+
         /*
         console.log('EL_Query', spec);
         console.log('EL_Query node', node);
@@ -221,12 +282,31 @@ function TempLang_Init(templates_el, framework){
         console.log('EL_Query compare', compare);
         */
 
-        if(El_Match(node, compare)){
-            return node;
+        if(compare._tries === undefined){
+            compare._tries = 1;
+        }else{
+            compare._tries++;
+        }
+
+        if(spec.direction == DIRECTION_SELF || compare._tries > 1){
+            if(El_Match(node, compare)){
+                return node;
+            }
         }
 
         if(spec.direction === DIRECTION_PARENT && node.parentNode){
             return El_Query(node.parentNode, spec, compare);
+        }else if(spec.direction === DIRECTION_CHILD && node.firstChild){
+            let el = node.firstChild;
+            while(el){
+                if(el.nodeType == Node.ELEMENT_NODE){
+                    const found = El_Query(el, spec, compare);
+                    if(found){
+                        return found;
+                    }
+                }
+                el = el.nextSibling;
+            }
         }
 
         return null;
@@ -341,9 +421,29 @@ function TempLang_Init(templates_el, framework){
     }
 
     function CopyVars(map, to, from){
-        for(var k in map){
-            if(from[map[k].key] !== undefined){
-                to[map[k].dest_key] = from[map[k].key];
+        if(Array.isArray(map)){
+            for(let i = 0; i < map.length; i++){
+                if(from[map[i]] !== undefined){
+                    const _k = map[i];
+                    const _v = from[map[i]]
+                    to[_k] = _v;
+                    // framework._ctx.vars[_k] = _v;
+                }
+            }
+        }else{
+            for(var k in map){
+                let value;
+                if(map[k].cash.isCash){
+                    value = Cash(map[k].key, from).result;
+                }else if(from[map[k].key] !== undefined){
+                    value = from[map[k].key];
+                }
+                
+                if(value !== undefined){
+                    const _k = map[k].dest_key;
+                    to[_k] = value;
+                    framework._ctx.vars[_k] = value;
+                }
             }
         }
     }
@@ -351,10 +451,12 @@ function TempLang_Init(templates_el, framework){
     function Event_Run(event_ev){
         let r = false;
         /*
-        console.log('Event_Run', event_ev);
+        console.log('Event_Run '+event_ev.spec.key, event_ev);
         */
 
-        framework._ctx = {vars: event_ev.vars, data: {}, currentData: {}}; 
+        if(framework._ctx.ev === null){
+            framework._ctx.ev = event_ev;
+        }
 
         let dest_el = event_ev.dest;
         if(!dest_el){
@@ -376,6 +478,13 @@ function TempLang_Init(templates_el, framework){
             if(dest_el.templ && dest_el.templ.funcs[event_ev.spec.key]){
                 func = dest_el.templ.funcs[event_ev.spec.key];
             }
+            if(dest_el.templ && dest_el.templ.on[event_ev.spec.key]){
+                sub_ev = {
+                    spec: dest_el.templ.on[event_ev.spec.key],
+                    target: dest_el,
+                    copyTargetVars: true,
+                };
+            }
         }
 
         if(event_ev.spec.key === 'style'){
@@ -394,12 +503,16 @@ function TempLang_Init(templates_el, framework){
             if(event_ev.dest.templ && event_ev.dest.templ.on.hover){
                 sub_ev = {spec: event_ev.dest.templ.on.hover, target: event_ev.dest, eventType: "unhover"};
             }
-        }else if(event_ev.spec.key === 'set' && dest_el){
+        }else if(event_ev.spec.key === 'set'){
+            var tg = event_ev.dest || event_ev.target;
             for(var k in event_ev.spec.mapVars){
-                r = El_SetVar(dest_el, k, event_ev.vars[k]);
+                /*
+                console.log('Setting var: ' + k + ' -> ' + event_ev.vars[k], tg.templ && tg.templ.name);
+                */
+                r = El_SetVar(tg, k, event_ev.vars[k]);
             }
-            if(dest_el.templ.on.set){
-               sub_ev = {spec: dest_el.templ.on.set};
+            if(event_ev.dest && event_ev.dest.templ.on.set){
+               sub_ev = {spec: event_ev.dest.templ.on.set};
             }
         }
 
@@ -408,12 +521,15 @@ function TempLang_Init(templates_el, framework){
             if(event_ev.dest){
                 CopyVars(event_ev.spec.mapVars, newVars, event_ev.dest.vars);
             }
-            CopyVars(event_ev.spec.mapVars, newVars, event_ev.vars);
-            event_ev.vars = newVars;
+            CopyVars(event_ev.spec.mapVars, event_ev.vars, event_ev.vars);
         }
 
         if(sub_ev){
-            const _r = Event_Run(Event_Merge(sub_ev, event_ev)); 
+            const merged_ev = Event_Merge(sub_ev, event_ev)
+            /*
+            console.log('sub merged', merged_ev.spec);
+            */
+            const _r = Event_Run(merged_ev); 
             if(_r !== undefined){
                 r = _r;
             }
@@ -442,15 +558,32 @@ function TempLang_Init(templates_el, framework){
     }
 
     function Event_Merge(sub_ev, event_ev){
-         return {
+         const ev = {
             target: sub_ev.target || event_ev.target,
-            dest: event_ev.dest,
+            dest: sub_ev.dest,
             e: event_ev.e,
             spec: sub_ev.spec,
-            vars: event_ev.vars,
+            vars: sub_ev.vars || {},
             eventType: sub_ev.eventType || event_ev.eventType,
             _pior: event_ev,
         }
+
+
+        if(ev.spec.mapVars){
+            if(sub_ev.copyTargetVars){
+                CopyVars(ev.spec.mapVars, ev.vars, ev.target.vars);
+            }
+            CopyVars(ev.spec.mapVars, ev.vars, event_ev.vars);
+        }
+
+        /*
+        console.log('Event_Merge ' + ev.spec.key + ' vars: ', ev.vars);
+        console.log('    Event_Merge mapVars ' + event_ev.spec.key + ' vars: ', ev.spec.mapVars);
+        console.log('    Event_Merge orig ' + event_ev.spec.key + ' vars: ', event_ev.vars);
+        console.log('    Event_Merge sub ' + sub_ev.spec.key + ' vars: ', sub_ev.vars);
+        */
+
+        return ev;
     }
 
     function Event_New(target_el, e, spec){
@@ -470,6 +603,10 @@ function TempLang_Init(templates_el, framework){
             }
         }
 
+        /*
+        console.log('Event "' + spec.key + '" vars:', event_ev.vars);
+        */
+
         return event_ev;
     }
 
@@ -481,17 +618,18 @@ function TempLang_Init(templates_el, framework){
     function onDown(e){
         var node = this;
         let r = false;
+        ResetCtx({ev: null});
         if(node.templ && node.templ.on.mousedown){
             r = Event_Run(Event_New(node, e, node.templ.on.mousedown));
         }
         if(node.templ && node.templ.on.click){
             r = Event_Run(Event_New(node, e, node.templ.on.click));
         }
-        console.log('event' + r, e.target);
         e.stopPropagation(); e.preventDefault();
     }
 
     function onUp(e){
+        ResetCtx({ev: null});
         var node = this;
         if(node.templ && node.templ.on.mouseup){
             r = Event_Run(Event_New(node, e, node.templ.on.mouseup));
@@ -507,6 +645,7 @@ function TempLang_Init(templates_el, framework){
     }
 
     function onHover(e){
+        ResetCtx({ev: null});
         var node = this;
         if(node.flags & FLAG_NODE_STATE_HOVER){
             return;
@@ -519,6 +658,7 @@ function TempLang_Init(templates_el, framework){
     }
 
     function onUnHover(e){
+        ResetCtx({ev: null});
         var node = this;
         if((node.flags & FLAG_NODE_STATE_HOVER) == 0){
             return;
@@ -555,20 +695,27 @@ function TempLang_Init(templates_el, framework){
         const framework = this;
         if(Array.isArray(content)){
             for(let i = 0; i < content.length; i++){
-                content._idtag = ++framework.content_idx;
-                content._idscope = 'content';
+                content._idtag = 'content_' + (++framework.content_idx);
             }
         }
     }
 
     function DataScope(sel, data){
-        if(data[sel]){
+        if(data && data[sel]){
             return data[sel];
         }
         return null;
     }
 
-    function Cash(s, data){
+
+    function Cash(s, data, prepare){
+        const result = {
+            arg: s,
+            result: null,
+            isCash: false,
+            vars: [],
+        };
+        
         if(!s){
             return "";
         }
@@ -589,15 +736,25 @@ function TempLang_Init(templates_el, framework){
                 if(c == '{'){
                    state = STATE_KEY; 
                 }else{
-                    return "";
+                    shelf = "";
+                    break;
                 }
             }else if(state == STATE_KEY){
                 if(c == '}'){
-                    var value = DataScope(key, data);
-                    if(!value){
-                        return "";
+                    if(data){
+                        var value = DataScope(key, data);
+                        if(!value){
+                            shelf = "";
+                            break;
+                        }
+                        shelf += value;
                     }
-                    shelf += value;
+                    if(prepare){
+                        const destK = blankDestKLiteral(key);
+                        result.vars.push(destK);
+                        shelf += '${'+destK.key+'}';
+                    }
+                    result.isCash = true;
                     key = "";
                     state = STATE_TEXT;
                     continue;
@@ -606,7 +763,42 @@ function TempLang_Init(templates_el, framework){
                 }
             }
         }
-        return shelf;
+
+        result.result = shelf || s;
+        if(prepare){
+            result.arg = shelf;
+        }
+
+        return result;
+    }
+
+    function El_MakeAs(node, parentNode, data){
+        let templ = null;
+        templ = node.templ;
+
+        let templ_s = '';
+        if(templ.asKey){
+            const keys = templ.asKey;
+
+            templ_s = keys.key;
+            if(keys.cash.isCash){
+                templ_s = Cash(keys.key, data).result; 
+            }else{
+                templ_s = keys.key;
+            }
+        }
+
+        if(framework.templates[templ_s.toUpperCase()]){
+            new_templ = framework.templates[templ_s.toUpperCase()];
+            templ = Templ_Merge(new_templ, templ); 
+        }
+
+
+        while(node.hasChildNodes()){
+            node.firstChild.remove();
+        }
+        
+        El_Make(templ, parentNode, node);
     }
 
     function Templ_Merge(into_templ, from_templ){
@@ -617,6 +809,7 @@ function TempLang_Init(templates_el, framework){
             isMerged: true,
             flags: into_templ.flags | from_templ.flags,
             el: into_templ.el,
+            asKey: from_templ.asKey,
             on: {},
             funcs: {},
             atts: {},
@@ -665,12 +858,41 @@ function TempLang_Init(templates_el, framework){
         return templ;
     }
 
+    function blankDestKLiteral(key){
+        let key_direction = DIRECTION_SELF;
+        if(key[0] === '_'){
+            key_direction = DIRECTION_CHILD;
+            key = key.substring(1);
+        }else if(key[0] === '^'){
+            key_direction = DIRECTION_PARENT;
+            key = key.substring(1);
+        }else if(key[0] === '.'){
+            key_direction = DIRECTION_DATA;
+            key = key.substring(1);
+        }
+
+        return {
+            key: key,
+            dest_key: key,
+            value: null,
+            dest_direction: DIRECTION_SELF,
+            var_direction: key_direction,
+            cash: {
+                arg: key,
+                result: key,
+                isCash: false,
+                vars: [],
+            }
+        };
+    }
+
     function GetDestK(key){
         let var_k = key;
         let dest_k = var_k;
-        var set_v = null;
-        var var_direction = DIRECTION_SELF;
-        var dest_direction = DIRECTION_SELF;
+        let set_v = null;
+        let var_direction = DIRECTION_SELF;
+        let dest_direction = DIRECTION_SELF;
+        let key_source = null;
         if(/=/.test(var_k)){
             const var_li = var_k.split('=');
             var_k = var_li[1];
@@ -708,12 +930,27 @@ function TempLang_Init(templates_el, framework){
             }
         }
 
+        if(var_k.indexOf('.') != -1){
+            var_k_li = var_k.split('.');
+            key_source = var_k_li[0];
+            if(dest_k == var_k){
+                dest_k = var_k_li[var_k_li.length-1];
+            }
+            var_k = var_k_li[var_k_li.length-1];
+        }
+
+        const cash =  Cash(var_k, null, true);
+        if(cash.isCash){
+            var_k = cash.arg;
+        }
         return {
             key: var_k,
+            key_source: key_source,
             dest_key: dest_k,
             value: set_v,
             dest_direction: dest_direction,
             var_direction: var_direction,
+            cash: cash,
         }
     }
 
@@ -724,6 +961,12 @@ function TempLang_Init(templates_el, framework){
             const keys = GetDestK(li[i]);
             if(keys){
                 obj[keys.dest_key] = keys;
+            }
+            if(keys.cash.vars){
+                for(let i = 0; i < keys.cash.vars.length; i++){
+                    const k = keys.cash.vars[i];
+                    obj[k] = blankDestKLiteral(k);
+                }
             }
         }
         return obj;
@@ -748,6 +991,8 @@ function TempLang_Init(templates_el, framework){
             baseStyle: '', 
             classIfCond: {},
             setters: [],
+            asKey: null,
+            body: '',
             _misc: {},
         };
 
@@ -774,9 +1019,30 @@ function TempLang_Init(templates_el, framework){
                 templ.flags |= FLAG_DRAG_CONTAINER;
             }else if(att.name == 'func'){
                 templ.commandKeys = [att.value];
+            }else if(att.name == 'data'){
+                const keys = GetDestK(att.value);
+                templ.dataKey = keys;
+                if(keys){
+                    templ.setters.push({scope: 'data', destK: templ.dataKey});
+                }
+            }else if(att.name == 'as'){
+                const keys = GetDestK(att.value);
+                templ.asKey = keys;
+                if(keys){
+                    if(keys.cash.isCash){
+                        for(let i = 0; i < keys.cash.vars.length; i++){
+                            const kd =  keys.cash.vars[i];
+                            if(templ.mapVars[kd.key] === undefined){
+                                templ.setters.push({scope: 'as', destK: kd});
+                            }
+                        }
+                    }else{
+                        templ.setters.push({scope: 'as', destK: keys});
+                    }
+                }
             }else if(att.name == 'vars'){
                 const mapVars =  Statements(att.value, GetDestK, ',');
-                let mapVarsObj = {};
+                const mapVarsObj = templ.mapVars;
                 if(Array.isArray(mapVars)){
                     for(let i = 0; i < mapVars.length; i++){
                         const mv = mapVars[i];
@@ -785,7 +1051,6 @@ function TempLang_Init(templates_el, framework){
                 }else{
                     mapVarsObj[mapVars.dest_key] = mapVars;
                 }
-                templ.mapVars = mapVarsObj;
             }else if(att.name == 'for'){
                 templ.forKey = att.value;
             }else if(att.name == 'base-style'){
@@ -815,18 +1080,18 @@ function TempLang_Init(templates_el, framework){
             framework.templates[templ.name] = templ;
         }
 
-        if(parentEl){
-            parentEl.children.push(templ);
-        }
-
         if(el.firstChild && el.firstChild.nodeType == Node.TEXT_NODE){
             templ.body = el.firstChild.nodeValue;
+        }
+
+        if(parentEl){
+            parentEl.children.push(templ);
         }
 
         if(el.hasChildNodes()){
             for(let i = 0, l = el.childNodes.length; i < l; i++){
                 const child = el.childNodes[i];
-                if(child.nodeType == Node.ELEMENT_NODE){
+                if(child.nodeType === Node.ELEMENT_NODE){
                     Templ_Parse(child, templ);
                 }
             }
@@ -838,17 +1103,35 @@ function TempLang_Init(templates_el, framework){
             const set = templ.setters[i];
             const scope = set.scope;
             const destK = set.destK;
-            const source = El_Query(node, {direction: destK.var_direction}, {vars: destK.key}); 
+            const compare = {vars: destK.key};
+            if(destK.key_source){
+                compare.name = destK.key_source;
+            }
+
+            const source = El_Query(node, {direction: destK.var_direction}, compare); 
 
             if(source){
+                /*
+                console.log('Source of setter :' , set);
+                console.log('Source of setter source', source);
+                console.log('Source of setter source node', node);
+                console.log('--');
+                */
+
                 if(!source.varSetters[destK.key]){
                     source.varSetters[destK.key] = {};
                 }
                 const setter = {node: node, set: set, isMatch: false};
+
                 source.varSetters[destK.key][node._idtag] = setter;
                 El_RunIndividualSetter(source, setter, destK.key, source.vars[destK.key]);
             }else{
                 console.warn("El_RegisterSetters '" + destK.key + "' not found in tree", node);
+                console.warn("El_RegisterSetters '" + destK.key + "' not found in tree setter", set);
+                console.warn('Source of setter :' +node.templ.asKey.key, set);
+                console.warn('Source of setter source', source);
+                console.warn('Source of setter source node', node);
+                console.warn('--');
             }
         }
     }
@@ -857,31 +1140,56 @@ function TempLang_Init(templates_el, framework){
         const set = setter.set;
         const node = setter.node;
         if(set.scope === 'class'){
-            const value = Cash(set.destK.value, node.vars);
+            const value = Cash(set.destK.value, node.vars).result;
             if(setter.isMatch){
                 El_SetStateStyle(node, node.templ, value, true);
             }else{
                 El_SetStateStyle(node, node.templ, value, false);
             }
+        }else if(set.scope === 'as'){
+            if(value){
+                ResetCtx({data: node._data, preserveVars: true}); 
+
+                const asData = {}
+                asData[set.destK.key] = value;
+
+                El_MakeAs(setter.node, setter.node.parentNode, asData);
+            }
+        }else if(set.scope === 'data'){
+            node._data = value; 
         }
     }
     
     function El_RunIndividualSetter(node, setter, prop, value){
         const setNode = setter.node;
         const setterSet = setter.set;
-        let isMatch = false;
-        if(setNode.vars && typeof setNode.vars[setterSet.destK.dest_key] !== 'undefined' &&
-                setNode.vars[setterSet.destK.dest_key] === value){
-            isMatch = true;
+        let isMatch = null;
+        if(setter.set.scope === 'data' && value){
+            isMatch = value._idtag;
+        }else if(setNode.vars && typeof setNode.vars[setterSet.destK.dest_key] !== 'undefined'){
+            isMatch = setNode.vars[setterSet.destK.dest_key] === value;
         }
 
-        if(isMatch !== setter.isMatch){
+        if(isMatch == null || isMatch !== setter.isMatch){
+            /*
+            console.log('El_RunIndividualSetter '+ setter.set.scope +' | isMatch ' + prop + ' -> ' + value + ' vs '  + setNode.vars[setterSet.destK.dest_key] +  ' ' +isMatch + ' vs ' + setter.isMatch, setter);
+            */
             setter.isMatch = isMatch;
             El_RunSetter(setter, value);
+        }else{
+            /*
+            console.log('El_RunIndividualSetter '+ setter.set.scope  + ' not a mismatch', isMatch);
+            console.log('El_RunIndividualSetter '+ setter.set.scope +' | isMatch ' + prop + ' -> ' + value + ' vs '  + setNode.vars[setterSet.destK.dest_key] +  ' ' +isMatch + ' vs ' + setter.isMatch, setter);
+            console.log('El_RunIndividualSetter '+setter.set.scope , setterSet.destK);
+            console.log('El_RunIndividualSetter '+setter.set.scope , setNode);
+            */
         }
     }
 
     function El_RunNodeSetters(node, prop, value){
+        /*
+        console.log('--> node setters for ' + (node.templ.name || node.templ.nodeName), node.varSetters);
+        */
         for(let k in node.varSetters[prop]){
             El_RunIndividualSetter(node, node.varSetters[prop][k], prop, value);
         }
@@ -889,8 +1197,18 @@ function TempLang_Init(templates_el, framework){
 
     function El_SetVar(node, prop, value){
         if(node.vars[prop] !== value){
-            node.vars[prop] = value;
+            if(!node.templ.name && node.templ.nodeName == 'DIV'){
+                /*
+                console.log('El_SetVar: ' + prop + ' ' + value, node);
+                */
+            }else{
+                /*
+                console.log('    El_SetVar: ' + prop + ' ' + value, node);
+                */
+            }
             El_RunNodeSetters(node, prop, value);
+            node.vars[prop] = value;
+            framework._ctx.vars[prop] = value;
             return true;
         }
         return false;
@@ -903,25 +1221,35 @@ function TempLang_Init(templates_el, framework){
         return data;
     }
 
+    function Data_Outdent(){
+        framework._ctx.prevData.pop();
+        framework._ctx.data = framework._ctx.prevData[0];
+        framework._ctx.currentData = framework._ctx.data;
+        framework._ctx.current_idx = 0;
+    }
+
     function Data_Search(key, nest, order){
         let value = null;
         if(!order){
             order = [DIRECTION_VARS, DIRECTION_CURRENT_DATA, DIRECTION_DATA, DIRECTION_PREV_DATA];
         }
-
         /*
-        console.log('Data_Search framework._ctx key:' + key+' nest:'+(!!nest), framework._ctx);
+        console.log('Data_Search key:"' + key+'" nest:'+(!!nest), framework._ctx);
         */
         for(var i = 0; i < order.length; i++){
             if(order[i] === DIRECTION_DATA){
                 const data = framework._ctx.data;
                 if(data[key]){
+                    if(nest){
+                        framework._ctx.data = data[key];
+                        framework._ctx.prevData.push(framework._ctx.data);
+                        framework._ctx.currentData = data[key];
+                    }
                     return {type: 'data', value: data[key]};
                 }
-
             }else if(order[i] === DIRECTION_CURRENT_DATA){
                 const data = framework._ctx.currentData;
-                if(data[key]){
+                if(data && data[key]){
                     return {type: 'currentData', value: data[key]};
                 }
             }else if(order[i] === DIRECTION_VARS){
@@ -937,8 +1265,9 @@ function TempLang_Init(templates_el, framework){
                     }
                     return {type: 'vars', value: value};
                 }
-            }else if(order[i] === DIRECTION_VARS){
-                for(var i = 0; i < framework._ctx.prevData.length; i++){
+            }else if(order[i] === DIRECTION_PREV_DATA){
+                let idx = framework._ctx.prevData.length;
+                for(let i = idx-1; i >= 0; i--){
                     const curData = framework._ctx.prevData[i];
                     if(curData[key]){
                         return {type: 'prevData', value: curData[key]};
@@ -950,43 +1279,11 @@ function TempLang_Init(templates_el, framework){
         return null;
     }
 
-    function El_Make(templ, parent_el){
-        /*
-        console.log('El_Make');
-        console.log('  El_Make templ', templ);
-        console.log('  El_Make data', data);
-        */
+    function El_Make(templ, parent_el, reuseNode){
 
-        let data = framework._ctx.data;
-
+        let isTemplNodeName = false;
         if(typeof templ === 'string'){
             templ = framework.templates[templ.toUpperCase()];
-        }
-
-        if(framework.templates[templ.nodeName.toUpperCase()]){
-            const forKey = templ.forKey;
-
-            parent_templ = framework.templates[templ.nodeName.toUpperCase()];
-            if(parent_templ){
-                templ = Templ_Merge(templ, parent_templ);
-            }
-
-            if(forKey){
-                if(Data_Search(forKey, true)){
-                    childList = framework._ctx.currentData;
-                }
-                if(Array.isArray(childList)){
-                    for(let i = 0; i < childList.length; i++){
-                        framework._ctx.data = framework._ctx.currentData[i];
-                        El_Make(templ, parent_el);
-                    }
-                }else{
-                    console.warn('Warning: for children key not found '+ forKey, data);
-                    console.warn('Warning: for children key not found templ', templ);
-                }
-                return;
-            }
-
         }
 
         if(!templ){
@@ -994,12 +1291,57 @@ function TempLang_Init(templates_el, framework){
             return;
         }
 
-        const node = document.createElement(templ.nodeName);
+        let forKey = null;
+        if(framework.templates[templ.nodeName.toUpperCase()]){
+            Data_Search(templ.nodeName.toLowerCase(), true, [DIRECTION_DATA]);
+            forKey = templ.forKey;
+            parent_templ = framework.templates[templ.nodeName.toUpperCase()];
+            if(parent_templ){
+                templ = Templ_Merge(templ, parent_templ);
+            }
+        }
+
+
+        let data = framework._ctx.data;
+        /*
+        console.log('El_Make');
+        console.log('  El_Make templ', templ);
+        console.log('  El_Make data', data);
+        */
+
+        if(!templ){
+            console.warn('El_Make no templ', templ);
+            return;
+        }
+
+        if(forKey){
+            if(Data_Search(forKey, true, [DIRECTION_DATA]) && Array.isArray(framework._ctx.currentData)){
+                for(framework._ctx.current_idx = 0;
+                        framework._ctx.current_idx < framework._ctx.currentData.length;
+                        framework._ctx.current_idx++
+                ){
+                    framework._ctx.data = framework._ctx.currentData[framework._ctx.current_idx];
+                    El_Make(templ, parent_el);
+                }
+
+                Data_Outdent();
+            }else{
+                console.warn('Warning: for children key not found '+ forKey, data);
+                console.warn('Warning: for children key not found templ', templ);
+                console.warn('Warning: for children key not framework', framework);
+            }
+            return;
+        }
+
+        const node = reuseNode || document.createElement(templ.nodeName);
+
         node.vars = {};
         node.varSetters = {};
         node.templ = templ;
         node._idtag = 'element_'+(++framework.el_idx);
-        parent_el.appendChild(node);
+        if(!reuseNode){
+            parent_el.appendChild(node);
+        }
 
         if(data._idflag){
             node._content_idflag = data._idflag;
@@ -1016,8 +1358,10 @@ function TempLang_Init(templates_el, framework){
                     framework._ctx.vars[map.dest_key] = value.value;
                 }
             }else{
-                console.warn('El_Make: no var found for ' + map.key, map);
-                console.warn('El_Make: no var found for data' + map.key, data);
+                node.vars[map.dest_key] = null;
+                console.warn('El_Make: no var found for: ' + map.key, map);
+                console.warn('El_Make: no var found for: ' + map.key + ' data:', data);
+                console.warn('El_Make: no var found for: ' + map.key + ' node:', node);
             }
         }
 
@@ -1029,24 +1373,26 @@ function TempLang_Init(templates_el, framework){
 
         Templ_SetFuncs(templ, framework.funcs);
         El_SetStateStyle(node, templ, null, false);
-        El_SetEvents(node, templ.on);
-        El_SetEvents(node, templ.funcs);
-        El_RegisterSetters(node, templ);
+        if(!reuseNode){
+            El_SetEvents(node, templ.on);
+            El_SetEvents(node, templ.funcs);
+            El_RegisterSetters(node, templ);
+        }
 
         for(let i = 0; i < templ.atts.length; i++){
-            const value = data[Cash(templ.atts[i], data)];
+            const value = data[Cash(templ.atts[i], data).result];
             if(value){
                 node.setAttribute(templ.atts, value);
             }
         }
 
-        const body = Cash(templ.body, data);
+        const body = Cash(templ.body, data).result;
         if(body){
             node.appendChild(document.createTextNode(body));
         }
 
         for(var k in templ._misc){
-            const val = Cash(templ._misc[k], data);
+            const val = Cash(templ._misc[k], data).result;
             node.setAttribute(k, val);
         }
 
@@ -1062,7 +1408,7 @@ function TempLang_Init(templates_el, framework){
                         }
                     }
                 }
-                El_Make(templ.children[i], node, data);
+                El_Make(templ.children[i], node);
             }
         }
     }
@@ -1077,6 +1423,8 @@ function TempLang_Init(templates_el, framework){
         framework._styleSheets = {};
     }
 
+    ResetCtx({});
+
     if(templates_el){
         var nodes = templates_el.childNodes;
         for(var i = 0, l = nodes.length; i < l;i++){
@@ -1088,14 +1436,17 @@ function TempLang_Init(templates_el, framework){
     }
 
     function Make(name, root_el, data){
-        framework._ctx = {vars: {}, data: data, currentData: data, prevData:[]}; 
+        ResetCtx({data: data, ev: null}); 
         El_Make(name, root_el);
     }
 
     if(!GetstyleSheet(null)){
-        const sheet = document.creteElement('style');
+        const sheet = document.createElement('style');
         document.head.appendChild(sheet);
     }
+
+    AddStyle(null, '.full-height{height: '+ window.innerHeight + 'px}');
+    AddStyle(null, '.full-width{width: '+ window.innerHeight + 'px}');
 
     framework.content_idx = 0;
     framework.el_idx = 0;
@@ -1104,4 +1455,5 @@ function TempLang_Init(templates_el, framework){
     framework.Injest = Injest;
     framework.Cash = Cash;
     framework.ChangeStyle = ChangeStyle;
+    framework.AddStyle = AddStyle;
 }
