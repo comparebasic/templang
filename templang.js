@@ -13,23 +13,24 @@ How to Read This for Documentation:
 
 Sections:
 
-[Initialized the Framework Object]
-[Core Functions For Element Creation]
-[Data And Context Functions]
-[Setters Run and Register]
-[Parsing Templates]
-[Helper Functions]
-[Cash Variable-in-strin Parser]
-[Styles and Stylesheet Management]
-[Elem Query and Match]
-[Events Native and Synthetic]
-[Bind and Assign Browser Events]
-[Injest and Tag Data]
+Internal Stuff:
+
+    [Elem Query and Match]
+    [Helper Functions]
+    [Data And Context Functions]
+    [Setters Run and Register]
+    [Parsing Templates]
+    [Events Native and Synthetic]
+    [Bind and Assign Browser Events]
 
 
+External Stuff:
 
-
-
+    [Styles and Stylesheet Management]
+    [Cash Variable-in-strin Parser]
+    [Injest and Tag Data]
+    [Core Functions For Element Creation]
+    [Initialized the Framework Object]
 */
 
 function TempLang_Init(templates_el, framework){
@@ -53,142 +54,6 @@ function TempLang_Init(templates_el, framework){
     const FLAG_NODE_STATE_DRAG = 2;
 
     const isTouchDevice = !!('ontouchstart' in window);
-
-    /*
-     * [Styles and Stylesheet Management]
-     */
-    function GetstyleSheet(sheet_s){
-        var name_s = sheet_s;
-        if(sheet_s === null){
-            name_s === 'default';
-        }
-        if(framework._styleSheets[name_s]){
-            return framework._styleSheets[name_s];
-        }
-        for(var i = 0; i < document.styleSheets.length; i++){
-            var s = document.styleSheets[i];
-            if(!sheet_s){
-                if(!s.href){
-                    framework._styleSheets[name_s] = {sheet: s, cls: {}};
-                    return framework._styleSheets[name_s];
-                }
-            }else if(s.href){
-                if(s.href && s.href.substring(s.href.length - sheet_s.length) === sheet_s){
-                    framework._styleSheets[sheet_s] = {sheet: s, cls: {}};
-                    return framework._styleSheets[sheet_s];
-                }
-            }
-        }
-        return null;
-    }
-
-    function GetStyleRule(sheetObj, cls){
-        if(sheetObj.cls[cls]){
-            return sheetObj.cls[cls];
-        }
-        for(var i = 0; i < sheetObj.sheet.rules.length; i++){
-            var rule = sheetObj.sheet.rules[i];
-            if(rule.selectorText == cls){
-                sheetObj.cls[cls] = rule;
-                return rule;
-            }
-        }
-        return null;
-    }
-
-    function ChangeStyle(sheet_s, name, att, value){
-        var sheetObj = GetstyleSheet(sheet_s);
-        if(sheetObj){
-            var rule = GetStyleRule(sheetObj, name);
-            rule.style[att] = value;
-        }
-    }
-
-    function El_SetStateStyle(node, templ, stateStyle, add){
-        node.classList = [];
-        for(var i = 0; i < templ.classes.length; i++){
-            node.classList.add(templ.classes[i]);
-        }
-
-        let custom_rule = 'custom-' + node._idtag.replace('_', '-');
-
-        let style_s = Cash(templ.baseStyle, node.vars).result;
-        if(style_s){
-            const rule = '.' + custom_rule + ' {' + style_s + '}';
-            if(!GetStyleRule(GetstyleSheet(null), custom_rule)){
-                AddStyle(null, rule);
-            }
-        }
-
-        if(add && stateStyle){
-            node.classList.add(stateStyle);
-            if(custom_rule && style_s){
-                node.classList.remove(custom_rule);
-            }
-        }else{
-            if(stateStyle){
-                node.classList.remove(stateStyle);
-            }
-            if(custom_rule && style_s){
-                node.classList.add(custom_rule);
-            }
-        }
-    }
-
-    function El_SetClasses(node, templ, data){
-        if(!data){
-            data = {};
-            GatherData(node, templ.classIfCond, data);
-        }
-
-        const cond = templ.classIfCond;
-        if(cond && cond.key){
-            const propval = data[cond.key];
-            if(propval !== null && propval === node.vars[cond.dest_key]){
-                node.classList.add(cond.value); 
-            }else{
-                node.classList.remove(cond.value); 
-            }
-        }
-    }
-
-
-    function AddStyle(sheet_s, rule_s){
-        var sheetObj = GetstyleSheet(sheet_s);
-        if(sheetObj){
-            sheetObj.sheet.insertRule(rule_s, sheetObj.sheet.rules.length);
-        }
-    }
-
-
-    function CopyVars(map, to, from){
-        if(Array.isArray(map)){
-            for(let i = 0; i < map.length; i++){
-                if(from[map[i]] !== undefined){
-                    const _k = map[i];
-                    const _v = from[map[i]]
-                    to[_k] = _v;
-                    // framework._ctx.vars[_k] = _v;
-                }
-            }
-        }else{
-            for(var k in map){
-                let value;
-                if(map[k].cash.isCash){
-                    value = Cash(map[k].key, from).result;
-                }else if(from[map[k].key] !== undefined){
-                    value = from[map[k].key];
-                }
-                
-                if(value !== undefined){
-                    const _k = map[k].dest_key;
-                    to[_k] = value;
-                    framework._ctx.vars[_k] = value;
-                }
-            }
-        }
-    }
-
 
     /* 
      * [Elem Query and Match]
@@ -280,322 +145,6 @@ function TempLang_Init(templates_el, framework){
 
         return null;
     }
-
-
-    /*
-     * [Events Native and Synthetic]
-    */
-    function Event_Run(event_ev){
-        let r = false;
-        if(framework._ctx.ev === null){
-            framework._ctx.ev = event_ev;
-        }
-
-        let dest_el = event_ev.dest;
-        if(!dest_el){
-            if(event_ev.spec.key === 'set'){
-                dest_el = El_Query(event_ev.target, {direction: event_ev.spec.direction},  {vars: Object.keys(event_ev.spec.mapVars)});
-            }else{
-                dest_el = El_Query(event_ev.target, event_ev.spec, [
-                    {on: event_ev.spec.key},
-                    {funcs: event_ev.spec.key}
-                ]);
-            }
-        }
-
-        let func = null;
-        let sub_ev = null;
-
-        if(dest_el){
-            event_ev.dest = dest_el;
-            if(dest_el.templ && dest_el.templ.funcs[event_ev.spec.key]){
-                func = dest_el.templ.funcs[event_ev.spec.key];
-            }
-            if(dest_el.templ && dest_el.templ.on[event_ev.spec.key]){
-                sub_ev = {
-                    spec: dest_el.templ.on[event_ev.spec.key],
-                    target: dest_el,
-                    copyTargetVars: true,
-                };
-            }
-        }
-
-        if(event_ev.spec.key === 'style'){
-            if(event_ev.eventType === 'hover'){
-                if(event_ev.spec.varIsPair){
-                    event_ev.target.classList.add(event_ev.spec.varList[0]); 
-                    event_ev.target.classList.remove(event_ev.spec.varList[1]); 
-                }
-            }else if(event_ev.eventType === 'unhover'){
-                if(event_ev.spec.varIsPair){
-                    event_ev.target.classList.add(event_ev.spec.varList[1]); 
-                    event_ev.target.classList.remove(event_ev.spec.varList[0]); 
-                }
-            }
-        }if(event_ev.spec.key === 'unhover'){
-            if(event_ev.dest.templ && event_ev.dest.templ.on.hover){
-                sub_ev = {spec: event_ev.dest.templ.on.hover, target: event_ev.dest, eventType: "unhover"};
-            }
-        }else if(event_ev.spec.key === 'set'){
-            var tg = event_ev.dest || event_ev.target;
-            for(var k in event_ev.spec.mapVars){
-                r = El_SetVar(tg, k, event_ev.vars[k]);
-            }
-            if(event_ev.dest && event_ev.dest.templ.on.set){
-               sub_ev = {spec: event_ev.dest.templ.on.set};
-            }
-        }
-
-        if(event_ev.spec.mapVars){
-            var newVars = {};
-            if(event_ev.dest){
-                CopyVars(event_ev.spec.mapVars, newVars, event_ev.dest.vars);
-            }
-            CopyVars(event_ev.spec.mapVars, event_ev.vars, event_ev.vars);
-        }
-
-        if(sub_ev){
-            const merged_ev = Event_Merge(sub_ev, event_ev)
-            /*
-            console.log('sub merged', merged_ev.spec);
-            */
-            const _r = Event_Run(merged_ev); 
-            if(_r !== undefined){
-                r = _r;
-            }
-        }
-
-        if(func){
-            const _r = func(event_ev);
-            if(_r !== undefined){
-                r = _r;
-            }
-        }
-
-        return r;
-    }
-
-    function GetTypeFromE(e){
-        if(e && e.type){
-            if(e.type === 'mouseover'){
-                return 'hover';
-            }else if(e.type === 'mouseout'){
-                return 'unhover';
-            }else{
-                return e.type;
-            }
-        }
-    }
-
-    /* Events are merged when they trigger a related event */
-    function Event_Merge(sub_ev, event_ev){
-         const ev = {
-            target: sub_ev.target || event_ev.target,
-            dest: sub_ev.dest,
-            e: event_ev.e,
-            spec: sub_ev.spec,
-            vars: sub_ev.vars || {},
-            eventType: sub_ev.eventType || event_ev.eventType,
-            _pior: event_ev,
-        }
-
-
-        if(ev.spec.mapVars){
-            if(sub_ev.copyTargetVars){
-                CopyVars(ev.spec.mapVars, ev.vars, ev.target.vars);
-            }
-            CopyVars(ev.spec.mapVars, ev.vars, event_ev.vars);
-        }
-
-        return ev;
-    }
-
-    function Event_New(target_el, e, spec){
-        var event_ev = {
-            target: target_el, /* the source of the event, e.g. clicked element */
-            dest: null, /* the destination that has the event on it */
-            e: e,
-            spec: spec,
-            eventType: GetTypeFromE(e),
-            vars: {}, /* end result of target vars + gathers */
-            _pior: null, /* event this event is based on */
-        }
-
-        if(target_el.vars){
-            if(spec.mapVars){
-                CopyVars(spec.mapVars, event_ev.vars, target_el.vars);
-            }
-        }
-
-        return event_ev;
-    }
-
-    /* 
-     * [Bind and Assign Browser Events]
-     */
-
-    function onMouseMove(e){
-        var x = e.clientX;
-        var y = e.clientY;
-    }
-
-    function onDown(e){
-        var node = this;
-        let r = false;
-        ResetCtx({ev: null});
-        if(node.templ && node.templ.on.mousedown){
-            r = Event_Run(Event_New(node, e, node.templ.on.mousedown));
-        }
-        if(node.templ && node.templ.on.click){
-            r = Event_Run(Event_New(node, e, node.templ.on.click));
-        }
-        e.stopPropagation(); e.preventDefault();
-    }
-
-    function onUp(e){
-        ResetCtx({ev: null});
-        var node = this;
-        if(node.templ && node.templ.on.mouseup){
-            r = Event_Run(Event_New(node, e, node.templ.on.mouseup));
-        }
-        if(node.templ && node.templ.on.click){
-            r = Event_Run(Event_New(node, e, node.templ.on.click));
-        }
-        e.stopPropagation(); e.preventDefault();
-    }
-
-    function onScroll(e){
-        var node = this;
-    }
-
-    function onHover(e){
-        ResetCtx({ev: null});
-        var node = this;
-        if(node.flags & FLAG_NODE_STATE_HOVER){
-            return;
-        }
-        node.flags |= FLAG_NODE_STATE_HOVER;
-        if(node.templ && node.templ.on.hover){
-            Event_Run(Event_New(node, e, node.templ.on.hover));
-        }
-        e.stopPropagation(); e.preventDefault();
-    }
-
-    function onUnHover(e){
-        ResetCtx({ev: null});
-        var node = this;
-        if((node.flags & FLAG_NODE_STATE_HOVER) == 0){
-            return;
-        }
-        node.flags &= ~FLAG_NODE_STATE_HOVER;
-        if(node.templ && node.templ.on.hover){
-            Event_Run(Event_New(node, e, node.templ.on.hover));
-        }
-        e.stopPropagation(); e.preventDefault();
-    }
-
-    function El_SetEvents(node, events){
-        if(events.mousedown || events.click){
-            node.onmousedown = onDown;
-        }
-        if(events.mouseup){
-            node.onmouseup = onUp;
-        }
-
-        if(events.hover){
-            /*
-            if(!events.click && isTouchDevice){
-                node.onmouseup = onHover;
-            }else{
-                node.onmouseover = onHover;
-            }
-            */
-            node.onmouseover = onHover;
-            node.onmouseout = onUnHover;
-        }
-    }
-
-    /*
-     * [Injest and Tag Data]
-     */
-    function Injest(content){
-        const framework = this;
-        if(Array.isArray(content)){
-            for(let i = 0; i < content.length; i++){
-                content._idtag = 'content_' + (++framework.content_idx);
-            }
-        }
-    }
-
-    /* 
-     *[Cash Variable-in-strin Parser]
-     *
-     * This is the function that allows variables to exist in strings
-     */
-    function Cash(s, data, prepare){
-        const result = {
-            arg: s,
-            result: null,
-            isCash: false,
-            vars: [],
-        };
-        
-        if(!s){
-            return "";
-        }
-
-        let state = STATE_TEXT;
-        let key = "";
-        let shelf = "";
-        for(let i = 0; i < s.length; i++){
-            const c = s.charAt(i);
-            if(state == STATE_TEXT){
-                if(c == '$'){
-                    state = STATE_PRE_KEY;
-                    continue;
-                }else{
-                    shelf += c;
-                }
-            }else if(state == STATE_PRE_KEY){
-                if(c == '{'){
-                   state = STATE_KEY; 
-                }else{
-                    shelf = "";
-                    break;
-                }
-            }else if(state == STATE_KEY){
-                if(c == '}'){
-                    if(data){
-                        var value = DataScope(key, data);
-                        if(!value){
-                            shelf = "";
-                            break;
-                        }
-                        shelf += value;
-                    }
-                    if(prepare){
-                        const destK = blankDestKLiteral(key);
-                        result.vars.push(destK);
-                        shelf += '${'+destK.key+'}';
-                    }
-                    result.isCash = true;
-                    key = "";
-                    state = STATE_TEXT;
-                    continue;
-                }else{
-                    key += c;
-                }
-            }
-        }
-
-        result.result = shelf || s;
-        if(prepare){
-            result.arg = shelf;
-        }
-
-        return result;
-    }
-
 
     /*
      * [Helper Functions]
@@ -827,6 +376,222 @@ function TempLang_Init(templates_el, framework){
         return obj;
     }
 
+    /*
+     * [Data And Context Functions]
+     */
+    function Data_MakeCtx(data){
+        if(!data._ctx){
+            return {_ctx: {vars: {}}, current: data, prevData: []};
+        }
+        return data;
+    }
+
+    function Data_Outdent(){
+        framework._ctx.prevData.pop();
+        framework._ctx.data = framework._ctx.prevData[0];
+        framework._ctx.currentData = framework._ctx.data;
+        framework._ctx.current_idx = 0;
+    }
+
+    function ResetCtx(args){
+        if(typeof framework._ctx === 'undefined'){
+           framework._ctx =  {vars: {}, data: {}, current_idx: 0, currentData: {}, prevData:[], ev: null};
+        }
+        if(args.data){
+            const data = args.data;
+            framework._ctx.data = data;
+            framework._ctx.currentData = data;
+            framework._ctx.current_idx = 0;
+            if(framework._ctx.prevData.indexOf(data) == -1){
+                framework._ctx.prevData.push(data);
+            }
+        }else{
+            framework._ctx.currentData = null;
+            framework._ctx.current_idx = 0;
+        }
+
+        if(args.ev !== undefined){
+            framework._ctx.ev = args.ev;
+        }
+
+        if(!args.preserveVars){
+            framework._ctx.vars = {};
+        }
+    }
+
+    function ClearCtx(){
+        framework._ctx.vars = {};
+        framework._ctx.data = {};
+        framework._ctx.currentData = {};
+        framework._ctx.prevData = [];
+    }
+
+    function PopDataCtx(data){
+        const idx = framework._ctx.prevData.length;
+        if(idx == 0){
+           return null; 
+        }
+
+        idx--;
+        if(data === framework._ctx.prevData[idx]){
+            return framework._ctx.prevData.pop();
+        }
+
+       return null; 
+    }
+
+    function DataScope(sel, data){
+        if(data && data[sel]){
+            return data[sel];
+        }
+        return null;
+    }
+
+    function Data_Search(key, nest, order){
+        let value = null;
+        if(!order){
+            order = [DIRECTION_VARS, DIRECTION_CURRENT_DATA, DIRECTION_DATA, DIRECTION_PREV_DATA];
+        }
+        for(var i = 0; i < order.length; i++){
+            if(order[i] === DIRECTION_DATA){
+                const data = framework._ctx.data;
+                if(data[key]){
+                    if(nest){
+                        framework._ctx.data = data[key];
+                        framework._ctx.prevData.push(framework._ctx.data);
+                        framework._ctx.currentData = data[key];
+                    }
+                    return {type: 'data', value: data[key]};
+                }
+            }else if(order[i] === DIRECTION_CURRENT_DATA){
+                const data = framework._ctx.currentData;
+                if(data && data[key]){
+                    return {type: 'currentData', value: data[key]};
+                }
+            }else if(order[i] === DIRECTION_VARS){
+                if(framework._ctx.vars[key]){
+                    value = framework._ctx.vars[key];
+                    if(nest){
+                        if(typeof value === 'object'){
+                            if(framework._ctx && framework._ctx.prevData.indexOf(value) == -1){
+                                framework._ctx.prevData.push(value);
+                            }
+                            framework._ctx.currentData = value;
+                        }
+                    }
+                    return {type: 'vars', value: value};
+                }
+            }else if(order[i] === DIRECTION_PREV_DATA){
+                let idx = framework._ctx.prevData.length;
+                for(let i = idx-1; i >= 0; i--){
+                    const curData = framework._ctx.prevData[i];
+                    if(curData[key]){
+                        return {type: 'prevData', value: curData[key]};
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /*
+     * [Setters Run and Register]
+     */
+    function El_RegisterSetters(node, templ){
+        for(var i = 0; i < templ.setters.length; i++){
+            const set = templ.setters[i];
+            const scope = set.scope;
+            const destK = set.destK;
+            const compare = {vars: destK.key};
+            if(destK.key_source){
+                compare.name = destK.key_source;
+            }
+
+            const source = El_Query(node, {direction: destK.var_direction}, compare); 
+
+            if(source){
+                if(!source.varSetters[destK.key]){
+                    source.varSetters[destK.key] = {};
+                }
+                const setter = {node: node, set: set, isMatch: false};
+
+                source.varSetters[destK.key][node._idtag] = setter;
+                El_RunIndividualSetter(source, setter, destK.key, source.vars[destK.key]);
+            }else{
+                console.warn("El_RegisterSetters '" + destK.key + "' not found in tree", node);
+                console.warn("El_RegisterSetters '" + destK.key + "' not found in tree setter", set);
+                console.warn('Source of setter :' +node.templ.asKey.key, set);
+                console.warn('Source of setter source', source);
+                console.warn('Source of setter source node', node);
+                console.warn('--');
+            }
+        }
+    }
+
+    function El_RunSetter(setter, value){
+        const set = setter.set;
+        const node = setter.node;
+        if(set.scope === 'class'){
+            const value = Cash(set.destK.value, node.vars).result;
+            if(setter.isMatch){
+                El_SetStateStyle(node, node.templ, value, true);
+            }else{
+                El_SetStateStyle(node, node.templ, value, false);
+            }
+        }else if(set.scope === 'as'){
+            if(value){
+                ResetCtx({data: node._data, preserveVars: true}); 
+
+                const asData = {}
+                asData[set.destK.key] = value;
+
+                El_MakeAs(setter.node, setter.node.parentNode, asData);
+            }
+        }else if(set.scope === 'data'){
+            node._data = value; 
+        }
+    }
+    
+    function El_RunIndividualSetter(node, setter, prop, value){
+        const setNode = setter.node;
+        const setterSet = setter.set;
+        let isMatch = null;
+        if(setter.set.scope === 'data' && value){
+            isMatch = value._idtag;
+        }else if(setNode.vars && typeof setNode.vars[setterSet.destK.dest_key] !== 'undefined'){
+            isMatch = setNode.vars[setterSet.destK.dest_key] === value;
+        }
+
+        if(isMatch == null || isMatch !== setter.isMatch){
+            setter.isMatch = isMatch;
+            El_RunSetter(setter, value);
+        }
+    }
+
+    function El_RunNodeSetters(node, prop, value){
+        for(let k in node.varSetters[prop]){
+            El_RunIndividualSetter(node, node.varSetters[prop][k], prop, value);
+        }
+    }
+
+    /* 
+     * Set a variable on an object, this is instrumental in running listeners
+     * which trigger most of the interactive behaviour of the framework. 
+     */
+    function El_SetVar(node, prop, value){
+        if(node.vars[prop] !== value){
+            if(!node.templ.name && node.templ.nodeName == 'DIV'){
+            }else{
+            }
+            El_RunNodeSetters(node, prop, value);
+            node.vars[prop] = value;
+            framework._ctx.vars[prop] = value;
+            return true;
+        }
+        return false;
+    }
+
     /* 
      * [Parsing Templates]
      *
@@ -1016,225 +781,458 @@ function TempLang_Init(templates_el, framework){
     }
 
     /*
-     * [Setters Run and Register]
-     */
-    function El_RegisterSetters(node, templ){
-        for(var i = 0; i < templ.setters.length; i++){
-            const set = templ.setters[i];
-            const scope = set.scope;
-            const destK = set.destK;
-            const compare = {vars: destK.key};
-            if(destK.key_source){
-                compare.name = destK.key_source;
+     * [Events Native and Synthetic]
+    */
+    function Event_Run(event_ev){
+        let r = false;
+        if(framework._ctx.ev === null){
+            framework._ctx.ev = event_ev;
+        }
+
+        let dest_el = event_ev.dest;
+        if(!dest_el){
+            if(event_ev.spec.key === 'set'){
+                dest_el = El_Query(event_ev.target, {direction: event_ev.spec.direction},  {vars: Object.keys(event_ev.spec.mapVars)});
+            }else{
+                dest_el = El_Query(event_ev.target, event_ev.spec, [
+                    {on: event_ev.spec.key},
+                    {funcs: event_ev.spec.key}
+                ]);
             }
+        }
 
-            const source = El_Query(node, {direction: destK.var_direction}, compare); 
+        let func = null;
+        let sub_ev = null;
 
-            if(source){
-                if(!source.varSetters[destK.key]){
-                    source.varSetters[destK.key] = {};
+        if(dest_el){
+            event_ev.dest = dest_el;
+            if(dest_el.templ && dest_el.templ.funcs[event_ev.spec.key]){
+                func = dest_el.templ.funcs[event_ev.spec.key];
+            }
+            if(dest_el.templ && dest_el.templ.on[event_ev.spec.key]){
+                sub_ev = {
+                    spec: dest_el.templ.on[event_ev.spec.key],
+                    target: dest_el,
+                    copyTargetVars: true,
+                };
+            }
+        }
+
+        if(event_ev.spec.key === 'style'){
+            if(event_ev.eventType === 'hover'){
+                if(event_ev.spec.varIsPair){
+                    event_ev.target.classList.add(event_ev.spec.varList[0]); 
+                    event_ev.target.classList.remove(event_ev.spec.varList[1]); 
                 }
-                const setter = {node: node, set: set, isMatch: false};
+            }else if(event_ev.eventType === 'unhover'){
+                if(event_ev.spec.varIsPair){
+                    event_ev.target.classList.add(event_ev.spec.varList[1]); 
+                    event_ev.target.classList.remove(event_ev.spec.varList[0]); 
+                }
+            }
+        }if(event_ev.spec.key === 'unhover'){
+            if(event_ev.dest.templ && event_ev.dest.templ.on.hover){
+                sub_ev = {spec: event_ev.dest.templ.on.hover, target: event_ev.dest, eventType: "unhover"};
+            }
+        }else if(event_ev.spec.key === 'set'){
+            var tg = event_ev.dest || event_ev.target;
+            for(var k in event_ev.spec.mapVars){
+                r = El_SetVar(tg, k, event_ev.vars[k]);
+            }
+            if(event_ev.dest && event_ev.dest.templ.on.set){
+               sub_ev = {spec: event_ev.dest.templ.on.set};
+            }
+        }
 
-                source.varSetters[destK.key][node._idtag] = setter;
-                El_RunIndividualSetter(source, setter, destK.key, source.vars[destK.key]);
+        if(event_ev.spec.mapVars){
+            var newVars = {};
+            if(event_ev.dest){
+                CopyVars(event_ev.spec.mapVars, newVars, event_ev.dest.vars);
+            }
+            CopyVars(event_ev.spec.mapVars, event_ev.vars, event_ev.vars);
+        }
+
+        if(sub_ev){
+            const merged_ev = Event_Merge(sub_ev, event_ev)
+            /*
+            console.log('sub merged', merged_ev.spec);
+            */
+            const _r = Event_Run(merged_ev); 
+            if(_r !== undefined){
+                r = _r;
+            }
+        }
+
+        if(func){
+            const _r = func(event_ev);
+            if(_r !== undefined){
+                r = _r;
+            }
+        }
+
+        return r;
+    }
+
+    function GetTypeFromE(e){
+        if(e && e.type){
+            if(e.type === 'mouseover'){
+                return 'hover';
+            }else if(e.type === 'mouseout'){
+                return 'unhover';
             }else{
-                console.warn("El_RegisterSetters '" + destK.key + "' not found in tree", node);
-                console.warn("El_RegisterSetters '" + destK.key + "' not found in tree setter", set);
-                console.warn('Source of setter :' +node.templ.asKey.key, set);
-                console.warn('Source of setter source', source);
-                console.warn('Source of setter source node', node);
-                console.warn('--');
+                return e.type;
             }
         }
     }
 
-    function El_RunSetter(setter, value){
-        const set = setter.set;
-        const node = setter.node;
-        if(set.scope === 'class'){
-            const value = Cash(set.destK.value, node.vars).result;
-            if(setter.isMatch){
-                El_SetStateStyle(node, node.templ, value, true);
-            }else{
-                El_SetStateStyle(node, node.templ, value, false);
+    /* Events are merged when they trigger a related event */
+    function Event_Merge(sub_ev, event_ev){
+         const ev = {
+            target: sub_ev.target || event_ev.target,
+            dest: sub_ev.dest,
+            e: event_ev.e,
+            spec: sub_ev.spec,
+            vars: sub_ev.vars || {},
+            eventType: sub_ev.eventType || event_ev.eventType,
+            _pior: event_ev,
+        }
+
+
+        if(ev.spec.mapVars){
+            if(sub_ev.copyTargetVars){
+                CopyVars(ev.spec.mapVars, ev.vars, ev.target.vars);
             }
-        }else if(set.scope === 'as'){
-            if(value){
-                ResetCtx({data: node._data, preserveVars: true}); 
+            CopyVars(ev.spec.mapVars, ev.vars, event_ev.vars);
+        }
 
-                const asData = {}
-                asData[set.destK.key] = value;
+        return ev;
+    }
 
-                El_MakeAs(setter.node, setter.node.parentNode, asData);
+    function Event_New(target_el, e, spec){
+        var event_ev = {
+            target: target_el, /* the source of the event, e.g. clicked element */
+            dest: null, /* the destination that has the event on it */
+            e: e,
+            spec: spec,
+            eventType: GetTypeFromE(e),
+            vars: {}, /* end result of target vars + gathers */
+            _pior: null, /* event this event is based on */
+        }
+
+        if(target_el.vars){
+            if(spec.mapVars){
+                CopyVars(spec.mapVars, event_ev.vars, target_el.vars);
             }
-        }else if(set.scope === 'data'){
-            node._data = value; 
-        }
-    }
-    
-    function El_RunIndividualSetter(node, setter, prop, value){
-        const setNode = setter.node;
-        const setterSet = setter.set;
-        let isMatch = null;
-        if(setter.set.scope === 'data' && value){
-            isMatch = value._idtag;
-        }else if(setNode.vars && typeof setNode.vars[setterSet.destK.dest_key] !== 'undefined'){
-            isMatch = setNode.vars[setterSet.destK.dest_key] === value;
         }
 
-        if(isMatch == null || isMatch !== setter.isMatch){
-            setter.isMatch = isMatch;
-            El_RunSetter(setter, value);
-        }
+        return event_ev;
     }
 
-    function El_RunNodeSetters(node, prop, value){
-        for(let k in node.varSetters[prop]){
-            El_RunIndividualSetter(node, node.varSetters[prop][k], prop, value);
-        }
-    }
 
     /* 
-     * Set a variable on an object, this is instrumental in running listeners
-     * which trigger most of the interactive behaviour of the framework. 
+     * [Bind and Assign Browser Events]
      */
-    function El_SetVar(node, prop, value){
-        if(node.vars[prop] !== value){
-            if(!node.templ.name && node.templ.nodeName == 'DIV'){
-            }else{
-            }
-            El_RunNodeSetters(node, prop, value);
-            node.vars[prop] = value;
-            framework._ctx.vars[prop] = value;
-            return true;
+
+    function onMouseMove(e){
+        var x = e.clientX;
+        var y = e.clientY;
+    }
+
+    function onDown(e){
+        var node = this;
+        let r = false;
+        ResetCtx({ev: null});
+        if(node.templ && node.templ.on.mousedown){
+            r = Event_Run(Event_New(node, e, node.templ.on.mousedown));
         }
-        return false;
+        if(node.templ && node.templ.on.click){
+            r = Event_Run(Event_New(node, e, node.templ.on.click));
+        }
+        e.stopPropagation(); e.preventDefault();
+    }
+
+    function onUp(e){
+        ResetCtx({ev: null});
+        var node = this;
+        if(node.templ && node.templ.on.mouseup){
+            r = Event_Run(Event_New(node, e, node.templ.on.mouseup));
+        }
+        if(node.templ && node.templ.on.click){
+            r = Event_Run(Event_New(node, e, node.templ.on.click));
+        }
+        e.stopPropagation(); e.preventDefault();
+    }
+
+    function onScroll(e){
+        var node = this;
+    }
+
+    function onHover(e){
+        ResetCtx({ev: null});
+        var node = this;
+        if(node.flags & FLAG_NODE_STATE_HOVER){
+            return;
+        }
+        node.flags |= FLAG_NODE_STATE_HOVER;
+        if(node.templ && node.templ.on.hover){
+            Event_Run(Event_New(node, e, node.templ.on.hover));
+        }
+        e.stopPropagation(); e.preventDefault();
+    }
+
+    function onUnHover(e){
+        ResetCtx({ev: null});
+        var node = this;
+        if((node.flags & FLAG_NODE_STATE_HOVER) == 0){
+            return;
+        }
+        node.flags &= ~FLAG_NODE_STATE_HOVER;
+        if(node.templ && node.templ.on.hover){
+            Event_Run(Event_New(node, e, node.templ.on.hover));
+        }
+        e.stopPropagation(); e.preventDefault();
+    }
+
+    function El_SetEvents(node, events){
+        if(events.mousedown || events.click){
+            node.onmousedown = onDown;
+        }
+        if(events.mouseup){
+            node.onmouseup = onUp;
+        }
+
+        if(events.hover){
+            /*
+            if(!events.click && isTouchDevice){
+                node.onmouseup = onHover;
+            }else{
+                node.onmouseover = onHover;
+            }
+            */
+            node.onmouseover = onHover;
+            node.onmouseout = onUnHover;
+        }
     }
 
     /*
-     * [Data And Context Functions]
+     * [Styles and Stylesheet Management]
      */
-    function Data_MakeCtx(data){
-        if(!data._ctx){
-            return {_ctx: {vars: {}}, current: data, prevData: []};
+    function GetstyleSheet(sheet_s){
+        var name_s = sheet_s;
+        if(sheet_s === null){
+            name_s === 'default';
         }
-        return data;
+        if(framework._styleSheets[name_s]){
+            return framework._styleSheets[name_s];
+        }
+        for(var i = 0; i < document.styleSheets.length; i++){
+            var s = document.styleSheets[i];
+            if(!sheet_s){
+                if(!s.href){
+                    framework._styleSheets[name_s] = {sheet: s, cls: {}};
+                    return framework._styleSheets[name_s];
+                }
+            }else if(s.href){
+                if(s.href && s.href.substring(s.href.length - sheet_s.length) === sheet_s){
+                    framework._styleSheets[sheet_s] = {sheet: s, cls: {}};
+                    return framework._styleSheets[sheet_s];
+                }
+            }
+        }
+        return null;
     }
 
-    function Data_Outdent(){
-        framework._ctx.prevData.pop();
-        framework._ctx.data = framework._ctx.prevData[0];
-        framework._ctx.currentData = framework._ctx.data;
-        framework._ctx.current_idx = 0;
+    function GetStyleRule(sheetObj, cls){
+        if(sheetObj.cls[cls]){
+            return sheetObj.cls[cls];
+        }
+        for(var i = 0; i < sheetObj.sheet.rules.length; i++){
+            var rule = sheetObj.sheet.rules[i];
+            if(rule.selectorText == cls){
+                sheetObj.cls[cls] = rule;
+                return rule;
+            }
+        }
+        return null;
     }
 
-    function ResetCtx(args){
-        if(typeof framework._ctx === 'undefined'){
-           framework._ctx =  {vars: {}, data: {}, current_idx: 0, currentData: {}, prevData:[], ev: null};
+    function ChangeStyle(sheet_s, name, att, value){
+        var sheetObj = GetstyleSheet(sheet_s);
+        if(sheetObj){
+            var rule = GetStyleRule(sheetObj, name);
+            rule.style[att] = value;
         }
-        if(args.data){
-            const data = args.data;
-            framework._ctx.data = data;
-            framework._ctx.currentData = data;
-            framework._ctx.current_idx = 0;
-            if(framework._ctx.prevData.indexOf(data) == -1){
-                framework._ctx.prevData.push(data);
+    }
+
+    function El_SetStateStyle(node, templ, stateStyle, add){
+        node.classList = [];
+        for(var i = 0; i < templ.classes.length; i++){
+            node.classList.add(templ.classes[i]);
+        }
+
+        let custom_rule = 'custom-' + node._idtag.replace('_', '-');
+
+        let style_s = Cash(templ.baseStyle, node.vars).result;
+        if(style_s){
+            const rule = '.' + custom_rule + ' {' + style_s + '}';
+            if(!GetStyleRule(GetstyleSheet(null), custom_rule)){
+                AddStyle(null, rule);
+            }
+        }
+
+        if(add && stateStyle){
+            node.classList.add(stateStyle);
+            if(custom_rule && style_s){
+                node.classList.remove(custom_rule);
             }
         }else{
-            framework._ctx.currentData = null;
-            framework._ctx.current_idx = 0;
-        }
-
-        if(args.ev !== undefined){
-            framework._ctx.ev = args.ev;
-        }
-
-        if(!args.preserveVars){
-            framework._ctx.vars = {};
+            if(stateStyle){
+                node.classList.remove(stateStyle);
+            }
+            if(custom_rule && style_s){
+                node.classList.add(custom_rule);
+            }
         }
     }
 
-    function ClearCtx(){
-        framework._ctx.vars = {};
-        framework._ctx.data = {};
-        framework._ctx.currentData = {};
-        framework._ctx.prevData = [];
+    function El_SetClasses(node, templ, data){
+        if(!data){
+            data = {};
+            GatherData(node, templ.classIfCond, data);
+        }
+
+        const cond = templ.classIfCond;
+        if(cond && cond.key){
+            const propval = data[cond.key];
+            if(propval !== null && propval === node.vars[cond.dest_key]){
+                node.classList.add(cond.value); 
+            }else{
+                node.classList.remove(cond.value); 
+            }
+        }
     }
 
-    function PopDataCtx(data){
-        const idx = framework._ctx.prevData.length;
-        if(idx == 0){
-           return null; 
-        }
 
-        idx--;
-        if(data === framework._ctx.prevData[idx]){
-            return framework._ctx.prevData.pop();
+    function AddStyle(sheet_s, rule_s){
+        var sheetObj = GetstyleSheet(sheet_s);
+        if(sheetObj){
+            sheetObj.sheet.insertRule(rule_s, sheetObj.sheet.rules.length);
         }
-
-       return null; 
     }
 
-    function DataScope(sel, data){
-        if(data && data[sel]){
-            return data[sel];
-        }
-        return null;
-    }
-
-    function Data_Search(key, nest, order){
-        let value = null;
-        if(!order){
-            order = [DIRECTION_VARS, DIRECTION_CURRENT_DATA, DIRECTION_DATA, DIRECTION_PREV_DATA];
-        }
-        for(var i = 0; i < order.length; i++){
-            if(order[i] === DIRECTION_DATA){
-                const data = framework._ctx.data;
-                if(data[key]){
-                    if(nest){
-                        framework._ctx.data = data[key];
-                        framework._ctx.prevData.push(framework._ctx.data);
-                        framework._ctx.currentData = data[key];
-                    }
-                    return {type: 'data', value: data[key]};
+    function CopyVars(map, to, from){
+        if(Array.isArray(map)){
+            for(let i = 0; i < map.length; i++){
+                if(from[map[i]] !== undefined){
+                    const _k = map[i];
+                    const _v = from[map[i]]
+                    to[_k] = _v;
+                    // framework._ctx.vars[_k] = _v;
                 }
-            }else if(order[i] === DIRECTION_CURRENT_DATA){
-                const data = framework._ctx.currentData;
-                if(data && data[key]){
-                    return {type: 'currentData', value: data[key]};
+            }
+        }else{
+            for(var k in map){
+                let value;
+                if(map[k].cash.isCash){
+                    value = Cash(map[k].key, from).result;
+                }else if(from[map[k].key] !== undefined){
+                    value = from[map[k].key];
                 }
-            }else if(order[i] === DIRECTION_VARS){
-                if(framework._ctx.vars[key]){
-                    value = framework._ctx.vars[key];
-                    if(nest){
-                        if(typeof value === 'object'){
-                            if(framework._ctx && framework._ctx.prevData.indexOf(value) == -1){
-                                framework._ctx.prevData.push(value);
-                            }
-                            framework._ctx.currentData = value;
+                
+                if(value !== undefined){
+                    const _k = map[k].dest_key;
+                    to[_k] = value;
+                    framework._ctx.vars[_k] = value;
+                }
+            }
+        }
+    }
+
+
+    /* 
+     *[Cash Variable-in-strin Parser]
+     *
+     * This is the function that allows variables to exist in strings
+     */
+    function Cash(s, data, prepare){
+        const result = {
+            arg: s,
+            result: null,
+            isCash: false,
+            vars: [],
+        };
+        
+        if(!s){
+            return "";
+        }
+
+        let state = STATE_TEXT;
+        let key = "";
+        let shelf = "";
+        for(let i = 0; i < s.length; i++){
+            const c = s.charAt(i);
+            if(state == STATE_TEXT){
+                if(c == '$'){
+                    state = STATE_PRE_KEY;
+                    continue;
+                }else{
+                    shelf += c;
+                }
+            }else if(state == STATE_PRE_KEY){
+                if(c == '{'){
+                   state = STATE_KEY; 
+                }else{
+                    shelf = "";
+                    break;
+                }
+            }else if(state == STATE_KEY){
+                if(c == '}'){
+                    if(data){
+                        var value = DataScope(key, data);
+                        if(!value){
+                            shelf = "";
+                            break;
                         }
+                        shelf += value;
                     }
-                    return {type: 'vars', value: value};
-                }
-            }else if(order[i] === DIRECTION_PREV_DATA){
-                let idx = framework._ctx.prevData.length;
-                for(let i = idx-1; i >= 0; i--){
-                    const curData = framework._ctx.prevData[i];
-                    if(curData[key]){
-                        return {type: 'prevData', value: curData[key]};
+                    if(prepare){
+                        const destK = blankDestKLiteral(key);
+                        result.vars.push(destK);
+                        shelf += '${'+destK.key+'}';
                     }
+                    result.isCash = true;
+                    key = "";
+                    state = STATE_TEXT;
+                    continue;
+                }else{
+                    key += c;
                 }
             }
         }
 
-        return null;
+        result.result = shelf || s;
+        if(prepare){
+            result.arg = shelf;
+        }
+
+        return result;
+    }
+
+    /*
+     * [Injest and Tag Data]
+     */
+    function Injest(content){
+        const framework = this;
+        if(Array.isArray(content)){
+            for(let i = 0; i < content.length; i++){
+                content._idtag = 'content_' + (++framework.content_idx);
+            }
+        }
     }
 
     /* 
      * [Core Functions For Element Creation]
      */
-
 
     /*   This the main way of making an element internally
      *
@@ -1418,8 +1416,6 @@ function TempLang_Init(templates_el, framework){
 
 
     /* 
-     *  Public:
-     *
      *   Main function for inflating a template with data to make elements
      *
      *   Make(templ, parent_el, data) -> undefined
