@@ -5,12 +5,12 @@ Web template framework. Bring event routing and element creation together quickl
 
 ##  Licence
 
-MIT licence owned by (Compare Basic Incorporated)[https://comparebasic.com]
+MIT licence owned by [Compare Basic Incorporated](https://comparebasic.com)
 
 
 ## TempLang: Documentation
 
-see https://templang.org for an example of the framework
+see [https://templang.org](https://templang.org) for an example of the framework
 
 
 ### Public API:
