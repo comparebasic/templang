@@ -253,6 +253,34 @@ function TempLang_Init(templates_el, framework){
         };
     }
 
+    function CopyVars(map, to, from){
+        if(Array.isArray(map)){
+            for(let i = 0; i < map.length; i++){
+                if(from[map[i]] !== undefined){
+                    const _k = map[i];
+                    const _v = from[map[i]]
+                    to[_k] = _v;
+                    framework._ctx.vars[_k] = _v;
+                }
+            }
+        }else{
+            for(var k in map){
+                let value;
+                if(map[k].cash.isCash){
+                    value = Cash(map[k].key, from).result;
+                }else if(from[map[k].key] !== undefined){
+                    value = from[map[k].key];
+                }
+                
+                if(value !== undefined){
+                    const _k = map[k].dest_key;
+                    to[_k] = value;
+                    framework._ctx.vars[_k] = value;
+                }
+            }
+        }
+    }
+
     function GatherData(node, cond, dest){
         propval = El_VarFrom(node, cond.key, cond.var_direction);
         if(propval !== null){
@@ -854,9 +882,6 @@ function TempLang_Init(templates_el, framework){
 
         if(sub_ev){
             const merged_ev = Event_Merge(sub_ev, event_ev)
-            /*
-            console.log('sub merged', merged_ev.spec);
-            */
             const _r = Event_Run(merged_ev); 
             if(_r !== undefined){
                 r = _r;
@@ -1117,34 +1142,6 @@ function TempLang_Init(templates_el, framework){
         var sheetObj = GetstyleSheet(sheet_s);
         if(sheetObj){
             sheetObj.sheet.insertRule(rule_s, sheetObj.sheet.rules.length);
-        }
-    }
-
-    function CopyVars(map, to, from){
-        if(Array.isArray(map)){
-            for(let i = 0; i < map.length; i++){
-                if(from[map[i]] !== undefined){
-                    const _k = map[i];
-                    const _v = from[map[i]]
-                    to[_k] = _v;
-                    // framework._ctx.vars[_k] = _v;
-                }
-            }
-        }else{
-            for(var k in map){
-                let value;
-                if(map[k].cash.isCash){
-                    value = Cash(map[k].key, from).result;
-                }else if(from[map[k].key] !== undefined){
-                    value = from[map[k].key];
-                }
-                
-                if(value !== undefined){
-                    const _k = map[k].dest_key;
-                    to[_k] = value;
-                    framework._ctx.vars[_k] = value;
-                }
-            }
         }
     }
 
