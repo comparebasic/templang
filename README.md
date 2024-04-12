@@ -68,19 +68,19 @@ The development files have been split out by section, for easy browsing
 
 #### Internal Stuff:
 
-[Elem Query and Match](src/devel/templang_query.js)
-[Helper Functions](src/devel/templang_helpers.js)
-[Data And Context Functions](src/devel/templang_data.js)
-[Setters Run and Register](src/devel/templang_setters.js)
-[Parsing Templates](src/devel/templang_parse.js)
-[Events Native and Synthetic](src/devel/templang_events.js)
-[Bind and Assign Browser Events](src/devel/templang_bind_ev.js)
+ - [Elem Query and Match](src/devel/templang_query.js)
+ - [Helper Functions](src/devel/templang_helpers.js)
+ - [Data And Context Functions](src/devel/templang_data.js)
+ - [Setters Run and Register](src/devel/templang_setters.js)
+ - [Parsing Templates](src/devel/templang_parse.js)
+ - [Events Native and Synthetic](src/devel/templang_events.js)
+ - [Bind and Assign Browser Events](src/devel/templang_bind_ev.js)
 
 
 #### External Stuff:
 
-[Styles and Stylesheet Management](src/devel/templang_styles.js)
-[Cash Variable-in-strin Parser](src/devel/templang_cash.js)
-[Injest and Tag Data](src/devel/templang_injest.js)
-[Core Functions For Element Creation](src/devel/templang_element.js)
-[Initialized the Framework Object](src/devel/templan_init.js)
+ - [Styles and Stylesheet Management](src/devel/templang_styles.js)
+ - [Cash Variable-in-strin Parser](src/devel/templang_cash.js)
+ - [Injest and Tag Data](src/devel/templang_injest.js)
+ - [Core Functions For Element Creation](src/devel/templang_element.js)
+ - [Initialized the Framework Object](src/devel/templan_init.js)
