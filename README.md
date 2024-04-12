@@ -15,7 +15,6 @@ see https://templang.org for an example of the framework
 
 ### Public API:
 
-    ```
     Templag_Init(templates_el, framework) -> undefined
        - templates_el: this is the root node that contains HTML template tags
          to use with TempLang 
@@ -47,4 +46,3 @@ see https://templang.org for an example of the framework
     Cash(s, data) -> string
         - s: string to parse in the form of "Hi there ${prop}"
         - data: a data object with data used to fill the cash string
-    ```
