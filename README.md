@@ -2,6 +2,8 @@
 
 Web template framework. Bring event routing and element creation together quickly and completely. 
 
+see [https://templang.org](https://templang.org) for an example of the framework
+
 
 ##  Licence
 
@@ -47,8 +49,6 @@ Please use this as an inspirational system for a while, this will change as we d
 
 
 ## TempLang: Documentation
-
-see [https://templang.org](https://templang.org) for an example of the framework
 
 
 ### Public API:
