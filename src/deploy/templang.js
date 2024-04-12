@@ -27,7 +27,7 @@ Internal Stuff:
 External Stuff:
 
     [Styles and Stylesheet Management]
-    [Cash Variable-in-strin Parser]
+    [Cash Variable-In-String Parser]
     [Injest and Tag Data]
     [Core Functions For Element Creation]
     [Initialized the Framework Object]
@@ -1147,7 +1147,7 @@ function TempLang_Init(templates_el, framework){
 
 
     /* 
-     *[Cash Variable-in-strin Parser]
+     *[Cash Variable-In-String Parser]
      *
      * This is the function that allows variables to exist in strings
      */

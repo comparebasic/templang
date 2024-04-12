@@ -11,7 +11,7 @@ see https://templang.org for technical documentation
 
 
     /* 
-     *[Cash Variable-in-strin Parser]
+     *[Cash Variable-In-String Parser]
      *
      * This is the function that allows variables to exist in strings
      */

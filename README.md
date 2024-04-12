@@ -80,7 +80,7 @@ The development files have been split out by section, for easy browsing
 #### External Stuff:
 
  - [Styles and Stylesheet Management](src/devel/templang_styles.js)
- - [Cash Variable-in-strin Parser](src/devel/templang_cash.js)
+ - [Cash Variable-In-String Parser](src/devel/templang_cash.js)
  - [Injest and Tag Data](src/devel/templang_injest.js)
  - [Core Functions For Element Creation](src/devel/templang_element.js)
  - [Initialized the Framework Object](src/devel/templan_init.js)
