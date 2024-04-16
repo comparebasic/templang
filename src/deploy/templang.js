@@ -425,7 +425,10 @@ function TempLang_Init(templates_el, framework){
 
     function Data_Sub(data, key){
         let ctx = null;
-        if(data && data.data){
+
+        if(data === null || data === undefined){
+            return null;
+        }else if(data.data){
             ctx = data; 
             data = data.data;
         }
@@ -571,7 +574,9 @@ function TempLang_Init(templates_el, framework){
                 El_SetStateStyle(node, node.templ, value, false);
             }
         }else if(set.scope === 'as'){
+            /*
             console.debug('RUNNING as value:' + value, setter);
+            */
             if(value){
 
                 const asData = {}
@@ -650,6 +655,7 @@ function TempLang_Init(templates_el, framework){
             setters: [],
             asKey: null,
             body: '',
+            uiSplit: false,
             _misc: {},
         };
 
@@ -708,6 +714,8 @@ function TempLang_Init(templates_el, framework){
                 }else{
                     mapVarsObj[mapVars.dest_key] = mapVars;
                 }
+            }else if(att.name == 'split'){
+                templ.uiSplit = true;
             }else if(att.name == 'for'){
                 templ.forKey = att.value;
             }else if(att.name == 'base-style'){
@@ -779,6 +787,7 @@ function TempLang_Init(templates_el, framework){
             classIfCond: {},
             baseStyle: '',
             setters: from_templ.setters,
+            uiSplit: from_templ.uiSplit || into_templ && into_templ.uiSplit,
             _misc: {},
         };
 
@@ -860,8 +869,18 @@ function TempLang_Init(templates_el, framework){
                 };
             }
         }
-
-        if(event_ev.spec.key === 'style'){
+        if(event_ev.spec.key === 'size'){
+            if(event_ev.target === framework._ctx.root){
+                ChangeStyle(null, '.full-width', 'width', window.innerWidth + 'px');
+                ChangeStyle(null, '.full-height', 'height', window.innerHeight + 'px');
+            }
+        }else if(event_ev.spec.key === 'split'){
+            El_Make(event_ev.dest.templ, event_ev.dest.parentNode, Data_Sub(event_ev.dest._ctx));
+            for(let i = 0, l = event_ev.dest.parentNode.children.length; i < l; i++){
+                const child = event_ev.dest.parentNode.children[i];
+                El_SetSize(child, l, '/w');
+            }
+        }else if(event_ev.spec.key === 'style'){
             if(event_ev.eventType === 'hover'){
                 if(event_ev.spec.varIsPair){
                     event_ev.target.classList.add(event_ev.spec.varList[0]); 
@@ -991,6 +1010,16 @@ function TempLang_Init(templates_el, framework){
         e.stopPropagation(); e.preventDefault();
     }
 
+    function onResize(e){
+        var node = this;
+        let r = false;
+        ResetCtx({ev: null});
+        if(node.templ && node.templ.on.resize){
+            r = Event_Run(Event_New(node, e, node.templ.on.resize));
+        }
+        e.stopPropagation(); e.preventDefault();
+    }
+
     function onUp(e){
         ResetCtx({ev: null});
         var node = this;
@@ -1039,6 +1068,9 @@ function TempLang_Init(templates_el, framework){
         }
         if(events.mouseup){
             node.onmouseup = onUp;
+        }
+        if(events.resize){
+            node.onresize = onResize;
         }
 
         if(events.hover){
@@ -1099,9 +1131,38 @@ function TempLang_Init(templates_el, framework){
     function ChangeStyle(sheet_s, name, att, value){
         var sheetObj = GetstyleSheet(sheet_s);
         if(sheetObj){
-            var rule = GetStyleRule(sheetObj, name);
-            rule.style[att] = value;
+            const rule = GetStyleRule(sheetObj, name);
+            if(!rule){
+            }else{
+                rule.style[att] = value;
+            }
         }
+    }
+
+    function El_SetStyle(node, att, value){
+        if(node._idtag){
+            const rule = El_GetClsName(node);
+            if(!GetStyleRule(GetstyleSheet(null), rule)){
+                const rule_s = '.'+rule+'{'+att+':'+value+'}';
+                AddStyle(null, rule_s);
+                node.classList.add(rule);
+            }else{
+                ChangeStyle(null, rule, 'width',  (100 / arg) + '%');
+            }
+        }
+    }
+
+    function El_SetSize(node, arg, unit){
+        if(unit === '/w'){
+            El_SetStyle(node, 'width', 100 / arg + '%');
+        }
+    }
+
+    function El_GetClsName(el){
+        if(el._idtag){
+            return  'custom-' + el._idtag.replace('_', '-');
+        }
+        return null;
     }
 
     function El_SetStateStyle(node, templ, stateStyle, add){
@@ -1110,7 +1171,7 @@ function TempLang_Init(templates_el, framework){
             node.classList.add(templ.classes[i]);
         }
 
-        let custom_rule = 'custom-' + node._idtag.replace('_', '-');
+        let custom_rule = El_GetClsName(node);
 
         let style_s = Cash(templ.baseStyle, node.vars).result;
         if(style_s){
@@ -1235,6 +1296,8 @@ function TempLang_Init(templates_el, framework){
      */
     function Injest(content){
         const framework = this;
+        content._idtag = 'content_' + (++framework.content_idx);
+        framework.content[content._idtag] = content;
         if(Array.isArray(content)){
             for(let i = 0; i < content.length; i++){
                 content._idtag = 'content_' + (++framework.content_idx);
@@ -1327,14 +1390,18 @@ function TempLang_Init(templates_el, framework){
         node.varSetters = {};
         node.templ = templ;
         node._idtag = 'element_'+(++framework.el_idx);
+        if(templ.uiSplit){
+            node._ctx = ctx;
+        }
         if(!reuseNode){
             parent_el.appendChild(node);
         }
 
         /* if the data comes from an injested data source, store the flag here
          */
-        if(ctx.data._idflag){
-            node._content_idflag = ctx.data._idflag;
+        if(ctx.data._idtag){
+            node._content_idtag = ctx.data._idtag;
+            node._content_key = ctx.key;
         }
 
         /* Copy vars in from the data to this element */
@@ -1417,6 +1484,8 @@ function TempLang_Init(templates_el, framework){
                 El_Make(templ.children[i], node, subCtx);
             }
         }
+
+        return node;
     }
 
     function El_MakeAs(node, parentNode, ctx){
@@ -1450,19 +1519,13 @@ function TempLang_Init(templates_el, framework){
 
         if(framework.templates[templ_s.toUpperCase()]){
             new_templ = framework.templates[templ_s.toUpperCase()];
-            console.debug('    MakeAs from_templ children ' + new_templ.name, new_templ.children);
-            console.debug('    MakeAs into_templ children ' + templ.name, templ.children);
-
             templ = Templ_Merge(new_templ, templ, {children: new_templ.children}); 
-            console.debug('    MakeAs merged templ children', templ.children);
         }
 
         while(node.hasChildNodes()){
             node.firstChild.remove();
         }
         
-        console.debug('calling El_Make from MakeAs', templ);
-        console.debug('calling El_Make from MakeAs ctx', ctx);
         El_Make(templ, parentNode, ctx, node);
     }
 
@@ -1482,12 +1545,14 @@ function TempLang_Init(templates_el, framework){
         El_Make(name, root_el, ctx);
     }
 
-
     /*
      * [Initialized the Framework Object]
      */
     if(typeof framework.funcs === 'undefined'){
         framework.funcs = {};
+    }
+    if(typeof framework.content === 'undefined'){
+        framework.content = {};
     }
     if(typeof framework.templates === 'undefined'){
         framework.templates = {};
@@ -1497,6 +1562,39 @@ function TempLang_Init(templates_el, framework){
     }
 
     ResetCtx({});
+    const root = document.documentElement;
+
+    root.vars = {};
+    root.varSetters = {};
+    root._idtag = 'root';
+    root.templ = { 
+            on: { resize: Spec_Parse('size')},
+            /* blank */
+            nodeName: "_WINDOW",
+            name: "",
+            isMerged: false,
+            flags: 0,
+            el: document.documentElement,
+            asKey: null,
+            funcs: {},
+            forKey: null,
+            dataKey: null,
+            withkey: null,
+            mapVars: {},
+            children:  [],
+            body: "",
+            classIfCond: {},
+            baseStyle: '',
+            setters: [],
+            _misc: {},
+
+    };
+
+    framework._ctx.root = root;
+
+    window.onresize = function(e){
+        onResize.call(framework._ctx.root, e);
+    };
 
     /* Parse templates from the elment in the page */
     if(templates_el){
@@ -1516,7 +1614,7 @@ function TempLang_Init(templates_el, framework){
     }
 
     AddStyle(null, '.full-height{height: '+ window.innerHeight + 'px}');
-    AddStyle(null, '.full-width{width: '+ window.innerHeight + 'px}');
+    AddStyle(null, '.full-width{width: '+ window.innerWidth + 'px}');
 
     /* Amend relevant public properties to the framework object */
     framework.content_idx = 0;
