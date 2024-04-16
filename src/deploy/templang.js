@@ -418,58 +418,67 @@ function TempLang_Init(templates_el, framework){
     /*
      * [Data And Context Functions]
      */
-    function Data_MakeCtx(data){
-        if(!data._ctx){
-            return {_ctx: {vars: {}}, current: data, prevData: []};
+
+    function Data_Sub(data, key){
+        let ctx = null;
+        if(data && data.data){
+            ctx = data; 
+            data = data.data;
         }
-        return data;
-    }
 
-    function Data_Outdent(){
-        const last = framework._ctx.prevData.pop();
-        framework._ctx._current = last;
-        framework._ctx.data = last.data;
-        console.debug('Outdent to', last.data);
-    }
-
-    function Data_HasNext(){
-        return (framework._ctx._current && framework._ctx._current.li && 
-            (typeof framework._ctx._current.idx === 'number') && 
-            framework._ctx._current.idx < framework._ctx._current.li.length); 
-    }
-
-    function Data_Next(){
-        const current = framework._ctx._current;
-        current.idx++;
-        framework._ctx.data =  current.li[current.idx];
-    }
-
-    function Data_Push(data, idx, li){
-         const o = {
-            data: data,
-            idx: idx,
-            li: li
-        };
-        framework._ctx._current = o;
-        framework._ctx.prevData.push(o);
-        if(li){
-            framework._ctx.data = li[idx];
+        if((typeof key === 'number')){
+            if(Array.isArray(data) && key < data.length){
+                return {
+                    key: key,
+                    data: data[key],
+                    vars: (ctx && ctx.vars) || {},
+                    idx: key,
+                    isArr: false,
+                    isSub: true,
+                    prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [],
+                };
+            }else{
+                return null;
+            }
+        }else if(key){
+            if(data[key]){
+                return {
+                    key: key,
+                    data: data[key],
+                    vars: (ctx && ctx.vars) || {},
+                    idx: -1,
+                    isArr: Array.isArray(data[key]),
+                    isSub: true,
+                    prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [],
+                };
+            }else{
+                return null;
+            }
         }else{
-            framework._ctx.data = data;
+            return {
+                key: null,
+                data: data,
+                idx: -1,
+                isArr: false,
+                isSub: false,
+                vars: (ctx && ctx.vars) || {},
+                prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [],
+            };
         }
-        console.debug('Data_Push ', data);
+
+    }
+
+    function Data_Next(ctx){
+        if(!ctx.isArr){
+            return;
+        }
+
+        return Data_Sub(ctx, ++ctx.idx); 
     }
 
     function ResetCtx(args){
         if(typeof framework._ctx === 'undefined'){
-           framework._ctx =  {vars: {}, data: {}, _current: null, prevData:[], ev: null};
-        }
-        if(args.data){
-            const data = args.data;
-            framework._ctx.data = data;
-            Data_Push(data, null, null);
-        }else{
-            framework._ctx._current = null;
+           framework._ctx =  {vars: {}, ev: null};
         }
 
         if(args.ev !== undefined){
@@ -481,13 +490,6 @@ function TempLang_Init(templates_el, framework){
         }
     }
 
-    function ClearCtx(){
-        framework._ctx.vars = {};
-        framework._ctx.data = {};
-        framework._ctx._current = null;
-        framework._ctx.prevData = [];
-    }
-
     function DataScope(sel, data){
         if(data && data[sel]){
             return data[sel];
@@ -495,44 +497,28 @@ function TempLang_Init(templates_el, framework){
         return null;
     }
 
-    function Data_Search(key, nest, order){
+    function Data_Search(key, ctx, order){
+        console.debug('Data_Search ' + key, ctx);
         let value = null;
+        let type = null;
         if(!order){
             order = [DIRECTION_VARS, DIRECTION_DATA];
         }
         for(var i = 0; i < order.length; i++){
             if(order[i] === DIRECTION_DATA){
-                const data = framework._ctx.data;
-                const found = data[key];
-                if(found){
-                    if(nest){
-                        if((typeof found === 'object') && Array.isArray(found)){
-                            Data_Push(data, 0, found); 
-                            return true;
-                        }else{
-                            Data_Push(found, null, null); 
-                            return false;
-                        }
-                    }
-                    return {type: 'data', value: found};
-                }
+                found = ctx.data[key];
             }else if(order[i] === DIRECTION_VARS){
-                if(framework._ctx.vars[key]){
-                    value = framework._ctx.vars[key];
-                    if(nest){
-                        if(typeof value === 'object'){
-                            if(framework._ctx && framework._ctx.prevData.indexOf(value) == -1){
-                                framework._ctx.prevData.push(value);
-                            }
-                            framework._ctx.currentData = value;
-                        }
-                    }
-                    return {type: 'vars', value: value};
+                if(ctx.vars[key] !== undefined){
+                    found = ctx.vars[key];
                 }
+            }
+            if(found){
+                value = found;
+                break;
             }
         }
 
-        return null;
+        return {value: value, type: type};
     }
 
     /*
@@ -580,14 +566,14 @@ function TempLang_Init(templates_el, framework){
                 El_SetStateStyle(node, node.templ, value, false);
             }
         }else if(set.scope === 'as'){
-            console.log('RUNNING as', set);
+            console.debug('RUNNING as', set);
             if(value){
-                ResetCtx({data: node._data, preserveVars: true}); 
+                ResetCtx({preserveVars: true}); 
 
                 const asData = {}
                 asData[set.destK.key] = value;
 
-                El_MakeAs(setter.node, setter.node.parentNode, asData);
+                El_MakeAs(setter.node, setter.node.parentNode, Data_Sub(asData));
             }
         }else if(set.scope === 'data'){
             node._data = value; 
@@ -1261,7 +1247,7 @@ function TempLang_Init(templates_el, framework){
      *   @parent_el - this is the element that it will be placed inside of
      *   @reuseNode - this is only used for internal updates
      */
-    function El_Make(templ, parent_el, reuseNode){
+    function El_Make(templ, parent_el, ctx, reuseNode){
 
         /* Begin by sorting out which template or combination of templates to use */
         let isTemplNodeName = false;
@@ -1277,9 +1263,11 @@ function TempLang_Init(templates_el, framework){
         let forKey = null;
         let outdent = false;
         if(framework.templates[templ.nodeName.toUpperCase()]){
-            if(Data_Search(templ.nodeName.toLowerCase(), true, [DIRECTION_DATA])){
-                outdent = true;
-            }
+            ctx = (templ.nodeName && 
+                (Data_Sub(ctx, templ.nodeName) || Data_Sub(ctx, templ.nodeName.toLowerCase()))
+            ) || ctx;
+
+
             forKey = templ.forKey;
             parent_templ = framework.templates[templ.nodeName.toUpperCase()];
             if(parent_templ){
@@ -1290,39 +1278,36 @@ function TempLang_Init(templates_el, framework){
             forKey = templ.forKey;
         }
 
-        let data = framework._ctx.data;
         if(!templ){
             console.warn('El_Make no templ', templ);
             return;
         }
 
+        console.debug('El_Make ctx', ctx);
+
         /* Now handle if the element has an attirbute that makes it a bunch of children 
          * instead of a single elemenet
          */
         if(forKey){
-            if(Data_Search(forKey, true, [DIRECTION_DATA])){
+            let subCtx;
+            if(subCtx = Data_Sub(ctx, forKey)){
                 const par_templ = templ;
                 let sub_templ = Templ_Merge(null, par_templ);
-                const current = framework._ctx._current;
 
-                while(Data_HasNext()){
+                let subData;
+                while(subData = Data_Next(subCtx)){
+                    
                     if(par_templ.asKey){
-                        const templ_s = Cash(par_templ.asKey.key, framework._ctx.data).result;
+                        const templ_s = Cash(par_templ.asKey.key, subData.data).result;
                         sub_templ = framework.templates[templ_s.toUpperCase()];
                     }
 
-                    El_Make(sub_templ, parent_el);
-                    Data_Next();
+                    El_Make(sub_templ, parent_el, subData);
                 }
-
-                Data_Outdent();
             }else{
-                console.warn('Warning: for children key not found '+ forKey, data);
+                console.warn('Warning: for children key not found '+ forKey, ctx);
                 console.warn('Warning: for children key not found templ', templ);
                 console.warn('Warning: for children key not framework', framework);
-            }
-            if(outdent){
-                Data_Outdent();
             }
             return;
         }
@@ -1336,25 +1321,26 @@ function TempLang_Init(templates_el, framework){
         node.templ = templ;
         node._idtag = 'element_'+(++framework.el_idx);
         if(!reuseNode){
+            console.debug('Parent is: ', parent_el);
             parent_el.appendChild(node);
         }
 
         /* if the data comes from an injested data source, store the flag here
          */
-        if(data._idflag){
-            node._content_idflag = data._idflag;
+        if(ctx.data._idflag){
+            node._content_idflag = ctx.data._idflag;
         }
 
         /* Copy vars in from the data to this element */
         for(let k in templ.mapVars){
             const map = templ.mapVars[k];
-            const value = Data_Search(map.key, false, [
+            const value = Data_Search(map.key, ctx, [
                 DIRECTION_DATA, DIRECTION_VARS
             ]);
-            if(value){
+            if(value.value){
                 node.vars[map.dest_key] = value.value;
                 if(value.type !== 'vars'){
-                    framework._ctx.vars[map.dest_key] = value.value;
+                    ctx.vars[map.dest_key] = value.value;
                 }
             }else{
                 node.vars[map.dest_key] = null;
@@ -1388,7 +1374,7 @@ function TempLang_Init(templates_el, framework){
 
         /* Copy in the body if it's there, Cash is used for templating values 
          * from the data */
-        const body = Cash(templ.body, data).result;
+        const body = Cash(templ.body, ctx.data).result;
         if(body){
             node.appendChild(document.createTextNode(body));
         }
@@ -1404,9 +1390,9 @@ function TempLang_Init(templates_el, framework){
                 name = k;
             }
 
-            name = Cash(name, data).result;
+            name = Cash(name, ctx.data).result;
             
-            let val = Data_Search(name, false, [DIRECTION_DATA, DIRECTION_VARS]).value;
+            let val = Data_Search(name, ctx, [DIRECTION_DATA, DIRECTION_VARS]).value;
             if(!val){
                 val = name;
             }
@@ -1419,25 +1405,15 @@ function TempLang_Init(templates_el, framework){
          */
         if(templ.children.length){
             for(let i = 0; i < templ.children.length; i++){
-                if(templ.name){
-                    if(data[templ.name]){
-                        data = data[templ.name];
-                    }else{
-                        const nameLower = templ.name.toLowerCase();
-                        if(data[nameLower]){
-                            data = data[nameLower];
-                        }
-                    }
-                }
-                El_Make(templ.children[i], node);
+                const subCtx = (templ.name && 
+                    (Data_Sub(ctx, templ.name) || Data_Sub(ctx, templ.name.toLowerCase()))
+                ) || ctx;
+                El_Make(templ.children[i], node, subCtx);
             }
-        }
-        if(outdent){
-            Data_Outdent();
         }
     }
 
-    function El_MakeAs(node, parentNode, data){
+    function El_MakeAs(node, parentNode, ctx){
         let templ = null;
         templ = node.templ;
 
@@ -1447,7 +1423,7 @@ function TempLang_Init(templates_el, framework){
 
             templ_s = keys.key;
             if(keys.cash.isCash){
-                templ_s = Cash(keys.key, data).result; 
+                templ_s = Cash(keys.key, ctx.data).result; 
             }else{
                 templ_s = keys.key;
             }
@@ -1464,7 +1440,7 @@ function TempLang_Init(templates_el, framework){
             node.firstChild.remove();
         }
         
-        El_Make(templ, parentNode, node);
+        El_Make(templ, parentNode, ctx, node);
     }
 
 
@@ -1479,8 +1455,8 @@ function TempLang_Init(templates_el, framework){
      *   Wrapper for El_Make which sets up the data 
      */
     function Make(name, root_el, data){
-        ResetCtx({data: data, ev: null}); 
-        El_Make(name, root_el);
+        const ctx = Data_Sub(data);
+        El_Make(name, root_el, ctx);
     }
 
 
