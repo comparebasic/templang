@@ -79,7 +79,11 @@ function TempLang_Init(templates_el, framework){
             }
 
             if(compare.name){
-                if((!node.templ) || node.templ.name !== compare.name){
+                if((!node.templ) || (
+                            node.templ.name !== compare.name && 
+                            node.templ.name !== compare.name.toUpperCase()
+                        )
+                    ){
                     match = false;
                 }
             }
@@ -465,7 +469,6 @@ function TempLang_Init(templates_el, framework){
                 prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [],
             };
         }
-
     }
 
     function Data_Next(ctx){
@@ -498,7 +501,9 @@ function TempLang_Init(templates_el, framework){
     }
 
     function Data_Search(key, ctx, order){
+        /*
         console.debug('Data_Search ' + key, ctx);
+        */
         let value = null;
         let type = null;
         if(!order){
@@ -566,9 +571,8 @@ function TempLang_Init(templates_el, framework){
                 El_SetStateStyle(node, node.templ, value, false);
             }
         }else if(set.scope === 'as'){
-            console.debug('RUNNING as', set);
+            console.debug('RUNNING as value:' + value, setter);
             if(value){
-                ResetCtx({preserveVars: true}); 
 
                 const asData = {}
                 asData[set.destK.key] = value;
@@ -753,7 +757,7 @@ function TempLang_Init(templates_el, framework){
      * Merging happens when a template populates a different one, usually using
      * `as`, `for` or `with` attributes 
      */
-    function Templ_Merge(into_templ, from_templ){
+    function Templ_Merge(into_templ, from_templ, overrides){
         if(!into_templ){
             into_templ = {};
         }
@@ -767,9 +771,10 @@ function TempLang_Init(templates_el, framework){
             on: {},
             funcs: {},
             forKey: null,
+            dataKey: from_templ.dataKey,
             withkey: null,
             mapVars: {},
-            children: (from_templ.children.length && from_templ.children) || into_templ.children || [],
+            children: (overrides && overrides.children) || (from_templ.children.length && from_templ.children) || into_templ.children || [],
             body: (into_templ.body && into_templ.body.trim()) || from_templ.body.trim(),
             classIfCond: {},
             baseStyle: '',
@@ -1283,7 +1288,9 @@ function TempLang_Init(templates_el, framework){
             return;
         }
 
+        /*
         console.debug('El_Make ctx', ctx);
+        */
 
         /* Now handle if the element has an attirbute that makes it a bunch of children 
          * instead of a single elemenet
@@ -1321,7 +1328,6 @@ function TempLang_Init(templates_el, framework){
         node.templ = templ;
         node._idtag = 'element_'+(++framework.el_idx);
         if(!reuseNode){
-            console.debug('Parent is: ', parent_el);
             parent_el.appendChild(node);
         }
 
@@ -1345,7 +1351,7 @@ function TempLang_Init(templates_el, framework){
             }else{
                 node.vars[map.dest_key] = null;
                 console.warn('El_Make: no var found for: ' + map.key, map);
-                console.warn('El_Make: no var found for: ' + map.key + ' data:', data);
+                console.warn('El_Make: no var found for: ' + map.key + ' ctx:', ctx);
                 console.warn('El_Make: no var found for: ' + map.key + ' node:', node);
             }
         }
@@ -1427,19 +1433,36 @@ function TempLang_Init(templates_el, framework){
             }else{
                 templ_s = keys.key;
             }
+        }
 
-            console.log('MakeAs asKey', keys);
+        if(templ.dataKey){
+            const compare = {
+                vars: templ.dataKey.key,
+                name: templ.dataKey.key_source,
+            };
+            const source_el = El_Query(node, {direction: templ.dataKey.var_direction},  compare);
+            if(source_el && source_el.vars[templ.dataKey.key]){
+                const data = {};
+                data[templ.dataKey.key] = source_el.vars[templ.dataKey.key];
+                ctx = Data_Sub(data);
+            }
         }
 
         if(framework.templates[templ_s.toUpperCase()]){
             new_templ = framework.templates[templ_s.toUpperCase()];
-            templ = Templ_Merge(new_templ, templ); 
+            console.debug('    MakeAs from_templ children ' + new_templ.name, new_templ.children);
+            console.debug('    MakeAs into_templ children ' + templ.name, templ.children);
+
+            templ = Templ_Merge(new_templ, templ, {children: new_templ.children}); 
+            console.debug('    MakeAs merged templ children', templ.children);
         }
 
         while(node.hasChildNodes()){
             node.firstChild.remove();
         }
         
+        console.debug('calling El_Make from MakeAs', templ);
+        console.debug('calling El_Make from MakeAs ctx', ctx);
         El_Make(templ, parentNode, ctx, node);
     }
 
