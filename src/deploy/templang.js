@@ -1014,7 +1014,6 @@ function TempLang_Init(templates_el, framework){
         if(event_ev.eventType === 'drag'){
             Event_SetupDrag(event_ev, framework._drag);
             Event_UpdateDrag(event_ev);
-            console.debug('DRAG SETUP', framework._drag);
         }
 
         return event_ev;
@@ -1041,18 +1040,17 @@ function TempLang_Init(templates_el, framework){
             x: x,
             y: y,
             rect: node.getBoundingClientRect(),
+            node: node,
         };
     }
 
     function getDragAndContPos(node){
-        console.debug('getDragAndContPos', node);
         let dragContainer = null;
         let el = node;
         let x = 0;
         let y = 0;
         do {
             if(el.flags && (el.flags & FLAG_DROP_TARGET)){
-                console.debug('DROP TARGET [FOUND]', el);
                 dragContainer = el;     
             }
             y += el.offsetTop  || 0;
@@ -1066,7 +1064,7 @@ function TempLang_Init(templates_el, framework){
             return {
                 x: x,
                 y: y,
-                dragContainer: dragContainer,
+                node: dragContainer,
             }
         }else{
             console.warn('drag container not found');
@@ -1075,17 +1073,14 @@ function TempLang_Init(templates_el, framework){
     }
 
     function Event_SetDragContPos(node){
-        if(node._views){
+        if(node._view){
             if((node.flags & FLAG_DRAG_CONT_CALCULATED) == 0){
                 node.flags |= FLAG_DRAG_CONT_CALCULATED;
-                for(let k in node._views){
-                    const v = node._views[k];
-                    for(let i = 0; i <  v.el_li.length; i++){
-                        let elObj = v.el_li[i];
-                        elObj.pos = getDragPos(elObj.el);
-                    }
+                const v = node._view;
+                for(let i = 0; i <  v.el_li.length; i++){
+                    let elObj = v.el_li[i];
+                    elObj.pos = getDragPos(elObj.el);
                 }
-                console.debug('updated positions for ' + node.nodeName, node._views);
             }
         }
     }
@@ -1104,7 +1099,8 @@ function TempLang_Init(templates_el, framework){
         return targets;
     }
 
-    function Event_DragTargetCalc(e, drag_ev){
+    function Event_DragTargetCalc(drag_ev){
+        const e = drag_ev.e;
         let mouseY = e.clientY;
         let mouseX = e.clientX;
         let current = drag_ev.target;
@@ -1125,22 +1121,22 @@ function TempLang_Init(templates_el, framework){
             if((mouseY >= rect.startY && mouseY <= rect.endY) &&
                 (mouseX >= rect.startX && mouseX <= rect.endX)
             ){
-                if(cont.node !== drag_ev.props.dragContainer){
-                    console.log('Switching drag container', cont.node._idtag);
-                    drag_ev.props.dragContainer = cont.node;
+                if(cont.node !== drag_ev.props.cont.node){
+                    console.debug('Switching drag container', cont.node._idtag);
+                    drag_ev.props.cont = cont;
                     Event_SetDragContPos(cont.node);
                 }
             }
         }
 
-        let dragView_li = drag_ev.props.dragContainer._view.el_li;
-
+        let dragView_li = drag_ev.props.cont.node._view.el_li;
         for(let i = 0; i < dragView_li.length; i++){
             let t = dragView_li[i];
 
             if(t.el === current){
                 wasCurrent = t;
                 wasCurrent_i = i;
+                drag_ev.props.current_idx = i;
             }
 
             let rect = {
@@ -1162,9 +1158,6 @@ function TempLang_Init(templates_el, framework){
 
 
     function Event_SetupDrag(event_ev, dragObj){
-        console.debug('Setting up DRAG', event_ev);
-        console.debug('Setting up DRAG dragObj', dragObj);
-
         dragObj.ev = event_ev;
 
         const dragVessel = dragObj.vessel_el;
@@ -1189,7 +1182,7 @@ function TempLang_Init(templates_el, framework){
         if(dragPos){
             x = dragPos.x;
             y = dragPos.y;
-            dragContainer = dragPos.dragContainer;
+            dragContainer = dragPos.node;
             Event_SetDragContPos(dragContainer);
         }else{
             console.warn('unable to get drag container');
@@ -1212,7 +1205,7 @@ function TempLang_Init(templates_el, framework){
         swap(node, place);
         dragVessel.appendChild(node);
 
-        let viewSet = dragContainer._views;
+        let viewSet = dragContainer._view;
         let containers = Event_GetDropContTargets(viewSet);
         event_ev.props = {
             w:w,
@@ -1237,21 +1230,29 @@ function TempLang_Init(templates_el, framework){
     }
 
     function Event_DragRelease(event_ev){
-        console.debug('DRAG [release]', event_ev);
+        if(framework._drag.onto){
+            console.debug('DRAG [release] drop onto', framework._drag);
+        }
+        swap(event_ev.props.place, event_ev.target);
+        /*
         framework._drag.ev = null;
+        */
     }
 
     function Event_UpdateDrag(event_ev){
-
         const x = event_ev.e.clientX - event_ev.props.offsetX;
         const y = event_ev.e.clientY - event_ev.props.offsetY;
 
-        console.debug('Update Drag x' + x +' y' + y);
-
         El_SetStyle(event_ev.props.vessel, 'top', y + 'px');
         El_SetStyle(event_ev.props.vessel, 'left', x + 'px');
-    }
 
+        const dropObj = Event_DragTargetCalc(event_ev);
+        if(dropObj && 
+                (!framework._drag.onto || dropObj.idx !== framework._drag.onto.idx) &&
+                dropObj.node !== event_ev.target){
+            framework._drag.onto = dropObj;
+        }
+    }
 
     /* 
      * [Bind and Assign Browser Events]
@@ -1861,10 +1862,6 @@ function TempLang_Init(templates_el, framework){
                 if(templ.flags & FLAG_DROP_TARGET){
                     parent_el.flags |= FLAG_DROP_TARGET;
 
-                    if(typeof parent_el._views === 'undefined'){
-                       parent_el._views = {};
-                    }
-
                     const view = {
                         content: content,
                         dataKey: templ.dataKey,
@@ -1872,7 +1869,7 @@ function TempLang_Init(templates_el, framework){
                         el_li: [],
                     };
 
-                    parent_el._views[node._idtag] = view;
+                    parent_el._view = view;
                     ctx.view = view;
 
                     El_SetStyle(parent_el, 'position', 'relative');
@@ -1958,6 +1955,7 @@ function TempLang_Init(templates_el, framework){
             vessel_el: dragVessel,
             highlighter_el: dragHighlighter,
             spacer_templ: null,
+            onto: null,
             ev: null
         };
 
