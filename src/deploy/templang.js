@@ -788,6 +788,7 @@ function TempLang_Init(templates_el, framework){
             baseStyle: '',
             setters: from_templ.setters,
             uiSplit: from_templ.uiSplit || into_templ && into_templ.uiSplit,
+            classes: [],
             _misc: {},
         };
 
@@ -804,11 +805,11 @@ function TempLang_Init(templates_el, framework){
 
         function copyList(name){
             for(let i = 0; i < from_templ[name].length; i++){
-                templ[name][i] = from_templ[name][i];
+                templ[name].push(from_templ[name][i]);
             }
-            if(into_templ){
+            if(into_templ[name]){
                 for(let i = 0; i < into_templ[name].length; i++){
-                    templ[name][i] = into_templ[name][i];
+                    templ[name].push(into_templ[name][i]);
                 }
             }
         }
@@ -818,15 +819,13 @@ function TempLang_Init(templates_el, framework){
         copyObj('mapVars');
         copyObj('classIfCond');
         copyObj('_misc');
+        copyList('classes');
         templ.baseStyle = from_templ.baseStyle;
-        if(into_templ.classes){
-            templ.classes = into_templ.classes.concat(from_templ.classes);
+        if(into_templ.baseStyle){
             if(into_templ.baseStyle && into_templ.baseStyle){
                 templ.baseStyle += ';';
             }
             templ.baseStyle += into_templ.baseStyle;
-        }else{
-            templ.classes = [].concat(from_templ.classes);
         }
 
         return templ;
@@ -1524,6 +1523,10 @@ function TempLang_Init(templates_el, framework){
 
         while(node.hasChildNodes()){
             node.firstChild.remove();
+        }
+
+        while(node.classList.length){
+            node.classList.remove(node.classList[0]);
         }
         
         El_Make(templ, parentNode, ctx, node);
