@@ -54,6 +54,8 @@ function TempLang_Init(templates_el, framework){
     const FLAG_DROP_TARGET = 8;
     const FLAG_DRAG_CONT_CALCULATED = 16;
 
+    const TRANS_RETRY = 200;
+
     const isTouchDevice = !!('ontouchstart' in window);
 
     /* 
@@ -1129,9 +1131,12 @@ function TempLang_Init(templates_el, framework){
             }
         }
 
+
         let dragView_li = drag_ev.props.cont.node._view.el_li;
+        console.debug('RUNNING THROHG', drag_ev.props.cont.node._view);
         for(let i = 0; i < dragView_li.length; i++){
             let t = dragView_li[i];
+            console.debug('COMPARING', t);
 
             if(t.el === current){
                 wasCurrent = t;
@@ -1149,7 +1154,7 @@ function TempLang_Init(templates_el, framework){
             if((mouseY >= rect.startY && mouseY <= rect.endY) &&
                 (mouseX >= rect.startX && mouseX <= rect.endX)
             ){
-                return {idx: i, uitem: t, current: {idx: wasCurrent_i, uitem: wasCurrent}};
+                return {idx: i, node: t.el, content_idtag: t.el._content_idtag, current: {idx: wasCurrent_i, node: wasCurrent}};
             }
         }
 
@@ -1234,9 +1239,19 @@ function TempLang_Init(templates_el, framework){
             console.debug('DRAG [release] drop onto', framework._drag);
         }
         swap(event_ev.props.place, event_ev.target);
-        /*
-        framework._drag.ev = null;
-        */
+
+        if(framework._drag.ev){
+            const drag_ev = framework._drag.ev;
+            const trans = Transaction_New(drag_ev.props.cont.node._view.content, 'move', {
+                idx: drag_ev.props.current_idx,
+                node: drag_ev.target,
+                content_idtag: drag_ev.target._content_idtag
+            }, drag_ev.props.onto);
+
+            Transaction_Register(trans);
+            framework._drag.ev = null;
+            console.debug('Contenty stuff', trans.content._changes);
+        }
     }
 
     function Event_UpdateDrag(event_ev){
@@ -1247,10 +1262,11 @@ function TempLang_Init(templates_el, framework){
         El_SetStyle(event_ev.props.vessel, 'left', x + 'px');
 
         const dropObj = Event_DragTargetCalc(event_ev);
+        console.debug('DROP OBJ', dropObj);
         if(dropObj && 
-                (!framework._drag.onto || dropObj.idx !== framework._drag.onto.idx) &&
+                (!framework._drag.ev.props.onto || dropObj.idx !== framework._drag.ev.props.onto.idx) &&
                 dropObj.node !== event_ev.target){
-            framework._drag.onto = dropObj;
+            framework._drag.ev.props.onto = dropObj;
         }
     }
 
@@ -1623,6 +1639,11 @@ function TempLang_Init(templates_el, framework){
     function Injest(content){
         const framework = this;
         content._idtag = 'content_' + (++framework.content_idx);
+        content._changes = {
+            pending: [],
+            done: []
+        };
+        content._views = {};
         framework.content[content._idtag] = content;
         if(Array.isArray(content)){
             for(let i = 0; i < content.length; i++){
@@ -1633,6 +1654,122 @@ function TempLang_Init(templates_el, framework){
             }
         }
     }
+
+    /* 
+     * [Transactions and Changes]
+     */
+
+     function Transaction_New(content, type, origObj, newObj){
+        return {
+            content:content,
+            changeType: type,
+            origObj: origObj,
+            newObj: newObj,
+        };
+     }
+
+     function Transaction_Register(trans){
+        trans.content._changes.pending.push(trans);
+        Content_Transact(trans.content);
+     }
+
+     function El_CompareContent(node, content){
+        console.debug(' El_CompareContent ' + node._content_idtag +' vs '  + content._idtag, node);
+        return node._content_idtag && node._content_idtag === content._idtag;
+     }
+
+     function Transaction_ModifyNodes(trans, view){
+        let el = view.wrapper.firstChild;
+
+        while(el){
+            if(el.nodeType == Node.ELEMENT_NODE){
+                if(El_CompareContent(el, trans.content[0])){
+                    console.debug('Found starting EL', el);
+                    break;
+                }
+            }
+            el = el.nextSibling;
+        }
+
+        console.debug('FOUND start', el);
+
+        const startIdx = trans.origObj.idx;
+        let endIdx = trans.newObj.idx;
+        if(startIdx == endIdx){
+            return true;
+        }
+
+        if(startIdx < endIdx){
+            endIdx--;
+        }
+
+        let moveNode = null;
+        for(idx = startIdx; el && idx <= endIdx; idx++){
+            if(el.nodeType == Node.ELEMENT_NODE){
+                if(idx === startIdx){
+                    moveNode = el;
+                    el.remove();
+                }else if(idx === endIdx){
+                    el.parentNode.insertBefore(moveNode, el.nextSibling);
+                }
+                idx++;
+            }
+
+            el = el.nextSibling;
+        }
+
+        return true;
+     }
+
+     function Transaction_ModifyContent(trans){
+        const startIdx = trans.origObj.idx;
+        let endIdx = trans.newObj.idx;
+        if(startIdx == endIdx){
+            return true;
+        }
+
+        if(startIdx < endIdx){
+            endIdx--;
+        }
+
+        const item = trans.content.splice(startIdx, 1);
+        trans.content.splice(endIdx, 0, item[0]);
+
+        return true;
+     }
+
+     function Content_Transact(content){
+        if(!content._transacting){
+            content._transacting = true;
+            for(let i = 0; i < content._changes.pending.length;/* no increment unless there is an error */){
+                let r = true;
+                const trans = content._changes.pending[i];
+                console.debug('TRANSACTIN', trans);
+                r = Transaction_ModifyContent(trans); 
+                if(r){
+                    for(let k in content._views){
+                        Transaction_ModifyNodes(trans, content._views[k]); 
+                    }
+                }
+                if(r){
+                   trans.execTime = Date.now();
+                   content._changes.pending.splice(i, 1); 
+                   content._changes.done.push(trans);
+                }else{
+                    if(typeof trans.failTimes === 'undefined'){
+                        trans.failTimes = [];
+                    }
+                   trans.failTimes.push(Date.now());
+                   i++;
+                }
+            }
+            content._transacting = false;
+        }else{
+            setTimeout(function(){
+                Content_Transact(content);
+            }, TRANS_RETRY);
+        }
+     }
 
     /* 
      * [Core Functions For Element Creation]
@@ -1691,6 +1828,27 @@ function TempLang_Init(templates_el, framework){
             if(subCtx = Data_Sub(ctx, forKey)){
                 const par_templ = templ;
 
+                const content = subCtx.data;
+                const data = {};
+                data[forKey] = content;
+
+                if(templ.flags & FLAG_DRAG_TARGET){
+                    parent_el.flags |= FLAG_DROP_TARGET;
+
+                    view = {
+                        content: content,
+                        dataKey: templ.dataKey,
+                        container: parent_el,
+                        el_li: [],
+                    };
+
+                    parent_el._view = view;
+                    ctx.view = view;
+                    content._views[parent_el._idtag] = view;
+
+                    El_SetStyle(parent_el, 'position', 'relative');
+                }
+
                 let subData;
                 while(subData = Data_Next(subCtx)){
                     let sub_templ = null;
@@ -1736,7 +1894,7 @@ function TempLang_Init(templates_el, framework){
             parent_el.appendChild(node);
         }
 
-        if(ctx.view.container && (node.flags & FLAG_DRAG_TARGET)){
+        if(ctx.view.el_li && (node.flags & FLAG_DRAG_TARGET)){
             ctx.view.el_li.push({el:node, pos: null});
         }
 
@@ -1855,28 +2013,11 @@ function TempLang_Init(templates_el, framework){
             const source_el = El_Query(node, {direction: templ.dataKey.var_direction},  compare);
             if(source_el && source_el.vars[templ.dataKey.key]){
                 const data = {};
-                const content = source_el.vars[templ.dataKey.key]
+                const content = source_el.vars[templ.dataKey.key];
                 data[templ.dataKey.key] = content;
                 ctx = Data_Sub(data);
-
-                if(templ.flags & FLAG_DROP_TARGET){
-                    parent_el.flags |= FLAG_DROP_TARGET;
-
-                    const view = {
-                        content: content,
-                        dataKey: templ.dataKey,
-                        container: parent_el,
-                        el_li: [],
-                    };
-
-                    parent_el._view = view;
-                    ctx.view = view;
-
-                    El_SetStyle(parent_el, 'position', 'relative');
-                }
             }
         }
-
         if(framework.templates[templ_s.toUpperCase()]){
             new_templ = framework.templates[templ_s.toUpperCase()];
             templ = Templ_Merge(new_templ, templ, {children: new_templ.children}); 
@@ -1892,7 +2033,6 @@ function TempLang_Init(templates_el, framework){
         
         El_Make(templ, parent_el, ctx, node);
     }
-
 
     /* 
      *   Main function for inflating a template with data to make elements
