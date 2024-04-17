@@ -975,13 +975,13 @@ function TempLang_Init(templates_el, framework){
         return ev;
     }
 
-    function Event_New(target_el, e, spec){
+    function Event_New(target_el, e, spec, type){
         var event_ev = {
             target: target_el, /* the source of the event, e.g. clicked element */
             dest: null, /* the destination that has the event on it */
             e: e,
             spec: spec,
-            eventType: GetTypeFromE(e),
+            eventType: (type || GetTypeFromE(e)),
             vars: {}, /* end result of target vars + gathers */
             _pior: null, /* event this event is based on */
         }
@@ -991,10 +991,77 @@ function TempLang_Init(templates_el, framework){
                 CopyVars(spec.mapVars, event_ev.vars, target_el.vars);
             }
         }
+        if(event_ev.eventType === 'drag'){
+            Event_SetupDrag(event_ev, framework._drag);
+        }
 
         return event_ev;
     }
 
+    /* 
+     * [Drag-n-drop Setup]
+     */
+    function Event_SetupDrag(event_ev, dragObj){
+        dragObj.ev = event_ev;
+
+        const dragVessel = dragObj.vessel_el;
+        const node = event_ev.target;
+
+        let x = 0;
+        let y = 0;
+        let h = 0;
+        let w = 0;
+        let dragContainer = null;
+        
+        let rect = node.getBoundingClientRect();
+        h = rect.height;
+        w = rect.width;
+        let dragPos = getDragAndContPos(node);
+        if(dragPos){
+            x = dragPos.x;
+            y = dragPos.y;
+            dragContainer = dragPos.dragContainer;
+            Event_SetDragContPos(dragContainer);
+        }else{
+            console.warn('unable to get drag container');
+            return null;
+        }
+
+        let place = document.createElement('DIV');
+        let style = window.getComputedStyle(node);
+        place.style.display = style.display;
+        place.style.position = style.position;
+        place.style.width = w + 'px';
+        place.style.height = h + 'px';
+        place.style.padding = style.padding + 'px';
+        place.style.margin = style.margin + 'px';
+
+        for(let i = 0; i < node.classList.length; i++){
+            place.classList.add(node.classList[i]);
+        }
+
+        swap(node, place);
+        dragVessel.appendChild(node);
+        dragVessel.style.left = x + 'px';
+        dragVessel.style.top = y + 'px';
+
+        let viewSet = dragContainer._view._elements._views;
+        let containers = Event_GetDropContTargets(viewSet);
+        event_ev.props = {
+            w:w,
+            h:h,
+            x:x,
+            y:y,
+            offsetX: e.clientX - x,
+            offsetY: e.clientY - y,
+            place: place,
+            vessel: dragVessel,
+            dragContainer: dragContainer,
+            containers: containers,
+            spacers: {},
+            _spacer_idtag: null
+        };
+    }
 
     /* 
      * [Bind and Assign Browser Events]
@@ -1010,7 +1077,7 @@ function TempLang_Init(templates_el, framework){
         let r = false;
         ResetCtx({ev: null});
         if(node.templ && node.templ.on.drag){
-            r = Event_Run(Event_New(node, e, node.templ.on.drag));
+            r = Event_Run(Event_New(node, e, node.templ.on.drag, 'drag'));
         }
         e.stopPropagation(); e.preventDefault();
     }
@@ -1604,6 +1671,27 @@ function TempLang_Init(templates_el, framework){
     }
     if(typeof framework._styleSheets === 'undefined'){
         framework._styleSheets = {};
+    }
+    if(typeof framework._drag === 'undefined'){
+        dragVessel = document.createElement('DIV');
+        dragVessel.classList.add('drag-vessel');
+
+        dragHighlighter = document.createElement('DIV');
+        dragHighlighter.classList.add('drag-highlighter');
+
+        var body = document.getElementsByTagName('body');
+        if(!body || !body[0]){
+            return;
+        }
+        body[0].appendChild(dragVessel);
+        body[0].appendChild(dragHighlighter);
+
+        framework._drag = {
+            vessel_el: dragVessel,
+            highlighter_el: dragHighlighter,
+            container_el: null,
+            ev: null
+        };
     }
 
     ResetCtx({});
