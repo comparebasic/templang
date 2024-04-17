@@ -52,6 +52,7 @@ function TempLang_Init(templates_el, framework){
     const FLAG_NODE_STATE_DRAG = 2;
     const FLAG_DRAG_TARGET = 4;
     const FLAG_DROP_TARGET = 8;
+    const FLAG_DRAG_CONT_CALCULATED = 16;
 
     const isTouchDevice = !!('ontouchstart' in window);
 
@@ -166,6 +167,15 @@ function TempLang_Init(templates_el, framework){
     /*
      * [Helper Functions]
      */
+
+    function swap(orig, place){
+        if(orig.nextSibling){
+            orig.parentNode.insertBefore(place, orig.nextSibling);
+        }else{
+            orig.parentNode.append(place);
+        }
+        orig.remove();
+    }
 
     /* 
      * This is the workhorse behind the alias and whery method.
@@ -445,6 +455,7 @@ function TempLang_Init(templates_el, framework){
                     isArr: false,
                     isSub: true,
                     prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [],
+                    view: (ctx && ctx.view) || {},
                 };
             }else{
                 return null;
@@ -459,6 +470,7 @@ function TempLang_Init(templates_el, framework){
                     isArr: Array.isArray(data[key]),
                     isSub: true,
                     prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [],
+                    view: (ctx && ctx.view) || {},
                 };
             }else{
                 return null;
@@ -472,6 +484,7 @@ function TempLang_Init(templates_el, framework){
                 isSub: false,
                 vars: (ctx && ctx.vars) || {},
                 prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [],
+                view: {},
             };
         }
     }
@@ -571,12 +584,14 @@ function TempLang_Init(templates_el, framework){
         if(set.scope === 'class'){
             const value = Cash(set.destK.value, node.vars).result;
             if(setter.isMatch){
-                El_SetStateStyle(node, node.templ, value, true);
+                El_SetStateStyle(node, node.templ, value);
             }else{
-                El_SetStateStyle(node, node.templ, value, false);
+                El_SetStateStyle(node, node.templ, []);
             }
         }else if(set.scope === 'as'){
+            /*
             console.debug('RUNNING as value:' + value, setter);
+            */
             if(value){
 
                 const asData = {}
@@ -649,7 +664,7 @@ function TempLang_Init(templates_el, framework){
             withkey: null,
             mapVars: {},
             children: [],
-            classes: [],
+            classes: {},
             baseStyle: '', 
             classIfCond: {},
             setters: [],
@@ -680,6 +695,9 @@ function TempLang_Init(templates_el, framework){
             }else if(att.name == 'drag'){
                 templ.flags |= FLAG_DRAG_TARGET;
                 templ.on.drag = Spec_Parse('move');
+            }else if(att.name == 'drop'){
+                templ.flags |= FLAG_DROP_TARGET;
+                templ.on.drop = Spec_Parse('drop');
             }else if(att.name == 'func'){
                 templ.commandKeys = [att.value];
             }else if(att.name == 'data'){
@@ -730,7 +748,9 @@ function TempLang_Init(templates_el, framework){
                 templ.forKey = att.value;
                 templ.childrenKey = att.value;
             }else if(att.name == 'class'){
-                templ.classes = att.value.split(' ');
+                templ.classes._misc = att.value.split(' ');
+            }else if(att.name == 'init-class'){
+                templ.classes.state = att.value.split(' ');
             }else if(att.name == 'class-if'){
                 templ.classIfCond = Statements(att.value, GetDestK);
                 templ.setters.push({scope: 'class', destK: templ.classIfCond});
@@ -788,7 +808,7 @@ function TempLang_Init(templates_el, framework){
             baseStyle: '',
             setters: from_templ.setters,
             uiSplit: from_templ.uiSplit || into_templ && into_templ.uiSplit,
-            classes: [],
+            classes: {},
             _misc: {},
         };
 
@@ -819,7 +839,7 @@ function TempLang_Init(templates_el, framework){
         copyObj('mapVars');
         copyObj('classIfCond');
         copyObj('_misc');
-        copyList('classes');
+
         templ.baseStyle = from_templ.baseStyle;
         if(into_templ.baseStyle){
             if(into_templ.baseStyle && into_templ.baseStyle){
@@ -827,6 +847,8 @@ function TempLang_Init(templates_el, framework){
             }
             templ.baseStyle += into_templ.baseStyle;
         }
+
+        Style_ClsOverlay(templ.classes, into_templ.classes, from_templ.classes);
 
         /*
         console.debug('Temple on ' + templ.classes, templ.on);
@@ -891,13 +913,11 @@ function TempLang_Init(templates_el, framework){
         }else if(event_ev.spec.key === 'style'){
             if(event_ev.eventType === 'hover'){
                 if(event_ev.spec.varIsPair){
-                    event_ev.target.classList.add(event_ev.spec.varList[0]); 
-                    event_ev.target.classList.remove(event_ev.spec.varList[1]); 
+                    El_SetStateStyle(event_ev.target, event_ev.target.templ, event_ev.spec.varList[0]);
                 }
             }else if(event_ev.eventType === 'unhover'){
                 if(event_ev.spec.varIsPair){
-                    event_ev.target.classList.add(event_ev.spec.varList[1]); 
-                    event_ev.target.classList.remove(event_ev.spec.varList[0]); 
+                    El_SetStateStyle(event_ev.target, event_ev.target.templ, event_ev.spec.varList[1]);
                 }
             }
         }if(event_ev.spec.key === 'unhover'){
@@ -1001,11 +1021,155 @@ function TempLang_Init(templates_el, framework){
     /* 
      * [Drag-n-drop Setup]
      */
+
+    function getDragPos(node){
+        let el = node;
+        let x = 0;
+        let y = 0;
+        do {
+            y += el.offsetTop  || 0;
+            x += el.offsetLeft || 0;
+            if(el.scrollTop){
+                y -= el.scrollTop;
+            }
+            el = el.offsetParent;
+        } while(el);
+
+        return {
+            x: x,
+            y: y,
+            rect: node.getBoundingClientRect(),
+        };
+    }
+
+    function getDragAndContPos(node){
+        console.debug('getDragAndContPos', node);
+        let dragContainer = null;
+        let el = node;
+        let x = 0;
+        let y = 0;
+        do {
+            if(el.flags && (el.flags & FLAG_DROP_TARGET)){
+                console.debug('DROP TARGET [FOUND]', el);
+                dragContainer = el;     
+            }
+            y += el.offsetTop  || 0;
+            x += el.offsetLeft || 0;
+            if(el.scrollTop){
+                y -= el.scrollTop;
+            }
+            el = el.offsetParent;
+        } while(el);
+        if(dragContainer){
+            return {
+                x: x,
+                y: y,
+                dragContainer: dragContainer,
+            }
+        }else{
+            console.warn('drag container not found');
+            return null;
+        }
+    }
+
+    function Event_SetDragContPos(node){
+        if(node._views){
+            if((node.flags & FLAG_DRAG_CONT_CALCULATED) == 0){
+                node.flags |= FLAG_DRAG_CONT_CALCULATED;
+                for(let k in node._views){
+                    const v = node._views[k];
+                    for(let i = 0; i <  v.el_li.length; i++){
+                        let elObj = v.el_li[i];
+                        elObj.pos = getDragPos(elObj.el);
+                    }
+                }
+            }
+        }
+    }
+
+    function Event_GetDropContTargets(viewSet){
+        let targets = [];
+        for(let k in viewSet){
+            let view = viewSet[k].viewNode;
+            if(view._view && view._view.viewNode){
+                targets.push({
+                    node: view._view.viewNode,
+                    pos: getDragPos(view._view.viewNode)
+                });
+            }
+        }
+        return targets;
+    }
+
+    function Event_DragTargetCalc(e, drag_ev){
+        let mouseY = e.clientY;
+        let mouseX = e.clientX;
+        let current = drag_ev.target;
+        let wasCurrent = null;
+        let wasCurrent_i = 0;
+
+        let containers = drag_ev.props.containers;
+        for(let i = 0; i < containers.length; i++){
+            let cont = containers[i];
+            let t = cont;
+            let rect = {
+                startX: t.pos.x,
+                startY: t.pos.y,
+                endX: t.pos.x + t.pos.rect.width,
+                endY: t.pos.y + t.pos.rect.height
+            };
+
+            if((mouseY >= rect.startY && mouseY <= rect.endY) &&
+                (mouseX >= rect.startX && mouseX <= rect.endX)
+            ){
+                if(cont.node !== drag_ev.props.dragContainer){
+                    console.log('Switching drag container', cont.node._idtag);
+                    drag_ev.props.dragContainer = cont.node;
+                    Event_SetDragContPos(cont.node);
+                }
+            }
+        }
+
+        let dragView_li = drag_ev.props.dragContainer._view.el_li;
+
+        for(let i = 0; i < dragView_li.length; i++){
+            let t = dragView_li[i];
+
+            if(t.el === current){
+                wasCurrent = t;
+                wasCurrent_i = i;
+            }
+
+            let rect = {
+                startX: t.pos.x,
+                startY: t.pos.y,
+                endX: t.pos.x + t.pos.rect.width,
+                endY: t.pos.y + t.pos.rect.height
+            };
+
+            if((mouseY >= rect.startY && mouseY <= rect.endY) &&
+                (mouseX >= rect.startX && mouseX <= rect.endX)
+            ){
+                return {idx: i, uitem: t, current: {idx: wasCurrent_i, uitem: wasCurrent}};
+            }
+        }
+
+        return null;
+    }
+
+
     function Event_SetupDrag(event_ev, dragObj){
+        console.debug('Setting up DRAG', event_ev);
+        console.debug('Setting up DRAG dragObj', dragObj);
+
         dragObj.ev = event_ev;
 
         const dragVessel = dragObj.vessel_el;
         const node = event_ev.target;
+        if(!node || !dragVessel){
+            console.warn('Error: no drag taget in event or dragVessel in document');
+            return;
+        }
 
         let x = 0;
         let y = 0;
@@ -1045,6 +1209,7 @@ function TempLang_Init(templates_el, framework){
         dragVessel.style.left = x + 'px';
         dragVessel.style.top = y + 'px';
 
+        /*
         let viewSet = dragContainer._view._elements._views;
         let containers = Event_GetDropContTargets(viewSet);
         event_ev.props = {
@@ -1061,6 +1226,7 @@ function TempLang_Init(templates_el, framework){
             spacers: {},
             _spacer_idtag: null
         };
+        */
     }
 
     /* 
@@ -1266,14 +1432,22 @@ function TempLang_Init(templates_el, framework){
         return null;
     }
 
-    function El_SetStateStyle(node, templ, stateStyle, add){
-        node.classList = [];
-        for(var i = 0; i < templ.classes.length; i++){
-            node.classList.add(templ.classes[i]);
-        }
+    function El_SetStateStyle(node, templ, stateStyle){
+        const classes = {};
+
+        Style_ClsOverlay(classes, node.classes, templ.classes);
 
         let custom_rule = El_GetClsName(node);
+        classes.custom = [custom_rule];
+        if(stateStyle){
+            if(typeof stateStyle === 'string'){
+                classes.state = [stateStyle];
+            }else if(Array.isArray(stateStyle)){
+                classes.state = stateStyle;
+            }
+        }
 
+        /*
         let style_s = Cash(templ.baseStyle, node.vars).result;
         if(style_s){
             const rule = '.' + custom_rule + ' {' + style_s + '}';
@@ -1281,19 +1455,15 @@ function TempLang_Init(templates_el, framework){
                 AddStyle(null, rule);
             }
         }
+        */
 
-        if(add && stateStyle){
-            node.classList.add(stateStyle);
-            if(custom_rule && style_s){
-                node.classList.remove(custom_rule);
-            }
-        }else{
-            if(stateStyle){
-                node.classList.remove(stateStyle);
-            }
-            if(custom_rule && style_s){
-                node.classList.add(custom_rule);
-            }
+        while(node.classList.length){
+            node.classList.remove(node.classList[0]);
+        }
+
+        const classList = Style_ToCls(classes);
+        for(let i = 0; i < classList.length; i++){
+            node.classList.add(classList[i]);
         }
     }
 
@@ -1320,6 +1490,24 @@ function TempLang_Init(templates_el, framework){
         if(sheetObj){
             sheetObj.sheet.insertRule(rule_s, sheetObj.sheet.rules.length);
         }
+    }
+
+    
+    function Style_ClsOverlay(dest, into, from){
+        for(let k in from){
+            dest[k] = from[k];
+        }
+        for(let k in into){
+            dest[k] = into[k];
+        }
+    }
+
+    function Style_ToCls(classes){
+        let cls = [];
+        for(let k in  classes){
+            cls = cls.concat(classes[k]);
+        }
+        return cls;
     }
 
 
@@ -1401,7 +1589,10 @@ function TempLang_Init(templates_el, framework){
         framework.content[content._idtag] = content;
         if(Array.isArray(content)){
             for(let i = 0; i < content.length; i++){
-                content._idtag = 'content_' + (++framework.content_idx);
+                content[i]._idtag = 'content_' + (++framework.content_idx);
+                if(typeof content[i].rev === 'undefined'){
+                    content[i].rev = 0;
+                }
             }
         }
     }
@@ -1495,14 +1686,23 @@ function TempLang_Init(templates_el, framework){
 
         node.vars = {};
         node.flags = templ.flags;
+        node._idtag = 'element_'+(++framework.el_idx);
+
+        /*
+        console.warn('El_Make' + node._idtag, ctx);
+        */
+
         node.varSetters = {};
         node.templ = templ;
-        node._idtag = 'element_'+(++framework.el_idx);
         if(templ.uiSplit){
             node._ctx = ctx;
         }
         if(!reuseNode){
             parent_el.appendChild(node);
+        }
+
+        if(ctx.view.container){
+            ctx.view.el_li.push(node);
         }
 
         /* if the data comes from an injested data source, store the flag here
@@ -1543,7 +1743,7 @@ function TempLang_Init(templates_el, framework){
         */
 
         Templ_SetFuncs(templ, framework.funcs);
-        El_SetStateStyle(node, templ, null, false);
+        El_SetStateStyle(node, templ);
         if(!reuseNode){
             El_SetEvents(node, templ.on);
             El_SetEvents(node, templ.funcs);
@@ -1596,7 +1796,7 @@ function TempLang_Init(templates_el, framework){
         return node;
     }
 
-    function El_MakeAs(node, parentNode, ctx){
+    function El_MakeAs(node, parent_el, ctx){
         let templ = null;
         templ = node.templ;
 
@@ -1620,8 +1820,29 @@ function TempLang_Init(templates_el, framework){
             const source_el = El_Query(node, {direction: templ.dataKey.var_direction},  compare);
             if(source_el && source_el.vars[templ.dataKey.key]){
                 const data = {};
-                data[templ.dataKey.key] = source_el.vars[templ.dataKey.key];
+                const content = source_el.vars[templ.dataKey.key]
+                data[templ.dataKey.key] = content;
                 ctx = Data_Sub(data);
+
+                if(templ.flags & FLAG_DROP_TARGET){
+                    parent_el.flags |= FLAG_DROP_TARGET;
+
+                    if(typeof parent_el._views === 'undefined'){
+                       parent_el._views = {};
+                    }
+
+                    const view = {
+                        content: content,
+                        dataKey: templ.dataKey,
+                        container: parent_el,
+                        el_li: [],
+                    };
+
+                    parent_el._views[node._idtag] = view;
+                    ctx.view = view;
+
+                    El_SetStyle(parent_el, 'position', 'relative');
+                }
             }
         }
 
@@ -1638,7 +1859,7 @@ function TempLang_Init(templates_el, framework){
             node.classList.remove(node.classList[0]);
         }
         
-        El_Make(templ, parentNode, ctx, node);
+        El_Make(templ, parent_el, ctx, node);
     }
 
 
@@ -1680,16 +1901,15 @@ function TempLang_Init(templates_el, framework){
         dragHighlighter.classList.add('drag-highlighter');
 
         var body = document.getElementsByTagName('body');
-        if(!body || !body[0]){
-            return;
+        if(body && body[0]){
+            body[0].appendChild(dragVessel);
+            body[0].appendChild(dragHighlighter);
         }
-        body[0].appendChild(dragVessel);
-        body[0].appendChild(dragHighlighter);
 
         framework._drag = {
             vessel_el: dragVessel,
             highlighter_el: dragHighlighter,
-            container_el: null,
+            spacer_templ: null,
             ev: null
         };
     }
@@ -1738,6 +1958,10 @@ function TempLang_Init(templates_el, framework){
                 Templ_Parse(el, null);
             }
         }
+    }
+
+    if(framework.templates['DRAG-SPACER']){
+        framework._drag.spacer_templ = framework.templates['DRAG-SPACER'];
     }
 
     /* Setup default styles */
