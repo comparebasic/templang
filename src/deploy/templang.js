@@ -50,6 +50,8 @@ function TempLang_Init(templates_el, framework){
 
     const FLAG_NODE_STATE_HOVER = 1;
     const FLAG_NODE_STATE_DRAG = 2;
+    const FLAG_DRAG_TARGET = 4;
+    const FLAG_DROP_TARGET = 8;
 
     const isTouchDevice = !!('ontouchstart' in window);
 
@@ -574,9 +576,7 @@ function TempLang_Init(templates_el, framework){
                 El_SetStateStyle(node, node.templ, value, false);
             }
         }else if(set.scope === 'as'){
-            /*
             console.debug('RUNNING as value:' + value, setter);
-            */
             if(value){
 
                 const asData = {}
@@ -678,8 +678,8 @@ function TempLang_Init(templates_el, framework){
                     templ.funcs[name] = spec.key;
                 }
             }else if(att.name == 'drag'){
-                templ.dragElementSpec = att.value;
-                templ.flags |= FLAG_DRAG_CONTAINER;
+                templ.flags |= FLAG_DRAG_TARGET;
+                templ.on.drag = Spec_Parse('move');
             }else if(att.name == 'func'){
                 templ.commandKeys = [att.value];
             }else if(att.name == 'data'){
@@ -828,6 +828,13 @@ function TempLang_Init(templates_el, framework){
             templ.baseStyle += into_templ.baseStyle;
         }
 
+        /*
+        console.debug('Temple on ' + templ.classes, templ.on);
+        console.debug('Temple from.on ' + from_templ.nodeName, from_templ.on);
+        console.debug('Temple into.on ' + into_templ.name, into_templ);
+        console.debug(' --- ');
+        */
+
         return templ;
     }
 
@@ -873,6 +880,8 @@ function TempLang_Init(templates_el, framework){
                 ChangeStyle(null, '.full-width', 'width', window.innerWidth + 'px');
                 ChangeStyle(null, '.full-height', 'height', window.innerHeight + 'px');
             }
+        }else if(event_ev.spec.key === 'move'){
+            console.debug('move', event_ev);
         }else if(event_ev.spec.key === 'split'){
             El_Make(event_ev.dest.templ, event_ev.dest.parentNode, Data_Sub(event_ev.dest._ctx));
             for(let i = 0, l = event_ev.dest.parentNode.children.length; i < l; i++){
@@ -996,6 +1005,26 @@ function TempLang_Init(templates_el, framework){
         var y = e.clientY;
     }
 
+    function onDrag(e){
+        var node = this;
+        let r = false;
+        ResetCtx({ev: null});
+        if(node.templ && node.templ.on.drag){
+            r = Event_Run(Event_New(node, e, node.templ.on.drag));
+        }
+        e.stopPropagation(); e.preventDefault();
+    }
+
+    function onDrop(e){
+        var node = this;
+        let r = false;
+        ResetCtx({ev: null});
+        if(node.templ && node.templ.on.drop){
+            r = Event_Run(Event_New(node, e, node.templ.on.drop));
+        }
+        e.stopPropagation(); e.preventDefault();
+    }
+
     function onDown(e){
         var node = this;
         let r = false;
@@ -1005,6 +1034,9 @@ function TempLang_Init(templates_el, framework){
         }
         if(node.templ && node.templ.on.click){
             r = Event_Run(Event_New(node, e, node.templ.on.click));
+        }
+        if(node.templ && node.templ.on.drag){
+            r = onDrag.call(node, e);
         }
         e.stopPropagation(); e.preventDefault();
     }
@@ -1027,6 +1059,9 @@ function TempLang_Init(templates_el, framework){
         }
         if(node.templ && node.templ.on.click){
             r = Event_Run(Event_New(node, e, node.templ.on.click));
+        }
+        if(node.templ && node.templ.on.drop){
+            r = onDrop.call(node, e);
         }
         e.stopPropagation(); e.preventDefault();
     }
@@ -1062,10 +1097,10 @@ function TempLang_Init(templates_el, framework){
     }
 
     function El_SetEvents(node, events){
-        if(events.mousedown || events.click){
+        if(events.mousedown || events.click || events.drag){
             node.onmousedown = onDown;
         }
-        if(events.mouseup){
+        if(events.mouseup || (node.flags & FLAG_DRAG_TARGET)){
             node.onmouseup = onUp;
         }
         if(events.resize){
@@ -1336,9 +1371,9 @@ function TempLang_Init(templates_el, framework){
 
 
             forKey = templ.forKey;
-            parent_templ = framework.templates[templ.nodeName.toUpperCase()];
-            if(parent_templ){
-                templ = Templ_Merge(templ, parent_templ);
+            child_templ = framework.templates[templ.nodeName.toUpperCase()];
+            if(child_templ){
+                templ = Templ_Merge(templ, child_templ);
             }
 
         }else{
@@ -1361,14 +1396,20 @@ function TempLang_Init(templates_el, framework){
             let subCtx;
             if(subCtx = Data_Sub(ctx, forKey)){
                 const par_templ = templ;
-                let sub_templ = Templ_Merge(null, par_templ);
 
                 let subData;
                 while(subData = Data_Next(subCtx)){
                     
+                    let sub_templ = null;
                     if(par_templ.asKey){
                         const templ_s = Cash(par_templ.asKey.key, subData.data).result;
                         sub_templ = framework.templates[templ_s.toUpperCase()];
+                    }
+
+                    if(sub_templ){
+                        sub_templ = Templ_Merge(par_templ, sub_templ);
+                    }else{
+                        sub_templ = Templ_Merge(null, par_templ);
                     }
 
                     El_Make(sub_templ, parent_el, subData);
@@ -1386,6 +1427,7 @@ function TempLang_Init(templates_el, framework){
         const node = reuseNode || document.createElement(templ.nodeName);
 
         node.vars = {};
+        node.flags = templ.flags;
         node.varSetters = {};
         node.templ = templ;
         node._idtag = 'element_'+(++framework.el_idx);
