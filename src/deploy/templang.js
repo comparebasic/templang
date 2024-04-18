@@ -1258,7 +1258,6 @@ function TempLang_Init(templates_el, framework){
 
             Transaction_Register(trans)
             framework._drag.ev = null;
-            console.debug('Contenty stuff', trans.content._changes);
         }
 
         Event_CloseCurrentSpacer(framework._drag);
@@ -1274,9 +1273,6 @@ function TempLang_Init(templates_el, framework){
     function Event_SetSpacer(dragObj){
         Event_CloseCurrentSpacer(dragObj);
         if(dragObj.ev.props.onto){
-            console.debug('MAKE SPACER', dragObj.ev.props.onto);
-            console.debug('MAKE SPACER props', dragObj.ev.props);
-
             dragObj.spacers._current = El_Make(dragObj.spacer_templ,
                 dragObj.ev.props.cont.node,
                 Data_Sub({}),
@@ -1287,8 +1283,6 @@ function TempLang_Init(templates_el, framework){
             El_SetStyle(dragObj.spacers._current, 'width', dragObj.ev.props.w + 'px');
 
         }else{
-            console.debug('MAKE ORIG SPACER', dragObj.ev.props.onto);
-
             dragObj.spacers._current = El_Make(dragObj.spacer_templ,
                 dragObj.ev.props.cont.node,
                 Data_Sub({}),
@@ -1738,27 +1732,48 @@ function TempLang_Init(templates_el, framework){
         return node._content_idtag && node._content_idtag === content._idtag;
      }
 
-     function Transaction_ModifyNodes(trans, view){
+     function _Transaction_CheckAlignment(view){
         let el = view.container.firstChild;
-        let start_el = null;
-
-        while(el){
-            if(el.nodeType == Node.ELEMENT_NODE){
-                if(El_CompareContent(el, trans.content[0])){
-                    start_el = el;
+        for(let i = 0; el && i < content.length; /* in body */){
+            if(el.nodeType === Node.ELEMENT_NODE && el.flags & FLAG_DRAG_TARGET){
+                if(el._content_idtag !== content[i]._idtag){
+                    console.error('_Transaction_CheckAlignment: nodes do not align to content ' + i + ' ' +el._content_idtag + ' vs ' + content[i]._idtag + ' "' + el.innerHTML + '"', content);
                     break;
                 }
+                if(el !== view.el_li[i].el){
+                    console.error('_Transaction_CheckAlignment: ei_li does not align ' + i + ' ' + el._idtag + ' vs ' + view.el_li[i].el._idtag + ' "'+ el.innerHTML + '" ', view.el_li);
+                    break;
+                }
+                i++;
             }
+
             el = el.nextSibling;
         }
+     }
 
-        if(!start_el){
-            console.warn('Transaction_ModifyNodes: unable to find first element');
-            return false;
-        }
-
+     function Transaction_ModifyView(trans, view){
         const startIdx = trans.origObj.idx;
         let endIdx = trans.newObj.idx;
+        if(startIdx == endIdx){
+            return true;
+        }
+
+        if(endIdx < startIdx){
+            endIdx++;
+        }
+
+        const item = view.el_li.splice(startIdx, 1);
+        view.el_li.splice(endIdx, 0, item[0]);
+
+        return true;
+     }
+
+     function Transaction_ModifyNodes(trans, view){
+        let el = view.container.firstChild;
+        let start_el = el;
+        const startIdx = trans.origObj.idx;
+        let endIdx = trans.newObj.idx;
+
         if(startIdx == endIdx){
             return true;
         }
@@ -1766,7 +1781,7 @@ function TempLang_Init(templates_el, framework){
         let moveNode = null;
         let r = false;
         for(idx = 0; el && idx <= startIdx; /* incr in body */){
-            if(el.nodeType == Node.ELEMENT_NODE){
+            if(el.nodeType == Node.ELEMENT_NODE && (el.flags & FLAG_DRAG_TARGET)){
                 if(idx === startIdx){
                     moveNode = el;
                     break;
@@ -1784,10 +1799,9 @@ function TempLang_Init(templates_el, framework){
 
         el = start_el;
         for(idx = 0; el && idx <= endIdx; /* incr in body */){
-            if(el.nodeType == Node.ELEMENT_NODE){
+            if(el.nodeType == Node.ELEMENT_NODE && (el.flags & FLAG_DRAG_TARGET)){
                 if(idx === endIdx){
                     el.parentNode.insertBefore(moveNode, el.nextSibling);
-                    console.debug('Placing ' + idx, moveNode);
                     r = true;
                 }
                 idx++;
@@ -1796,6 +1810,7 @@ function TempLang_Init(templates_el, framework){
             el = el.nextSibling;
         }
 
+        Transaction_ModifyView(trans, view);
         return r;
      }
 
@@ -1806,10 +1821,11 @@ function TempLang_Init(templates_el, framework){
             return true;
         }
 
-        if(startIdx < endIdx){
-            endIdx--;
+        if(endIdx < startIdx){
+            endIdx++;
         }
 
+        console.debug('Moving from ' + startIdx +' to ' + endIdx);
         const item = trans.content.splice(startIdx, 1);
         trans.content.splice(endIdx, 0, item[0]);
 
@@ -1826,6 +1842,7 @@ function TempLang_Init(templates_el, framework){
                 if(r){
                     for(let k in content._views){
                         Transaction_ModifyNodes(trans, content._views[k]); 
+                        _Transaction_CheckAlignment(content._views[k]);
                     }
                 }
                 if(r){
@@ -1942,7 +1959,6 @@ function TempLang_Init(templates_el, framework){
                     };
 
                     dropTarget.onscroll = onScroll;
-                    console.debug('setting on scroll', dropTarget);
                     dropTarget._viewRef = view;
 
                     drop_el._view = view;
@@ -1998,8 +2014,6 @@ function TempLang_Init(templates_el, framework){
         if(!reuseNode){
             parent_el.appendChild(node);
         }else if(reuseType === REUSE_AFTER){
-            console.debug('Adding after', reuseNode);
-            console.debug('Adding after next', reuseNode.nextSibling);
             reuseNode.parentNode.insertBefore(node, reuseNode.nextSibling);
         }else if(reuseType === REUSE_BEFORE){
             reuseNode.parentNode.insertBefore(node, reuseNode);
@@ -2052,9 +2066,6 @@ function TempLang_Init(templates_el, framework){
             El_SetEvents(node, templ.on);
             El_SetEvents(node, templ.funcs);
             El_RegisterSetters(node, templ);
-        }else{
-            console.log('Reusing Node', reuseNode);
-            console.log('Reusing Node templ', templ);
         }
 
         /* Copy in the body if it's there, Cash is used for templating values 
