@@ -47,12 +47,15 @@ function TempLang_Init(templates_el, framework){
     const TYPE_HANDLER = 10;
     const TYPE_FUNC = 11;
     const TYPE_ELEM = 12;
+    const REUSE_AFTER = 13;
+    const REUSE_BEFORE = 14;
 
     const FLAG_NODE_STATE_HOVER = 1;
     const FLAG_NODE_STATE_DRAG = 2;
     const FLAG_DRAG_TARGET = 4;
     const FLAG_DROP_TARGET = 8;
     const FLAG_DRAG_CONT_CALCULATED = 16;
+
 
     const TRANS_RETRY = 200;
 
@@ -1084,7 +1087,9 @@ function TempLang_Init(templates_el, framework){
                     let elObj = v.el_li[i];
                     elObj.pos = getDragPos(elObj.el);
                 }
+                /*
                 console.debug('[Event_SetDragContPos] el_li', node._view.el_li);
+                */
             }
         }
     }
@@ -1194,19 +1199,7 @@ function TempLang_Init(templates_el, framework){
             return null;
         }
 
-        let place = document.createElement('DIV');
-        let style = window.getComputedStyle(node);
-        place.style.display = style.display;
-        place.style.position = style.position;
-        place.style.width = w + 'px';
-        place.style.height = h + 'px';
-        place.style.padding = style.padding + 'px';
-        place.style.margin = style.margin + 'px';
-
-        for(let i = 0; i < node.classList.length; i++){
-            place.classList.add(node.classList[i]);
-        }
-
+        let place = document.createElement('SPAN');
         swap(node, place);
         dragVessel.appendChild(node);
 
@@ -1219,8 +1212,8 @@ function TempLang_Init(templates_el, framework){
             y:y,
             offsetX: e.clientX - x,
             offsetY: e.clientY - y,
-            place: place,
             vessel: dragVessel,
+            place: place,
             cont: dragPos,
             item: {
                 node: node,
@@ -1232,14 +1225,17 @@ function TempLang_Init(templates_el, framework){
         };
 
         dragObj.ev = event_ev;
+
+        Event_SetSpacer(framework._drag);
+        dragVessel.appendChild(node);
     }
 
     function Event_DragRelease(event_ev){
         if(framework._drag.onto){
             console.debug('DRAG [release] drop onto', framework._drag);
         }
-        swap(event_ev.props.place, event_ev.target);
 
+        swap(event_ev.props.place, event_ev.target);
         if(framework._drag.ev){
             const drag_ev = framework._drag.ev;
 
@@ -1264,6 +1260,44 @@ function TempLang_Init(templates_el, framework){
             framework._drag.ev = null;
             console.debug('Contenty stuff', trans.content._changes);
         }
+
+        Event_CloseCurrentSpacer(framework._drag);
+    }
+
+    function Event_CloseCurrentSpacer(dragObj){
+        if(dragObj.spacers._current){
+            El_Destroy(dragObj.spacers._current);
+            dragObj.spacers._current = null;
+        }
+    }
+
+    function Event_SetSpacer(dragObj){
+        Event_CloseCurrentSpacer(dragObj);
+        if(dragObj.ev.props.onto){
+            console.debug('MAKE SPACER', dragObj.ev.props.onto);
+            console.debug('MAKE SPACER props', dragObj.ev.props);
+
+            dragObj.spacers._current = El_Make(dragObj.spacer_templ,
+                dragObj.ev.props.cont.node,
+                Data_Sub({}),
+                {after: dragObj.ev.props.onto.node}
+            );
+
+            El_SetStyle(dragObj.spacers._current, 'height', dragObj.ev.props.h + 'px');
+            El_SetStyle(dragObj.spacers._current, 'width', dragObj.ev.props.w + 'px');
+
+        }else{
+            console.debug('MAKE ORIG SPACER', dragObj.ev.props.onto);
+
+            dragObj.spacers._current = El_Make(dragObj.spacer_templ,
+                dragObj.ev.props.cont.node,
+                Data_Sub({}),
+                {after: dragObj.ev.target}
+            );
+
+            El_SetStyle(dragObj.spacers._current, 'height', dragObj.ev.props.h + 'px');
+            El_SetStyle(dragObj.spacers._current, 'width', dragObj.ev.props.w + 'px');
+        }
     }
 
     function Event_UpdateDrag(event_ev){
@@ -1278,6 +1312,7 @@ function TempLang_Init(templates_el, framework){
                 (!framework._drag.ev.props.onto || dropObj.idx !== framework._drag.ev.props.onto.idx) &&
                 dropObj.node !== event_ev.target){
             framework._drag.ev.props.onto = dropObj;
+            Event_SetSpacer(framework._drag);
         }
     }
 
@@ -1728,10 +1763,6 @@ function TempLang_Init(templates_el, framework){
             return true;
         }
 
-        if(startIdx < endIdx){
-            endIdx--;
-        }
-
         let moveNode = null;
         let r = false;
         for(idx = 0; el && idx <= startIdx; /* incr in body */){
@@ -1830,7 +1861,7 @@ function TempLang_Init(templates_el, framework){
      *   @parent_el - this is the element that it will be placed inside of
      *   @reuseNode - this is only used for internal updates
      */
-    function El_Make(templ, parent_el, ctx, reuseNode){
+    function El_Make(templ, parent_el, ctx, reuse){
         /* Begin by sorting out which template or combination of templates to use */
         let isTemplNodeName = false;
         if(typeof templ === 'string'){
@@ -1840,6 +1871,20 @@ function TempLang_Init(templates_el, framework){
         if(!templ){
             console.warn('El_Make no templ', templ);
             return;
+        }
+
+        let reuseNode = null;
+        let reuseType = 0;
+        if(reuse){
+            if(reuse.nodeType === Node.ELEMENT_NODE){
+                reuseNode = reuse;
+            }else if(reuse.after){
+                reuseNode = reuse.after;
+                reuseType = REUSE_AFTER;
+            }else if(reuse.before){
+                reuseNode = reuse.before;
+                reuseType = REUSE_BEFORE;
+            }
         }
 
         let forKey = null;
@@ -1934,7 +1979,7 @@ function TempLang_Init(templates_el, framework){
 
         /* Begin makeing the actual node 
          */
-        const node = reuseNode || document.createElement(templ.nodeName);
+        const node = (!reuseType && reuseNode) || document.createElement(templ.nodeName);
 
         node.vars = {};
         node.flags = templ.flags;
@@ -1949,8 +1994,15 @@ function TempLang_Init(templates_el, framework){
         if(templ.uiSplit){
             node._ctx = ctx;
         }
+
         if(!reuseNode){
             parent_el.appendChild(node);
+        }else if(reuseType === REUSE_AFTER){
+            console.debug('Adding after', reuseNode);
+            console.debug('Adding after next', reuseNode.nextSibling);
+            reuseNode.parentNode.insertBefore(node, reuseNode.nextSibling);
+        }else if(reuseType === REUSE_BEFORE){
+            reuseNode.parentNode.insertBefore(node, reuseNode);
         }
 
         if(parent_el._view && (node.flags & FLAG_DRAG_TARGET)){
@@ -1996,7 +2048,7 @@ function TempLang_Init(templates_el, framework){
 
         Templ_SetFuncs(templ, framework.funcs);
         El_SetStateStyle(node, templ);
-        if(!reuseNode){
+        if(!reuseNode || (!reuseNode.nodeType)){
             El_SetEvents(node, templ.on);
             El_SetEvents(node, templ.funcs);
             El_RegisterSetters(node, templ);
@@ -2046,6 +2098,10 @@ function TempLang_Init(templates_el, framework){
         }
 
         return node;
+    }
+
+    function El_Destroy(node){
+        node.remove();
     }
 
     function El_MakeAs(node, parent_el, ctx){
@@ -2154,7 +2210,7 @@ function TempLang_Init(templates_el, framework){
             vessel_el: dragVessel,
             highlighter_el: dragHighlighter,
             spacer_templ: null,
-            onto: null,
+            spacers: {},
             ev: null
         };
 
