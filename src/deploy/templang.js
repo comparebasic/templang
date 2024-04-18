@@ -1129,11 +1129,15 @@ function TempLang_Init(templates_el, framework){
                 (mouseX >= rect.startX && mouseX <= rect.endX)
             ){
                 if(cont.node !== drag_ev.props.cont.node){
-                    console.debug('Switching drag container', cont.node._idtag);
                     drag_ev.props.cont = cont;
                     Event_SetDragContPos(cont.node);
                 }
             }
+        }
+
+        // outside the bounds of any drop container
+        if(!drag_ev.props.cont){
+            return; 
         }
 
         let dragView_li = drag_ev.props.cont.node._view.el_li;
@@ -1201,7 +1205,14 @@ function TempLang_Init(templates_el, framework){
         dragVessel.appendChild(node);
 
         let viewSet = dragContainer._view;
-        let containers = Event_GetDropContTargets(viewSet);
+        let containers = [];
+        for(let k in viewSet.content._views){
+            const cont_node = viewSet.content._views[k].container;
+            containers.push({
+                node: cont_node,
+                pos: getDragPos(cont_node)
+            });
+        }
         event_ev.props = {
             w:w,
             h:h,
@@ -1344,6 +1355,13 @@ function TempLang_Init(templates_el, framework){
     }
 
     function onDown(e){
+        // detect right click
+        if (typeof e.button !== 'undefined' && e.button !== 0){
+             return;
+        } else if(typeof e.which !== 'undefined' && e.which === 3){
+             return;
+        }
+
         var node = this;
         let r = false;
         ResetCtx({ev: null});
