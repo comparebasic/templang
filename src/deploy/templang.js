@@ -1087,9 +1087,7 @@ function TempLang_Init(templates_el, framework){
                     let elObj = v.el_li[i];
                     elObj.pos = getDragPos(elObj.el);
                 }
-                /*
                 console.debug('[Event_SetDragContPos] el_li', node._view.el_li);
-                */
             }
         }
     }
@@ -1137,7 +1135,6 @@ function TempLang_Init(templates_el, framework){
                 }
             }
         }
-
 
         let dragView_li = drag_ev.props.cont.node._view.el_li;
         for(let i = 0; i < dragView_li.length; i++){
@@ -1825,7 +1822,6 @@ function TempLang_Init(templates_el, framework){
             endIdx++;
         }
 
-        console.debug('Moving from ' + startIdx +' to ' + endIdx);
         const item = trans.content.splice(startIdx, 1);
         trans.content.splice(endIdx, 0, item[0]);
 
