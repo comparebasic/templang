@@ -738,6 +738,9 @@ function TempLang_Init(templates_el, framework){
                 }
             }else if(att.name == 'split'){
                 templ.uiSplit = true;
+                templ.on.close = Spec_Parse('close');
+                templ.on.split = Spec_Parse('split');
+                templ.on.vsplit = Spec_Parse('vsplit');
             }else if(att.name == 'for'){
                 templ.forKey = att.value;
             }else if(att.name == 'base-style'){
@@ -911,11 +914,28 @@ function TempLang_Init(templates_el, framework){
             console.debug('move', event_ev);
             */
         }else if(event_ev.spec.key === 'split'){
+            console.debug('Splitting stuff', event_ev);
             El_Make(event_ev.dest.templ, event_ev.dest.parentNode, Data_Sub(event_ev.dest._ctx));
             for(let i = 0, l = event_ev.dest.parentNode.children.length; i < l; i++){
                 const child = event_ev.dest.parentNode.children[i];
                 El_SetSize(child, l, '/w');
             }
+            return;
+        }else if(event_ev.spec.key === 'close'){
+            console.debug('CLOSING', event_ev);
+            const pane = event_ev.dest;
+            const par_node = pane.parentNode; 
+            if(pane._view){
+                if(pane._view.content._views[pane._idtag]){
+                    delete pane._view.content._views[pane._idtag];
+                }
+            }
+            pane.remove();
+            for(let i = 0, l = par_node.children.length; i < l; i++){
+                const child = par_node.children[i];
+                El_SetSize(child, l, '/w');
+            }
+            return;
         }else if(event_ev.spec.key === 'style'){
             if(event_ev.eventType === 'hover'){
                 if(event_ev.spec.varIsPair){
@@ -1950,6 +1970,23 @@ function TempLang_Init(templates_el, framework){
          */
         if(forKey){
             let subCtx;
+
+            if(templ.dataKey){
+                console.debug('DATA KEY FOUND', templ.dataKey);
+                const compare = {
+                    vars: templ.dataKey.key,
+                    name: templ.dataKey.key_source,
+                    _tries: 2,
+                };
+                const source_el = El_Query(parent_el, {direction: templ.dataKey.var_direction},  compare);
+                if(source_el && source_el.vars[templ.dataKey.key]){
+                    const data = {};
+                    const content = source_el.vars[templ.dataKey.key];
+                    data[templ.dataKey.key] = content;
+                    ctx = Data_Sub(data);
+                }
+            }
+
             if(subCtx = Data_Sub(ctx, forKey)){
                 const par_templ = templ;
 
