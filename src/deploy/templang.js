@@ -951,6 +951,7 @@ function TempLang_Init(templates_el, framework){
             for(let i = 0, l = event_ev.dest.parentNode.children.length; i < l; i++){
                 const child = event_ev.dest.parentNode.children[i];
                 El_SetSize(child, l, '/w');
+                El_SetSize(child, event_ev.dest, 'h');
             }
 
             const cls_li = SplitMax_Cls(par_node.children.length+1, 1, event_ev.dest.templ.on.split);
@@ -961,9 +962,14 @@ function TempLang_Init(templates_el, framework){
 
             return;
         }else if(event_ev.spec.key === 'vsplit'){
-            let par_node = event_ev.dest.parentNode;
+            let par_node = event_ev.dest;
+            let w = par_node.getBoundingClientRect().width;
             if((par_node.flags & FLAG_VSPLIT) === 0){
-                const new_par = El_Make('view', par_node, Data_Sub({}));
+                console.debug('Making sub from', par_node);
+                const new_par = El_Make('view', par_node.parentNode, Data_Sub({}));
+                w = El_SetSize(new_par, par_node, 'w');
+                El_SetSize(new_par, par_node, 'h');
+
                 new_par.flags |= FLAG_VSPLIT;
                 new_par.appendChild(event_ev.dest);
                 new_par.classes.layout = ['vsplit'];
@@ -981,6 +987,7 @@ function TempLang_Init(templates_el, framework){
             for(let i = 0, l = par_node.children.length; i < l; i++){
                 const child = par_node.children[i];
                 El_SetSize(child, l, '/h');
+                El_SetStyle(child, 'width', w + 'px');
             }
 
             return;
@@ -1633,12 +1640,29 @@ function TempLang_Init(templates_el, framework){
 
     function El_SetSize(node, arg, unit){
         if(unit === '/w'){
-            El_SetStyle(node, 'width', 100 / arg + '%');
-        }
-        if(unit === '/h'){
-            let h = window.innerHeight;
+            let w = window.innerWidth-1;
+            const rect = node.getBoundingClientRect().width;
+            if( rect.width < w){
+                w = rect.width-1;
+            }
+            El_SetStyle(node, 'width', (w / arg) + 'px');
+            return (w / arg);
+        }else if(unit === '/h'){
+            let h = window.innerHeight-1;
             El_SetStyle(node, 'height', (h / arg) + 'px');
-            console.log('Setting height for ' + arg + ' ' + node._idtag, (h / arg) + 'px');
+            return (h / arg);
+        }else if (unit === 'w'){
+            if(arg && arg.nodeType === Node.ELEMENT_NODE){
+                const rect = arg.getBoundingClientRect();
+                El_SetStyle(node, 'width', rect.width + 'px');
+                return rect.width;
+            }
+        }else if (unit === 'h'){
+            if(arg && arg.nodeType === Node.ELEMENT_NODE){
+                const rect = arg.getBoundingClientRect();
+                El_SetStyle(node, 'height', rect.height + 'px');
+                return rect.width;
+            }
         }
     }
 
@@ -2161,6 +2185,11 @@ function TempLang_Init(templates_el, framework){
             reuseNode.parentNode.insertBefore(node, reuseNode.nextSibling);
         }else if(reuseType === REUSE_BEFORE){
             reuseNode.parentNode.insertBefore(node, reuseNode);
+        }
+
+        if(templ.on.split && parent_el.children.length === 1){
+            El_SetSize(node, 1, '/w');
+            El_SetSize(node, 1, '/h');
         }
 
         if(parent_el._view && (node.flags & FLAG_DRAG_TARGET)){
