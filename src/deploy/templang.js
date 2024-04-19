@@ -56,7 +56,7 @@ function TempLang_Init(templates_el, framework){
     const FLAG_DROP_TARGET = 8;
     const FLAG_DRAG_CONT_CALCULATED = 16;
     const FLAG_SPLIT = 32;
-    const FLAG_VSPLIT = 34;
+    const FLAG_VSPLIT = 64;
 
 
     const TRANS_RETRY = 200;
@@ -966,7 +966,13 @@ function TempLang_Init(templates_el, framework){
             let w = par_node.getBoundingClientRect().width;
             if((par_node.flags & FLAG_VSPLIT) === 0){
                 console.debug('Making sub from', par_node);
-                const new_par = El_Make('view', par_node.parentNode, Data_Sub({}));
+                const new_par = El_Make('view', par_node.parentNode, Data_Sub({}), {
+                    after: par_node 
+                });
+                new_par.templ.on.split = par_node.templ.on.split;
+                new_par.templ.on.vsplit = par_node.templ.on.vsplit;
+                new_par.templ.on.close = par_node.templ.on.close;
+
                 w = El_SetSize(new_par, par_node, 'w');
                 El_SetSize(new_par, par_node, 'h');
 
@@ -993,27 +999,38 @@ function TempLang_Init(templates_el, framework){
             return;
         }else if(event_ev.spec.key === 'close'){
             const pane = event_ev.dest;
-            const par_node = pane.parentNode; 
-            console.debug('closing', par_node.flags);
+            let par_node = pane.parentNode; 
 
             if(pane._view){
                 if(pane._view.content._views[pane._idtag]){
                     delete pane._view.content._views[pane._idtag];
                 }
             }
+
             pane.remove();
-            if(par_node.flags & FLAG_SPLIT){
+            if((par_node.flags & FLAG_SPLIT)){
+                console.log('CLOSING SPLIT' + par_node.flags, par_node);
                 for(let i = 0, l = par_node.children.length; i < l; i++){
                     const child = par_node.children[i];
                     El_SetSize(child, l, '/w');
                 }
             }
 
-            if(par_node.flags & FLAG_VSPLIT){
-                console.debug('RESIZE STUFF', par_node.children);
-                for(let i = 0, l = par_node.children.length; i < l; i++){
-                    const child = par_node.children[i];
-                    El_SetSize(child, l, '/h');
+            if((par_node.flags & FLAG_VSPLIT)){
+                if(par_node.children.length === 0){
+                    const sub_node = par_node;
+                    par_node = par_node.parentNode;
+                    sub_node.remove();
+                    for(let i = 0, l = par_node.children.length; i < l; i++){
+                        const child = par_node.children[i];
+                        El_SetSize(child, l, '/w');
+                    }
+
+                }else{
+                    for(let i = 0, l = par_node.children.length; i < l; i++){
+                        const child = par_node.children[i];
+                        El_SetSize(child, l, '/h');
+                    }
                 }
             }
 
