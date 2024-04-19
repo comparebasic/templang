@@ -882,19 +882,16 @@ function TempLang_Init(templates_el, framework){
         const cls = [];
         const splitSizeW = window.innerWidth / l;
         const splitSizeH = window.innerHeight / h;
-        console.debug('SplitMax called for ' + l + ' H' + splitSizeH + ' W' + splitSizeW, spec);
         let updated = false;
 
         if(spec.mapVars.h){
             const minH = Number(spec.mapVars.h.key);
-            console.debug('SplitMax called for ' + ' H' + splitSizeH + ' vs' + minH + ' its: ', (!isNaN(minH) && (splitSizeH < minH)));
             if(!isNaN(minH) && (splitSizeH < minH)){
                 cls.push('vsplit-max');
             }
         }
         if(spec.mapVars.w){
             const minW = Number(spec.mapVars.w.key);
-            console.debug('SplitMax called for ' + ' W' + splitSizeW + ' vs' + minW + ' its: ', (!isNaN(minW) && (splitSizeW < minW)));
             if(!isNaN(minW) && (splitSizeW < minW)){
                 cls.push('split-max');
             }
@@ -963,21 +960,58 @@ function TempLang_Init(templates_el, framework){
             }
 
             return;
+        }else if(event_ev.spec.key === 'vsplit'){
+            let par_node = event_ev.dest.parentNode;
+            if((par_node.flags & FLAG_VSPLIT) === 0){
+                const new_par = El_Make('view', par_node, Data_Sub({}));
+                new_par.flags |= FLAG_VSPLIT;
+                new_par.appendChild(event_ev.dest);
+                new_par.classes.layout = ['vsplit'];
+                par_node = new_par;
+            }
+
+            El_Make(event_ev.dest.templ, par_node, Data_Sub(event_ev.dest._ctx));
+
+            const cls_li = SplitMax_Cls(1, par_node.children.length+1, event_ev.dest.templ.on.split);
+            if(cls_li.length){
+                par_node.classes.vsplit = cls_li;
+                El_SetStateStyle(par_node, par_node.templ);
+            }
+
+            for(let i = 0, l = par_node.children.length; i < l; i++){
+                const child = par_node.children[i];
+                El_SetSize(child, l, '/h');
+            }
+
+            return;
         }else if(event_ev.spec.key === 'close'){
             const pane = event_ev.dest;
             const par_node = pane.parentNode; 
+            console.debug('closing', par_node.flags);
+
             if(pane._view){
                 if(pane._view.content._views[pane._idtag]){
                     delete pane._view.content._views[pane._idtag];
                 }
             }
             pane.remove();
-            for(let i = 0, l = par_node.children.length; i < l; i++){
-                const child = par_node.children[i];
-                El_SetSize(child, l, '/w');
+            if(par_node.flags & FLAG_SPLIT){
+                for(let i = 0, l = par_node.children.length; i < l; i++){
+                    const child = par_node.children[i];
+                    El_SetSize(child, l, '/w');
+                }
+            }
+
+            if(par_node.flags & FLAG_VSPLIT){
+                console.debug('RESIZE STUFF', par_node.children);
+                for(let i = 0, l = par_node.children.length; i < l; i++){
+                    const child = par_node.children[i];
+                    El_SetSize(child, l, '/h');
+                }
             }
 
             par_node.classes.split = SplitMax_Cls(par_node.children.length+1, 1,  pane.templ.on.split);
+            par_node.classes.vsplit = SplitMax_Cls(1, par_node.children.length+1, event_ev.dest.templ.on.split);
             El_SetStateStyle(par_node, par_node.templ);
 
             return;
@@ -1601,6 +1635,11 @@ function TempLang_Init(templates_el, framework){
         if(unit === '/w'){
             El_SetStyle(node, 'width', 100 / arg + '%');
         }
+        if(unit === '/h'){
+            let h = window.innerHeight;
+            El_SetStyle(node, 'height', (h / arg) + 'px');
+            console.log('Setting height for ' + arg + ' ' + node._idtag, (h / arg) + 'px');
+        }
     }
 
     function El_GetClsName(el){
@@ -2011,13 +2050,11 @@ function TempLang_Init(templates_el, framework){
         */
 
         if(templ.on.split){
-            parent_el.flags |= (FLAG_SPLIT | FLAG_VSPLIT);
             const cls_li = SplitMax_Cls(parent_el.children.length+2, 1, templ.on.split);
             if(cls_li.length){
                 parent_el.classes.split = cls_li;
                 El_SetStateStyle(parent_el, parent_el.templ);
             }
-            console.debug(parent_el);
         }
 
         /* Now handle if the element has an attirbute that makes it a bunch of children 
