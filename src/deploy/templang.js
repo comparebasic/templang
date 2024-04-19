@@ -58,6 +58,9 @@ function TempLang_Init(templates_el, framework){
     const FLAG_SPLIT = 32;
     const FLAG_VSPLIT = 64;
 
+    /*TODO: remove this temporary variable */
+    let splitCount = 1;
+
 
     const TRANS_RETRY = 200;
 
@@ -527,7 +530,7 @@ function TempLang_Init(templates_el, framework){
 
     function Data_Search(key, ctx, order){
         /*
-        console.debug('Data_Search ' + key, ctx);
+        console.log('Data_Search ' + key, ctx);
         */
         let value = null;
         let type = null;
@@ -597,7 +600,7 @@ function TempLang_Init(templates_el, framework){
             }
         }else if(set.scope === 'as'){
             /*
-            console.debug('RUNNING as value:' + value, setter);
+            console.log('RUNNING as value:' + value, setter);
             */
             if(value){
 
@@ -862,13 +865,16 @@ function TempLang_Init(templates_el, framework){
             templ.baseStyle += into_templ.baseStyle;
         }
 
-        Style_ClsOverlay(templ.classes, into_templ.classes, from_templ.classes);
+        Style_ClsOverlay(templ.classes, null, from_templ.classes);
+        if(into_templ && into_templ.classes){
+            templ.classes._into_misc = into_templ.classes._misc;
+        }
 
         /*
-        console.debug('Temple on ' + templ.classes, templ.on);
-        console.debug('Temple from.on ' + from_templ.nodeName, from_templ.on);
-        console.debug('Temple into.on ' + into_templ.name, into_templ);
-        console.debug(' --- ');
+        console.log('Temple on ' + templ.classes, templ.on);
+        console.log('Temple from.on ' + from_templ.nodeName, from_templ.on);
+        console.log('Temple into.on ' + into_templ.name, into_templ);
+        console.log(' --- ');
         */
 
         return templ;
@@ -942,16 +948,29 @@ function TempLang_Init(templates_el, framework){
             }
         }else if(event_ev.spec.key === 'move'){
             /*
-            console.debug('move', event_ev);
+            console.log('move', event_ev);
             */
         }else if(event_ev.spec.key === 'split'){
-            const par_node = event_ev.dest.parentNode;
+            let par_node = event_ev.dest.parentNode;
+            if((par_node.flags & FLAG_SPLIT) === 0){
+                const new_par = El_Make('view', par_node, Data_Sub({}), {
+                    after: event_ev.dest 
+                });
 
-            El_Make(event_ev.dest.templ, event_ev.dest.parentNode, Data_Sub(event_ev.dest._ctx));
-            for(let i = 0, l = event_ev.dest.parentNode.children.length; i < l; i++){
-                const child = event_ev.dest.parentNode.children[i];
+                w = El_SetSize(new_par, par_node, 'w');
+                El_SetSize(new_par, event_ev.dest, 'h');
+
+                new_par.flags |= FLAG_SPLIT;
+                new_par.appendChild(event_ev.dest);
+                new_par.classes.layout = ['vsplit'];
+                par_node = new_par;
+            }
+
+            El_Make(event_ev.dest.templ, par_node, Data_Sub(event_ev.dest._ctx));
+            for(let i = 0, l = par_node.children.length; i < l; i++){
+                const child = par_node.children[i];
                 El_SetSize(child, l, '/w');
-                El_SetSize(child, event_ev.dest, 'h');
+                El_SetSize(child, par_node, 'h');
             }
 
             const cls_li = SplitMax_Cls(par_node.children.length+1, 1, event_ev.dest.templ.on.split);
@@ -960,12 +979,13 @@ function TempLang_Init(templates_el, framework){
                 El_SetStateStyle(par_node, par_node.templ);
             }
 
+            splitCount++;
+
             return;
         }else if(event_ev.spec.key === 'vsplit'){
             let par_node = event_ev.dest;
             let w = par_node.getBoundingClientRect().width;
             if((par_node.flags & FLAG_VSPLIT) === 0){
-                console.debug('Making sub from', par_node);
                 const new_par = El_Make('view', par_node.parentNode, Data_Sub({}), {
                     after: par_node 
                 });
@@ -996,8 +1016,13 @@ function TempLang_Init(templates_el, framework){
                 El_SetStyle(child, 'width', w + 'px');
             }
 
+            splitCount++;
+
             return;
         }else if(event_ev.spec.key === 'close'){
+            if(splitCount <= 1){
+                return;
+            }
             const pane = event_ev.dest;
             let par_node = pane.parentNode; 
 
@@ -1009,10 +1034,24 @@ function TempLang_Init(templates_el, framework){
 
             pane.remove();
             if((par_node.flags & FLAG_SPLIT)){
-                console.log('CLOSING SPLIT' + par_node.flags, par_node);
-                for(let i = 0, l = par_node.children.length; i < l; i++){
-                    const child = par_node.children[i];
-                    El_SetSize(child, l, '/w');
+                if(par_node.children.length === 0){
+                    const sub_node = par_node;
+                    par_node = par_node.parentNode;
+                    sub_node.remove();
+                    for(let i = 0, l = par_node.children.length; i < l; i++){
+                        const child = par_node.children[i];
+                        if(par_node.flags & FLAG_VSPLIT){
+                            El_SetSize(child, l, '/h');
+                        }
+                        if(par_node.flags & FLAG_SPLIT){
+                            El_SetSize(child, l, '/w');
+                        }
+                    }
+                }else{
+                    for(let i = 0, l = par_node.children.length; i < l; i++){
+                        const child = par_node.children[i];
+                        El_SetSize(child, l, '/w');
+                    }
                 }
             }
 
@@ -1023,9 +1062,13 @@ function TempLang_Init(templates_el, framework){
                     sub_node.remove();
                     for(let i = 0, l = par_node.children.length; i < l; i++){
                         const child = par_node.children[i];
-                        El_SetSize(child, l, '/w');
+                        if(par_node.flags & FLAG_VSPLIT){
+                            El_SetSize(child, l, '/h');
+                        }
+                        if(par_node.flags & FLAG_SPLIT){
+                            El_SetSize(child, l, '/w');
+                        }
                     }
-
                 }else{
                     for(let i = 0, l = par_node.children.length; i < l; i++){
                         const child = par_node.children[i];
@@ -1037,6 +1080,7 @@ function TempLang_Init(templates_el, framework){
             par_node.classes.split = SplitMax_Cls(par_node.children.length+1, 1,  pane.templ.on.split);
             par_node.classes.vsplit = SplitMax_Cls(1, par_node.children.length+1, event_ev.dest.templ.on.split);
             El_SetStateStyle(par_node, par_node.templ);
+            splitCount--;
 
             return;
         }else if(event_ev.spec.key === 'style'){
@@ -1210,7 +1254,9 @@ function TempLang_Init(templates_el, framework){
                     let elObj = v.el_li[i];
                     elObj.pos = getDragPos(elObj.el);
                 }
-                console.debug('[Event_SetDragContPos] el_li', node._view.el_li);
+                /*
+                console.log('[Event_SetDragContPos] el_li', node._view.el_li);
+                */
             }
         }
     }
@@ -1363,7 +1409,7 @@ function TempLang_Init(templates_el, framework){
 
     function Event_DragRelease(event_ev){
         if(framework._drag.onto){
-            console.debug('DRAG [release] drop onto', framework._drag);
+            console.log('DRAG [release] drop onto', framework._drag);
         }
 
         swap(event_ev.props.place, event_ev.target);
@@ -1692,6 +1738,9 @@ function TempLang_Init(templates_el, framework){
 
     function El_SetStateStyle(node, templ, stateStyle){
         const classes = {};
+        if(templ.name){
+            classes.templ = templ.name.toLowerCase();
+        }
 
         Style_ClsOverlay(classes, node.classes, templ.classes);
 
@@ -1760,11 +1809,13 @@ function TempLang_Init(templates_el, framework){
                 dest[k] = from[k];
             }
         }
-        for(let k in into){
-            if(k == '_misc'){
-                dest[k] = dest[k].concat(into[k]);
-            }else{
-                dest[k] = into[k];
+        if(into){
+            for(let k in into){
+                if(k == '_misc'){
+                    dest[k] = dest[k].concat(into[k]);
+                }else{
+                    dest[k] = into[k];
+                }
             }
         }
     }
@@ -2008,6 +2059,7 @@ function TempLang_Init(templates_el, framework){
                    content._changes.pending.splice(i, 1); 
                    content._changes.done.push(trans);
                    trans.execTime = Date.now();
+                   Changes_Add(trans, framework.changes);
                    if(trans.complete){
                         trans.complete();
                    }
@@ -2025,6 +2077,29 @@ function TempLang_Init(templates_el, framework){
                 Content_Transact(content);
             }, TRANS_RETRY);
         }
+     }
+     
+     function Content_FindByTag(content, tag){
+        for(let i = 0; i < content.length; i++){
+            if(tag === content[i]._idtag){
+                return content[i];
+            }
+        }
+
+        return null;
+     }
+
+     function Changes_Add(trans, changes){
+         console.debug('trans', trans);
+         if(changes){
+            changes.push({
+                time: (new Date(trans.execTime)).toISOString(),
+                type: trans.changeType,
+                target: Content_FindByTag(trans.content, trans.origObj.content_idtag).text,
+                dest: Content_FindByTag(trans.content, trans.newObj.content_idtag).text,
+            });
+            console.debug('CHANGES', changes);
+         }
      }
 
     /* 
@@ -2087,7 +2162,7 @@ function TempLang_Init(templates_el, framework){
         }
 
         /*
-        console.debug('El_Make ctx', ctx);
+        console.log('El_Make ctx', ctx);
         */
 
         if(templ.on.split){
@@ -2105,7 +2180,6 @@ function TempLang_Init(templates_el, framework){
             let subCtx;
 
             if(templ.dataKey){
-                console.debug('DATA KEY FOUND', templ.dataKey);
                 const compare = {
                     vars: templ.dataKey.key,
                     name: templ.dataKey.key_source,
@@ -2239,13 +2313,6 @@ function TempLang_Init(templates_el, framework){
             }
         }
 
-        /* Add the classes if they exist */
-        if(templ.classes){
-            for(let i = 0; i < templ.classes.length; i++){
-                node.classList.add(templ.classes[i]);
-            }
-        }
-
         /* In-depth setup starts now, this is listeners and fnction/handler bindings
            as well as updating syles based on data
         */
@@ -2346,6 +2413,7 @@ function TempLang_Init(templates_el, framework){
         while(node.classList.length){
             node.classList.remove(node.classList[0]);
         }
+        node.classes = {};
         
         El_Make(templ, parent_el, ctx, node);
     }
