@@ -55,6 +55,8 @@ function TempLang_Init(templates_el, framework){
     const FLAG_DRAG_TARGET = 4;
     const FLAG_DROP_TARGET = 8;
     const FLAG_DRAG_CONT_CALCULATED = 16;
+    const FLAG_SPLIT = 32;
+    const FLAG_VSPLIT = 34;
 
 
     const TRANS_RETRY = 200;
@@ -737,10 +739,15 @@ function TempLang_Init(templates_el, framework){
                     mapVarsObj[mapVars.dest_key] = mapVars;
                 }
             }else if(att.name == 'split'){
-                templ.uiSplit = true;
+                const spec = Spec_Parse('split');
+                const vspec = Spec_Parse('vsplit');
+                const map = Map_Make(att.value);
+
+                spec.mapVars = map;
+                vspec.mapVars = map;
+                templ.on.split = spec;
+                templ.on.vsplit = vspec;
                 templ.on.close = Spec_Parse('close');
-                templ.on.split = Spec_Parse('split');
-                templ.on.vsplit = Spec_Parse('vsplit');
             }else if(att.name == 'for'){
                 templ.forKey = att.value;
             }else if(att.name == 'base-style'){
@@ -870,6 +877,33 @@ function TempLang_Init(templates_el, framework){
     /*
      * [Events Native and Synthetic]
     */
+    function SplitMax_Cls(l, h, spec){
+
+        const cls = [];
+        const splitSizeW = window.innerWidth / l;
+        const splitSizeH = window.innerHeight / h;
+        console.debug('SplitMax called for ' + l + ' H' + splitSizeH + ' W' + splitSizeW, spec);
+        let updated = false;
+
+        if(spec.mapVars.h){
+            const minH = Number(spec.mapVars.h.key);
+            console.debug('SplitMax called for ' + ' H' + splitSizeH + ' vs' + minH + ' its: ', (!isNaN(minH) && (splitSizeH < minH)));
+            if(!isNaN(minH) && (splitSizeH < minH)){
+                cls.push('vsplit-max');
+            }
+        }
+        if(spec.mapVars.w){
+            const minW = Number(spec.mapVars.w.key);
+            console.debug('SplitMax called for ' + ' W' + splitSizeW + ' vs' + minW + ' its: ', (!isNaN(minW) && (splitSizeW < minW)));
+            if(!isNaN(minW) && (splitSizeW < minW)){
+                cls.push('split-max');
+            }
+        }
+
+        return cls;
+    }
+
+
     function Event_Run(event_ev){
         let r = false;
         if(framework._ctx.ev === null){
@@ -914,15 +948,22 @@ function TempLang_Init(templates_el, framework){
             console.debug('move', event_ev);
             */
         }else if(event_ev.spec.key === 'split'){
-            console.debug('Splitting stuff', event_ev);
+            const par_node = event_ev.dest.parentNode;
+
             El_Make(event_ev.dest.templ, event_ev.dest.parentNode, Data_Sub(event_ev.dest._ctx));
             for(let i = 0, l = event_ev.dest.parentNode.children.length; i < l; i++){
                 const child = event_ev.dest.parentNode.children[i];
                 El_SetSize(child, l, '/w');
             }
+
+            const cls_li = SplitMax_Cls(par_node.children.length+1, 1, event_ev.dest.templ.on.split);
+            if(cls_li.length){
+                par_node.classes.split = cls_li;
+                El_SetStateStyle(par_node, par_node.templ);
+            }
+
             return;
         }else if(event_ev.spec.key === 'close'){
-            console.debug('CLOSING', event_ev);
             const pane = event_ev.dest;
             const par_node = pane.parentNode; 
             if(pane._view){
@@ -935,6 +976,10 @@ function TempLang_Init(templates_el, framework){
                 const child = par_node.children[i];
                 El_SetSize(child, l, '/w');
             }
+
+            par_node.classes.split = SplitMax_Cls(par_node.children.length+1, 1,  pane.templ.on.split);
+            El_SetStateStyle(par_node, par_node.templ);
+
             return;
         }else if(event_ev.spec.key === 'style'){
             if(event_ev.eventType === 'hover'){
@@ -1965,6 +2010,16 @@ function TempLang_Init(templates_el, framework){
         console.debug('El_Make ctx', ctx);
         */
 
+        if(templ.on.split){
+            parent_el.flags |= (FLAG_SPLIT | FLAG_VSPLIT);
+            const cls_li = SplitMax_Cls(parent_el.children.length+2, 1, templ.on.split);
+            if(cls_li.length){
+                parent_el.classes.split = cls_li;
+                El_SetStateStyle(parent_el, parent_el.templ);
+            }
+            console.debug(parent_el);
+        }
+
         /* Now handle if the element has an attirbute that makes it a bunch of children 
          * instead of a single elemenet
          */
@@ -2051,6 +2106,7 @@ function TempLang_Init(templates_el, framework){
         node.vars = {};
         node.flags = templ.flags;
         node._idtag = 'element_'+(++framework.el_idx);
+        node.classes = {};
 
         /*
         console.warn('El_Make' + node._idtag, ctx);
@@ -2058,7 +2114,7 @@ function TempLang_Init(templates_el, framework){
 
         node.varSetters = {};
         node.templ = templ;
-        if(templ.uiSplit){
+        if(templ.on.split){
             node._ctx = ctx;
         }
 
