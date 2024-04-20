@@ -1674,6 +1674,7 @@ function TempLang_Init(templates_el, framework){
             if(typeof framework._touch !== 'undefined'){
                 node.addEventListener('touchstart',  onHover.bind(node), true);
                 node.addEventListener('mouseout',  onUnHover.bind(node), true);
+                alert('setting hover for touch');
             }else{
                 node.onmouseover = onHover;
                 node.onmouseout = onUnHover;
