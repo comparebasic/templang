@@ -1654,8 +1654,8 @@ function TempLang_Init(templates_el, framework){
         if(events.mousedown || events.click || events.drag){
             if(events.drag){
                 if(typeof framework._touch !== 'undefined'){
-                    node.touchstart = onTouchStart;
-                    node.touchend = onTouchEnd;
+                    node.ontouchstart = onTouchStart;
+                    node.ontouchend = onTouchEnd;
                 }else{
                     node.onmousedown = onDown;
                 }
@@ -1672,9 +1672,8 @@ function TempLang_Init(templates_el, framework){
 
         if(events.hover){
             if(typeof framework._touch !== 'undefined'){
-                node.addEventListener('touchstart',  onHover.bind(node), true);
-                node.addEventListener('mouseout',  onUnHover.bind(node), true);
-                alert('setting hover for touch');
+                node.addEventListener('mouseover',  onHover.bind(node), false);
+                node.addEventListener('mouseout',  onUnHover.bind(node), false);
             }else{
                 node.onmouseover = onHover;
                 node.onmouseout = onUnHover;
