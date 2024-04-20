@@ -50,6 +50,8 @@ function TempLang_Init(templates_el, framework){
     const REUSE_AFTER = 13;
     const REUSE_BEFORE = 14;
 
+    const DELAY_DRAG_START = 200;
+
     const FLAG_NODE_STATE_HOVER = 1;
     const FLAG_NODE_STATE_DRAG = 2;
     const FLAG_DRAG_TARGET = 4;
@@ -63,8 +65,6 @@ function TempLang_Init(templates_el, framework){
 
 
     const TRANS_RETRY = 200;
-
-    const isTouchDevice = !!('ontouchstart' in window);
 
     /* 
      * [Elem Query and Match]
@@ -1425,6 +1425,7 @@ function TempLang_Init(templates_el, framework){
             const complete = function(){
                 drag_ev.props.cont.node.flags &= ~FLAG_DRAG_CONT_CALCULATED;
                 Event_SetDragContPos(drag_ev.props.cont.node);
+                Changes_Add(this, framework.changes);
             }
 
             const trans = Transaction_New(drag_ev.props.cont.node._view.content, 
@@ -1523,6 +1524,45 @@ function TempLang_Init(templates_el, framework){
         }
     }
 
+    function onTouchTiming(){
+        const node = this;
+        if(framework._touch.inter >= 0){
+            clearTimeout(framework._touch.inter);
+        }
+        framework._touch.inter = -1;
+
+        const e = framework._touch.started.pop(e);
+        framework._touch.started = [];
+        if(e){
+            if(node.templ && node.templ.on.drag){
+                onDrag.call(node, e);
+            }
+        }
+    }
+
+    function onTouchEnd(e){
+        if(framework._touch.inter >= 0){
+            clearTimeout(framework._touch.inter);
+        }
+        framework._touch.inter = -1;
+
+        const node = this;
+        if(framework._touch.started.length){
+            const e = framework._touch.started.pop();
+            framework._touch.started = [];
+            onDown.call(node, e);
+        }
+        e.stopPropagation(); e.preventDefault();
+    }
+
+    function onTouchStart(e){
+        if(framework._touch){
+            framework._touch.started.push(e);
+        }
+        framework._touch.inter = setTimeout(onTouchTiming.bind(this), DELAY_DRAG_START);
+        e.stopPropagation(); e.preventDefault();
+    }
+
     function onDown(e){
         // detect right click
         if (typeof e.button !== 'undefined' && e.button !== 0){
@@ -1593,8 +1633,8 @@ function TempLang_Init(templates_el, framework){
         node.flags |= FLAG_NODE_STATE_HOVER;
         if(node.templ && node.templ.on.hover){
             Event_Run(Event_New(node, e, node.templ.on.hover));
+            e.stopPropagation(); e.preventDefault();
         }
-        e.stopPropagation(); e.preventDefault();
     }
 
     function onUnHover(e){
@@ -1606,13 +1646,22 @@ function TempLang_Init(templates_el, framework){
         node.flags &= ~FLAG_NODE_STATE_HOVER;
         if(node.templ && node.templ.on.hover){
             Event_Run(Event_New(node, e, node.templ.on.hover));
+            e.stopPropagation(); e.preventDefault();
         }
-        e.stopPropagation(); e.preventDefault();
     }
 
     function El_SetEvents(node, events){
         if(events.mousedown || events.click || events.drag){
-            node.onmousedown = onDown;
+            if(events.drag){
+                if(typeof framework._touch !== 'undefined'){
+                    node.touchstart = onTouchStart;
+                    node.touchend = onTouchEnd;
+                }else{
+                    node.onmousedown = onDown;
+                }
+            }else{
+                node.onmousedown = onDown;
+            }
         }
         if(events.mouseup || (node.flags & FLAG_DRAG_TARGET)){
             node.onmouseup = onUp;
@@ -1622,15 +1671,13 @@ function TempLang_Init(templates_el, framework){
         }
 
         if(events.hover){
-            /*
-            if(!events.click && isTouchDevice){
-                node.onmouseup = onHover;
+            if(typeof framework._touch !== 'undefined'){
+                node.addEventListener('touchstart',  onHover, true);
+                node.addEventListener('mouseout',  onUnHover, true);
             }else{
                 node.onmouseover = onHover;
+                node.onmouseout = onUnHover;
             }
-            */
-            node.onmouseover = onHover;
-            node.onmouseout = onUnHover;
         }
     }
 
@@ -2025,6 +2072,64 @@ function TempLang_Init(templates_el, framework){
         return r;
      }
 
+     function Transaction_ModifyNodes(trans, view){
+        let el = view.container.firstChild;
+        let start_el = el;
+        const startIdx = trans.origObj.idx;
+        let endIdx = trans.newObj.idx;
+
+        if(startIdx == endIdx){
+            return true;
+        }
+
+        let moveNode = null;
+        let r = false;
+        for(idx = 0; el && idx <= startIdx; /* incr in body */){
+            if(el.nodeType == Node.ELEMENT_NODE && (el.flags & FLAG_DRAG_TARGET)){
+                if(idx === startIdx){
+                    moveNode = el;
+                    break;
+                }
+                idx++;
+            }
+
+            el = el.nextSibling;
+        }
+
+        if(!moveNode){
+            console.warn('Transaction_ModifyNodes: did not find node to move', startIdx);
+            return false;
+        }
+
+        el = start_el;
+        for(idx = 0; el && idx <= endIdx; /* incr in body */){
+            if(el.nodeType == Node.ELEMENT_NODE && (el.flags & FLAG_DRAG_TARGET)){
+                if(idx === endIdx){
+                    el.parentNode.insertBefore(moveNode, el.nextSibling);
+                    r = true;
+                }
+                idx++;
+            }
+
+            el = el.nextSibling;
+        }
+
+        Transaction_ModifyView(trans, view);
+        return r;
+     }
+
+     function Transaction_AddNodes(trans, view){
+        const node = El_Make(trans.newObj, view.container, Data_Sub(trans.origObj));
+        if(node){
+            return true;
+        }
+        return false;
+     }
+     function Transaction_AddContent(trans){
+        trans.content.push(trans.origObj);
+        return true;
+     }
+
      function Transaction_ModifyContent(trans){
         const startIdx = trans.origObj.idx;
         let endIdx = trans.newObj.idx;
@@ -2048,18 +2153,26 @@ function TempLang_Init(templates_el, framework){
             for(let i = 0; i < content._changes.pending.length;/* no increment unless there is an error */){
                 let r = true;
                 const trans = content._changes.pending[i];
-                r = Transaction_ModifyContent(trans); 
-                if(r){
-                    for(let k in content._views){
-                        Transaction_ModifyNodes(trans, content._views[k]); 
-                        _Transaction_CheckAlignment(content._views[k]);
+                if(trans.changeType === 'add'){
+                    r = Transaction_AddContent(trans); 
+                    if(r){
+                        for(let k in content._views){
+                            Transaction_AddNodes(trans, content._views[k]); 
+                        }
+                    }
+                }else if(trans.changeType === 'move'){
+                    r = Transaction_ModifyContent(trans); 
+                    if(r){
+                        for(let k in content._views){
+                            Transaction_ModifyNodes(trans, content._views[k]); 
+                            _Transaction_CheckAlignment(content._views[k]);
+                        }
                     }
                 }
-                if(r){
+                    if(r){
                    content._changes.pending.splice(i, 1); 
                    content._changes.done.push(trans);
                    trans.execTime = Date.now();
-                   Changes_Add(trans, framework.changes);
                    if(trans.complete){
                         trans.complete();
                    }
@@ -2099,6 +2212,9 @@ function TempLang_Init(templates_el, framework){
                 dest: Content_FindByTag(trans.content, trans.newObj.content_idtag).text,
             });
             console.debug('CHANGES', changes);
+            Transaction_Register(
+                Transaction_New(changes, 'add', changes[changes.length-1], 'change-log')
+            );
          }
      }
 
@@ -2197,34 +2313,36 @@ function TempLang_Init(templates_el, framework){
             if(subCtx = Data_Sub(ctx, forKey)){
                 const par_templ = templ;
 
-                if(templ.flags & FLAG_DRAG_TARGET){
-                    const drop_el = El_Make("drop-container", parent_el, ctx);
-                    drop_el.flags |= FLAG_DROP_TARGET;
+                if(typeof subCtx.data._views !== 'undefined'){
+                    const cont_el = El_Make("drop-container", parent_el, ctx);
 
                     const content = subCtx.data;
 
-                    const dropTarget = El_Query(drop_el, {direction: DIRECTION_PARENT}, [
+                    const dropTarget = El_Query(cont_el, {direction: DIRECTION_PARENT}, [
                         {on: "drop"},
                     ]);
 
                     view = {
                         content: content,
                         dataKey: forKey,
-                        container: drop_el,
+                        container: cont_el,
                         dropTarget: dropTarget,
                         onDrop: dropTarget && dropTarget.templ.on.drop,
                         el_li: [],
                     };
 
-                    dropTarget.onscroll = onScroll;
-                    dropTarget._viewRef = view;
+                    if(dropTarget){
+                        dropTarget.onscroll = onScroll;
+                        dropTarget._viewRef = view;
+                        cont_el.flags |= FLAG_DROP_TARGET;
+                    }
 
-                    drop_el._view = view;
+                    cont_el._view = view;
                     ctx.view = view;
-                    content._views[drop_el._idtag] = view;
+                    content._views[cont_el._idtag] = view;
 
-                    El_SetStyle(drop_el, 'position', 'relative');
-                    parent_el = drop_el;
+                    El_SetStyle(cont_el, 'position', 'relative');
+                    parent_el = cont_el;
                 }
 
                 let subData;
@@ -2454,6 +2572,10 @@ function TempLang_Init(templates_el, framework){
     }
     if(typeof framework.templates === 'undefined'){
         framework.templates = {};
+    }
+
+    if(!!('ontouchstart' in window)){
+        framework._touch = {started: [], inter: -1}; 
     }
 
     if(typeof framework._drag === 'undefined'){
