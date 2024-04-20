@@ -1498,6 +1498,7 @@ function TempLang_Init(templates_el, framework){
     }
 
     function onDrag(e){
+        alert('drag');
         var node = this;
         let r = false;
         ResetCtx({ev: null});
