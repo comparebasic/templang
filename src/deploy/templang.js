@@ -913,6 +913,8 @@ function TempLang_Init(templates_el, framework){
             framework._ctx.ev = event_ev;
         }
 
+        debug('EventRun ' + event_ev.eventType, '#69f');
+
         let dest_el = event_ev.dest;
         if(!dest_el){
             if(event_ev.spec.key === 'set'){
@@ -1657,7 +1659,7 @@ function TempLang_Init(templates_el, framework){
             if("_hoverbound" in node){
                 node._hoverbound++;
             }
-            Event_Run(Event_New(node, e, node.templ.on.hover));
+            Event_Run(Event_New(node, e, node.templ.on.hover, 'hover'));
             e.stopPropagation(); e.preventDefault();
         }
     }
@@ -1691,8 +1693,10 @@ function TempLang_Init(templates_el, framework){
         }
         node.flags &= ~FLAG_NODE_STATE_HOVER;
         if(node.templ && node.templ.on.hover){
-            Event_Run(Event_New(node, e, node.templ.on.hover));
-            e.stopPropagation(); e.preventDefault();
+            Event_Run(Event_New(node, e, node.templ.on.hover, 'unhover'));
+            if(!("_touch" in framework)){
+                e.stopPropagation(); e.preventDefault();
+            }
         }
     }
 
