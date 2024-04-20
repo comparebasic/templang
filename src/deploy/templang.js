@@ -1551,7 +1551,7 @@ function TempLang_Init(templates_el, framework){
         if(framework._touch.started.length){
             const e = framework._touch.started.pop();
             framework._touch.started = [];
-            onDown.call(node, e);
+            onUp.call(node, e);
         }
         e.stopPropagation(); e.preventDefault();
     }
@@ -1559,6 +1559,10 @@ function TempLang_Init(templates_el, framework){
     function onTouchStart(e){
         if(framework._touch){
             framework._touch.started.push(e);
+        }
+        const node = this;
+        if(node.templ && node.templ.click){
+            onDown.call(node, e);
         }
         framework._touch.inter = setTimeout(onTouchTiming.bind(this), DELAY_DRAG_START);
         e.stopPropagation(); e.preventDefault();
