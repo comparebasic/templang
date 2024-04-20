@@ -1525,7 +1525,6 @@ function TempLang_Init(templates_el, framework){
     }
 
     function onTouchTiming(){
-        alert('touch timing');
         const node = this;
         if(framework._touch.inter >= 0){
             clearTimeout(framework._touch.inter);
