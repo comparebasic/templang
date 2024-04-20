@@ -1639,13 +1639,24 @@ function TempLang_Init(templates_el, framework){
     }
 
     function onHover(e){
+        debug('hover called <' + (this.templ && this.templ.name) + '>');
+
         ResetCtx({ev: null});
         var node = this;
+
+        if(("_touch" in framework) && ("_hoverbound" in node)){
+            node._hoverbound++;
+            framework._touch.hover[node._idtag] = node;
+        }
+
         if(node.flags & FLAG_NODE_STATE_HOVER){
             return;
         }
         node.flags |= FLAG_NODE_STATE_HOVER;
         if(node.templ && node.templ.on.hover){
+            if("_hoverbound" in node){
+                node._hoverbound++;
+            }
             Event_Run(Event_New(node, e, node.templ.on.hover));
             e.stopPropagation(); e.preventDefault();
         }
@@ -1653,7 +1664,28 @@ function TempLang_Init(templates_el, framework){
 
     function onUnHover(e){
         ResetCtx({ev: null});
-        var node = this;
+        let node = this;
+
+        debug('unhover called <' + ((this.templ && this.templ.name) || this.nodeName) + '>' + node._hoverbound);
+        if(("_touch" in framework)){
+            for(let k in framework._touch.hover){
+                const n =  framework._touch.hover[k];
+                n._hoverbound--;
+                if(n._hoverbound <= 0){
+                    debug('unhover recalled on ' + node._idtag);
+                    delete framework._touch.hover[node._idtag];
+                    if(n != node){
+                        onUnHover.call(n, e);
+                    }
+                }
+            }
+            if(node._hoverbound > 0){
+                return;
+            }
+        }
+
+        debug('unhover RUN <' + ((this.templ && this.templ.name) || this.nodeName) + '>' + node._hoverbound);
+
         if((node.flags & FLAG_NODE_STATE_HOVER) == 0){
             return;
         }
@@ -1666,12 +1698,14 @@ function TempLang_Init(templates_el, framework){
 
     function El_SetEvents(node, events){
         if(events.mousedown || events.click || events.drag){
-            if(events.drag){
-                if(typeof framework._touch !== 'undefined'){
-                    node.ontouchstart = onTouchStart;
-                    node.ontouchend = onTouchEnd;
-                }else{
-                    node.onmousedown = onDown;
+            if(typeof framework._touch !== 'undefined'){
+                if(!node._touchbound){
+                    if(debug){
+                        debug('adding touch events <' + (node.templ && node.templ.name) + '>' + node._idtag + ' :' + Object.keys(events).join(', '));
+                    }
+                    node.addEventListener('touchstart', onTouchStart, true);
+                    node.addEventListener('touchend', onTouchEnd, true);
+                    node._touchbound = true;
                 }
             }else{
                 node.onmousedown = onDown;
@@ -1685,9 +1719,15 @@ function TempLang_Init(templates_el, framework){
         }
 
         if(events.hover){
-            if(typeof framework._touch !== 'undefined'){
-                node.addEventListener('mouseover',  onHover.bind(node), false);
-                node.addEventListener('mouseout',  onUnHover.bind(node), false);
+            if(!events.click && ("_touch" in framework)){
+                if(!("_hoverbound" in node)){
+                    if(debug){
+                        debug('adding hover events <' + (node.templ && node.templ.name) + '>' + node._idtag + ' :' + Object.keys(events).join(', '));
+                    }
+                    node.addEventListener('touchstart',  onHover.bind(node), true);
+                    node.addEventListener('touchend',  onUnHover.bind(node), true);
+                    node._hoverbound = 0;
+                }
             }else{
                 node.onmouseover = onHover;
                 node.onmouseout = onUnHover;
@@ -2589,7 +2629,8 @@ function TempLang_Init(templates_el, framework){
     }
 
     if(!!('ontouchstart' in window)){
-        framework._touch = {started: [], inter: -1}; 
+        framework._touch = {started: [], inter: -1, hover: {}}; 
+        window.addEventListener('touchstart', onUnHover.bind(document.documentElement), true);
     }
 
     if(typeof framework._drag === 'undefined'){
