@@ -1538,6 +1538,13 @@ function TempLang_Init(templates_el, framework){
         if(e){
             if(node.templ && node.templ.on.drag){
                 onDrag.call(node, e);
+                if("_touch" in framework){
+                    if(framework._touch.mv_node){
+                        framework._touch.mv_node.ontouchmove = null;
+                    }
+                    node.ontouchmove = onMove;
+                    framework._touch.mv_node = node;
+                }
             }
         }
     }
@@ -1554,6 +1561,9 @@ function TempLang_Init(templates_el, framework){
             framework._touch.started = [];
             onUp.call(node, e);
             e.stopPropagation(); e.preventDefault();
+        }
+        if(framework._touch.mv_node){
+            framework._touch.mv_node.ontouchmove = null;
         }
     }
 
