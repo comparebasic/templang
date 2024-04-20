@@ -1526,6 +1526,7 @@ function TempLang_Init(templates_el, framework){
     }
 
     function onTouchTiming(){
+        alert('touch timing');
         const node = this;
         if(framework._touch.inter >= 0){
             clearTimeout(framework._touch.inter);
@@ -1552,8 +1553,8 @@ function TempLang_Init(templates_el, framework){
             const e = framework._touch.started.pop();
             framework._touch.started = [];
             onUp.call(node, e);
+            e.stopPropagation(); e.preventDefault();
         }
-        e.stopPropagation(); e.preventDefault();
     }
 
     function onTouchStart(e){
@@ -1563,9 +1564,9 @@ function TempLang_Init(templates_el, framework){
         const node = this;
         if(node.templ && node.templ.click){
             onDown.call(node, e);
+            e.stopPropagation(); e.preventDefault();
         }
         framework._touch.inter = setTimeout(onTouchTiming.bind(this), DELAY_DRAG_START);
-        e.stopPropagation(); e.preventDefault();
     }
 
     function onDown(e){
