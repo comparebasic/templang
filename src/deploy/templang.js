@@ -43,6 +43,7 @@ function TempLang_Init(templates_el, framework){
     const DIRECTION_PARENT = 4;
     const DIRECTION_CHILD = 5;
     const DIRECTION_DATA = 6;
+    const DIRECTION_GLOBAL = 7;
     const DIRECTION_VARS = 8;
     const TYPE_HANDLER = 10;
     const TYPE_FUNC = 11;
@@ -222,6 +223,9 @@ function TempLang_Init(templates_el, framework){
             }else if(var_k[0] === '.'){
                 var_direction = DIRECTION_DATA;
                 var_k = var_k.substring(1);
+            }else if(var_k[0] === '@'){
+                var_direction = DIRECTION_GLOBAL;
+                var_k = var_k.substring(1);
             }
         }
 
@@ -235,9 +239,13 @@ function TempLang_Init(templates_el, framework){
             }else if(dest_k[0] === '.'){
                 dest_direction = DIRECTION_DATA;
                 dest_k = dest_k.substring(1);
+            }else if(var_k[0] === '@'){
+                dest_direction = DIRECTION_GLOBAL;
+                dest_k = dest_k.substring(1);
             }
         }
 
+        let var_k_li = [var_k];
         if(var_k.indexOf('.') != -1){
             var_k_li = var_k.split('.');
             key_source = var_k_li[0];
@@ -254,6 +262,7 @@ function TempLang_Init(templates_el, framework){
         return {
             key: var_k,
             key_source: key_source,
+            key_props: var_k_li,
             dest_key: dest_k,
             value: set_v,
             dest_direction: dest_direction,
@@ -444,9 +453,26 @@ function TempLang_Init(templates_el, framework){
     /*
      * [Data And Context Functions]
      */
+    function Data_Add(ctx, dataOrKey, data){
+        if(typeof dataOrKey === 'object'){
 
-    function Data_Sub(data, key){
+            for(let k in dataOrKey){
+                ctx.data[k] = dataOrKey[k]; 
+            }
+        }else if(typeof dataOrKey === 'string'){
+            ctx.data[dataOrKey] = data; 
+        }
+    }
+
+    function Data_Set(dataOrKey, data){
+        Data_Add(framework.dataCtx, dataOrKey, data);
+    }
+
+    function Data_Sub(data, key, order){
         let ctx = null;
+        if(order && data.data){
+            data = Data_Search(data, key, order);
+        }
 
         if(data === null || data === undefined){
             return null;
@@ -508,7 +534,7 @@ function TempLang_Init(templates_el, framework){
     }
 
     function ResetCtx(args){
-        if(typeof framework._ctx === 'undefined'){
+        if(!("_ctx" in framework)){
            framework._ctx =  {vars: {}, ev: null};
         }
 
@@ -528,14 +554,15 @@ function TempLang_Init(templates_el, framework){
         return null;
     }
 
-    function Data_Search(key, ctx, order){
-        /*
-        console.log('Data_Search ' + key, ctx);
-        */
+    function Data_Search(ctx, key, order){
+        console.log('Data_Search "' + key + '" order: '+order, ctx);
+        console.log('Data_Search "' + key + '" order: '+order + ' global', framework.dataCtx);
+
         let value = null;
         let type = null;
+        let found = null;
         if(!order){
-            order = [DIRECTION_VARS, DIRECTION_DATA];
+            order = [DIRECTION_VARS, DIRECTION_DATA, DIRECTION_GLOBAL];
         }
         for(var i = 0; i < order.length; i++){
             if(order[i] === DIRECTION_DATA){
@@ -543,6 +570,22 @@ function TempLang_Init(templates_el, framework){
             }else if(order[i] === DIRECTION_VARS){
                 if(ctx.vars[key] !== undefined){
                     found = ctx.vars[key];
+                }
+            }else if(order[i] === DIRECTION_GLOBAL){
+                if(typeof key === 'object' && Array.isArray(key)){
+                    let data = framework.dataCtx.data;
+                    let i = 0;
+                    let key_k = key[i];
+                    while((i < key.length) && (data = data[key[i]])){
+                        i++;
+                    }
+
+                    if(data){
+                        found = data;
+                    }
+                }
+                if(framework.dataCtx.data[key] !== undefined){
+                    found = framework.dataCtx.data[key];
                 }
             }
             if(found){
@@ -580,7 +623,7 @@ function TempLang_Init(templates_el, framework){
             }else{
                 console.warn("El_RegisterSetters '" + destK.key + "' not found in tree", node);
                 console.warn("El_RegisterSetters '" + destK.key + "' not found in tree setter", set);
-                console.warn('Source of setter :' +node.templ.asKey.key, set);
+                console.warn('Source of setter :' +(node.templ && node.templ.asKey &&  node.templ.asKey.key), set);
                 console.warn('Source of setter source', source);
                 console.warn('Source of setter source node', node);
                 console.warn('--');
@@ -2235,7 +2278,7 @@ function TempLang_Init(templates_el, framework){
                         trans.complete();
                    }
                 }else{
-                    if(typeof trans.failTimes === 'undefined'){
+                    if(!("failTimes" in trans)){
                         trans.failTimes = [];
                     }
                    trans.failTimes.push(Date.now());
@@ -2354,17 +2397,23 @@ function TempLang_Init(templates_el, framework){
             let subCtx;
 
             if(templ.dataKey){
-                const compare = {
-                    vars: templ.dataKey.key,
-                    name: templ.dataKey.key_source,
-                    _tries: 2,
-                };
-                const source_el = El_Query(parent_el, {direction: templ.dataKey.var_direction},  compare);
-                if(source_el && source_el.vars[templ.dataKey.key]){
-                    const data = {};
-                    const content = source_el.vars[templ.dataKey.key];
-                    data[templ.dataKey.key] = content;
-                    ctx = Data_Sub(data);
+                console.debug('DATA KEY IS', templ.dataKey);
+                if(templ.dataKey.var_direction === DIRECTION_GLOBAL){
+                    console.debug('DTA KEY IS GLOBAL', templ.dataKey);
+                    ctx = Data_Sub(framework.dataCtx, templ.dataKey.key,  [DIRECTION_GLOBAL]);
+                }else{
+                    const compare = {
+                        vars: templ.dataKey.key,
+                        name: templ.dataKey.key_source,
+                        _tries: 2,
+                    };
+                    const source_el = El_Query(parent_el, {direction: templ.dataKey.var_direction},  compare);
+                    if(source_el && source_el.vars[templ.dataKey.key]){
+                        const data = {};
+                        const content = source_el.vars[templ.dataKey.key];
+                        data[templ.dataKey.key] = content;
+                        ctx = Data_Sub(data);
+                    }
                 }
             }
 
@@ -2472,11 +2521,17 @@ function TempLang_Init(templates_el, framework){
 
         /* Copy vars in from the data to this element */
         for(let k in templ.mapVars){
+
             const map = templ.mapVars[k];
-            const value = Data_Search(map.key, ctx, [
-                DIRECTION_DATA, DIRECTION_VARS
-            ]);
-            if(value.value){
+            let order = null;
+            let value = null;
+            if(map.var_direction === DIRECTION_GLOBAL){
+                value = Data_Search(ctx, map.key_props, [DIRECTION_GLOBAL]);
+            }else{
+                value = Data_Search(ctx, map.key);
+            }
+
+            if(value && value.value){
                 node.vars[map.dest_key] = value.value;
                 if(value.type !== 'vars'){
                     ctx.vars[map.dest_key] = value.value;
@@ -2521,7 +2576,7 @@ function TempLang_Init(templates_el, framework){
 
             name = Cash(name, ctx.data).result;
             
-            let val = Data_Search(name, ctx, [DIRECTION_DATA, DIRECTION_VARS]).value;
+            let val = Data_Search(ctx, name,  [DIRECTION_DATA, DIRECTION_VARS]).value;
             if(!val){
                 val = name;
             }
@@ -2614,7 +2669,7 @@ function TempLang_Init(templates_el, framework){
      */
 
     /* Setup default styles */
-    if(typeof framework._styleSheets === 'undefined'){
+    if(!("_styleSheets" in framework)){
         framework._styleSheets = {};
     }
     if(!GetstyleSheet(null)){
@@ -2622,13 +2677,17 @@ function TempLang_Init(templates_el, framework){
         document.head.appendChild(sheet);
     }
 
-    if(typeof framework.funcs === 'undefined'){
+    if(!("data" in framework)){
+        framework.dataCtx = Data_Sub({});
+    }
+
+    if(!("funcs" in framework)){
         framework.funcs = {};
     }
-    if(typeof framework.content === 'undefined'){
+    if(!("content" in framework)){
         framework.content = {};
     }
-    if(typeof framework.templates === 'undefined'){
+    if(!("templates" in framework)){
         framework.templates = {};
     }
 
@@ -2637,7 +2696,7 @@ function TempLang_Init(templates_el, framework){
         window.addEventListener('touchstart', onUnHover.bind(document.documentElement), true);
     }
 
-    if(typeof framework._drag === 'undefined'){
+    if(!("_drag" in framework)){
         dragVessel = document.createElement('DIV');
         dragVessel._idtag = 'drag-vessel';
         El_SetStyle(dragVessel, 'position', 'absolute');
@@ -2729,4 +2788,6 @@ function TempLang_Init(templates_el, framework){
     framework.Cash = Cash;
     framework.ChangeStyle = ChangeStyle;
     framework.AddStyle = AddStyle;
+    framework.AddStyle = AddStyle;
+    framework.Data_Set = Data_Set;
 }
