@@ -68,6 +68,35 @@ function TempLang_Init(templates_el, framework){
     const TRANS_RETRY = 200;
 
     /* 
+     *[Debugging]
+     *
+     */
+     let _debug_el = null;
+     function debug(msg, color){
+        let el = null;
+        if(!_debug_el){
+            return;
+        }else{
+            el = _debug_el;
+        }
+
+        if(color){
+            const n = document.createElement('PRE');
+            n.style.color = color;
+            n.style.padding = 0;
+            n.style.margin = 0;
+            n.appendChild(document.createTextNode(msg + '\n'));
+            el.appendChild(n);
+        }else{
+            el.appendChild(document.createTextNode(msg + '\n'));
+        }
+     }
+
+     function Debug_SetEl(el){
+        _debug_el = el;
+     }
+
+    /* 
      * [Elem Query and Match]
      */
     function El_Match(node, compare){
@@ -473,7 +502,6 @@ function TempLang_Init(templates_el, framework){
         _data[key] = data;
         const prev = [ctx];
 
-        console.log('WHODAT', _data);
         return {
             key: key,
             data: _data,
@@ -530,7 +558,6 @@ function TempLang_Init(templates_el, framework){
             }
         }else if(key){
             if(data[key]){
-                console.log('GRAGGING FROM DATA KEY ' +key, data);
                 return {
                     key: key,
                     data: data[key],
@@ -1954,7 +1981,9 @@ function TempLang_Init(templates_el, framework){
 
         const classList = Style_ToCls(classes);
         for(let i = 0; i < classList.length; i++){
-            node.classList.add(classList[i]);
+            if(classList[i]){
+                node.classList.add(classList[i]);
+            }
         }
     }
 
@@ -2453,8 +2482,6 @@ function TempLang_Init(templates_el, framework){
             let subCtx;
 
             if(subCtx = Data_Sub(ctx, forKey)){
-                console.debug('Forkey subCtx forKey:' + forKey, subCtx); 
-                console.debug('Forkey subCtx forKey:' + forKey + ' ctx:', ctx); 
                 const par_templ = templ;
 
                 if(typeof subCtx.data._views !== 'undefined'){
@@ -2558,9 +2585,6 @@ function TempLang_Init(templates_el, framework){
 
         /* Copy vars in from the data to this element */
         for(let k in templ.mapVars){
-            console.debug('mapVar ctx', ctx);
-            console.debug('mapVar templ', templ);
-
             const map = templ.mapVars[k];
             let order = null;
             let value = null;
@@ -2577,9 +2601,11 @@ function TempLang_Init(templates_el, framework){
                 }
             }else{
                 node.vars[map.dest_key] = null;
+                /*
                 console.warn('El_Make: no var found for: ' + map.key, map);
                 console.warn('El_Make: no var found for: ' + map.key + ' ctx:', ctx);
                 console.warn('El_Make: no var found for: ' + map.key + ' node:', node);
+                */
             }
         }
 
@@ -2829,4 +2855,5 @@ function TempLang_Init(templates_el, framework){
     framework.AddStyle = AddStyle;
     framework.AddStyle = AddStyle;
     framework.Data_Set = Data_Set;
+    framework.Debug_SetEl = Debug_SetEl;
 }
