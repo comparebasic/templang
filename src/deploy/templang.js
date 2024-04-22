@@ -468,17 +468,49 @@ function TempLang_Init(templates_el, framework){
         Data_Add(framework.dataCtx, dataOrKey, data);
     }
 
+    function Data_Push(ctx, key, data){
+        const _data = {};
+        _data[key] = data;
+        const prev = [ctx];
+
+        console.log('WHODAT', _data);
+        return {
+            key: key,
+            data: _data,
+            vars: (ctx && ctx.vars) || {},
+            idx: -1,
+            isArr: false,
+            isSub: true,
+            prev: ctx && (Array.isArray(ctx.prev) && prev.concat(ctx.prev)) || prev,
+            view: (ctx && ctx.view) || {},
+        };
+    }
+
     function Data_Sub(data, key, order){
         let ctx = null;
-        if(order && data.data){
-            data = Data_Search(data, key, order);
-        }
 
         if(data === null || data === undefined){
             return null;
         }else if(data.data){
             ctx = data; 
             data = data.data;
+        }
+
+        if(order && ctx){
+            data = Data_Search(ctx, key, order).value;
+            const prev = [ctx];
+            if(data){
+                return {
+                    key: null,
+                    data: data,
+                    vars: (ctx && ctx.vars) || {},
+                    idx: key,
+                    isArr: false,
+                    isSub: true,
+                    prev: ctx && (Array.isArray(ctx.prev) && prev.concat(ctx.prev)) || prev,
+                    view: (ctx && ctx.view) || {},
+                };
+            }
         }
 
         if((typeof key === 'number')){
@@ -498,6 +530,7 @@ function TempLang_Init(templates_el, framework){
             }
         }else if(key){
             if(data[key]){
+                console.log('GRAGGING FROM DATA KEY ' +key, data);
                 return {
                     key: key,
                     data: data[key],
@@ -555,8 +588,10 @@ function TempLang_Init(templates_el, framework){
     }
 
     function Data_Search(ctx, key, order){
+        /*
         console.log('Data_Search "' + key + '" order: '+order, ctx);
         console.log('Data_Search "' + key + '" order: '+order + ' global', framework.dataCtx);
+        */
 
         let value = null;
         let type = null;
@@ -714,6 +749,7 @@ function TempLang_Init(templates_el, framework){
             funcs: {},
             func: {},
             forKey: null,
+            dataKey: null,
             withkey: null,
             mapVars: {},
             children: [],
@@ -859,7 +895,7 @@ function TempLang_Init(templates_el, framework){
             on: {},
             funcs: {},
             forKey: null,
-            dataKey: from_templ.dataKey,
+            dataKey: from_templ.dataKey || into_templ.dataKey,
             withkey: null,
             mapVars: {},
             children: (overrides && overrides.children) || (from_templ.children.length && from_templ.children) || into_templ.children || [],
@@ -2304,7 +2340,6 @@ function TempLang_Init(templates_el, framework){
      }
 
      function Changes_Add(trans, changes){
-         console.debug('trans', trans);
          if(changes){
             changes.push({
                 time: (new Date(trans.execTime)).toISOString(),
@@ -2312,7 +2347,6 @@ function TempLang_Init(templates_el, framework){
                 target: Content_FindByTag(trans.content, trans.origObj.content_idtag).text,
                 dest: Content_FindByTag(trans.content, trans.newObj.content_idtag).text,
             });
-            console.debug('CHANGES', changes);
             Transaction_Register(
                 Transaction_New(changes, 'add', changes[changes.length-1], 'change-log')
             );
@@ -2390,34 +2424,37 @@ function TempLang_Init(templates_el, framework){
             }
         }
 
+        if(templ.dataKey){
+            if(templ.dataKey.var_direction === DIRECTION_GLOBAL){
+                const content = Data_Sub(ctx, templ.dataKey.key_props, [DIRECTION_GLOBAL]);
+                if(content){
+                    ctx = Data_Push(ctx, templ.dataKey.dest_key, content.data);
+                }
+            }else{
+                const compare = {
+                    vars: templ.dataKey.key,
+                    name: templ.dataKey.key_source,
+                    _tries: 2,
+                };
+                const source_el = El_Query(parent_el, {direction: templ.dataKey.var_direction},  compare);
+                if(source_el && source_el.vars[templ.dataKey.key]){
+                    const data = {};
+                    const content = source_el.vars[templ.dataKey.key];
+                    data[templ.dataKey.dest_key] = content;
+                    ctx = Data_Sub(data);
+                }
+            }
+        }
+
         /* Now handle if the element has an attirbute that makes it a bunch of children 
          * instead of a single elemenet
          */
         if(forKey){
             let subCtx;
 
-            if(templ.dataKey){
-                console.debug('DATA KEY IS', templ.dataKey);
-                if(templ.dataKey.var_direction === DIRECTION_GLOBAL){
-                    console.debug('DTA KEY IS GLOBAL', templ.dataKey);
-                    ctx = Data_Sub(framework.dataCtx, templ.dataKey.key,  [DIRECTION_GLOBAL]);
-                }else{
-                    const compare = {
-                        vars: templ.dataKey.key,
-                        name: templ.dataKey.key_source,
-                        _tries: 2,
-                    };
-                    const source_el = El_Query(parent_el, {direction: templ.dataKey.var_direction},  compare);
-                    if(source_el && source_el.vars[templ.dataKey.key]){
-                        const data = {};
-                        const content = source_el.vars[templ.dataKey.key];
-                        data[templ.dataKey.key] = content;
-                        ctx = Data_Sub(data);
-                    }
-                }
-            }
-
             if(subCtx = Data_Sub(ctx, forKey)){
+                console.debug('Forkey subCtx forKey:' + forKey, subCtx); 
+                console.debug('Forkey subCtx forKey:' + forKey + ' ctx:', ctx); 
                 const par_templ = templ;
 
                 if(typeof subCtx.data._views !== 'undefined'){
@@ -2521,6 +2558,8 @@ function TempLang_Init(templates_el, framework){
 
         /* Copy vars in from the data to this element */
         for(let k in templ.mapVars){
+            console.debug('mapVar ctx', ctx);
+            console.debug('mapVar templ', templ);
 
             const map = templ.mapVars[k];
             let order = null;
