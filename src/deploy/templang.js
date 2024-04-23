@@ -46,14 +46,16 @@ function TempLang_Init(templates_el, framework){
     const DIRECTION_GLOBAL = 7;
     const DIRECTION_VARS = 8;
     const TYPE_HANDLER = 10;
-    const TYPE_FUNC = 11;
-    const TYPE_ELEM = 12;
-    const REUSE_AFTER = 13;
-    const REUSE_BEFORE = 14;
-    const SPEC_REDIR = 15;
+    const TYPE_REDIR = 11;
+    const TYPE_FUNC = 12;
+    const TYPE_ELEM = 13;
+    const REUSE_AFTER = 14;
+    const REUSE_BEFORE = 15;
+    const SPEC_REDIR = 16;
 
-    const EQUAL = 1000;
-    const NOT_EQUAL = 1001;
+    const ASSIGN = 1000;
+    const EQUAL = 1001;
+    const NOT_EQUAL = 1002;
 
     const DELAY_DRAG_START = 200;
 
@@ -221,6 +223,40 @@ function TempLang_Init(templates_el, framework){
         orig.remove();
     }
 
+    function Compare(dest, key, value, type){
+        if(key){
+            if(dest && typeof dest === 'object'){
+                if(!Array.isArray(dest)){
+                    dest = dest[key];
+                }
+            }else{
+                return (type === NOT_EQUAL) || false;
+            }
+        }
+
+        if(dest && Array.isArray(dest)){
+            if(type === NOT_EQUAL){
+                return (dest.indexOf(value) === -1);
+            }else{
+                return (dest.indexOf(value) !== -1);
+            }
+        }else if(dest && typeof dest === 'object'){
+            if(type === NOT_EQUAL){
+                return typeof dest[value] === 'undefined';
+            }else{
+                return typeof dest[value] === 'undefined';
+            }
+        }else{
+            if(type === NOT_EQUAL){
+                return typeof dest !== value;
+            }else{
+                return typeof dest === value;
+            }
+        }
+
+        return (type === NOT_EQUAL) || false;
+    }
+
     /* 
      * This is the workhorse behind the alias and whery method.
      * It makese sense of things like
@@ -242,11 +278,16 @@ function TempLang_Init(templates_el, framework){
             var_k = var_li[1];
             dest_k = var_li[0];
             comparison = NOT_EQUAL;
-        }else if(/=/.test(var_k)){
-            const var_li = var_k.split('=');
+        }else if(var_k.indexOf('==') != -1){
+            const var_li = var_k.split('==');
             var_k = var_li[1];
             dest_k = var_li[0];
             comparison = EQUAL;
+        }else if(var_k.indexOf('=') != -1){
+            const var_li = var_k.split('=');
+            var_k = var_li[1];
+            dest_k = var_li[0];
+            comparison = ASSIGN;
         }
 
         if(var_k.indexOf(':') != -1){
@@ -443,8 +484,10 @@ function TempLang_Init(templates_el, framework){
         }else if(key[0] === '^'){
             spec.direction = DIRECTION_PARENT;
             key = key.substring(1);
-        }else if(key[0] === '&'){
-            spec.direction = SPEC_REDIR;
+        }
+
+        if(key[0] === '&'){
+            spec.type = TYPE_REDIR;
             const destK = GetDestK(spec_s);
             spec.key = 'ref';
             key = key.substring(1);
@@ -722,6 +765,9 @@ function TempLang_Init(templates_el, framework){
                     source.varSetters[destK.key] = {};
                 }
                 const setter = {node: node, set: set, isMatch: false};
+                if(set.scope === 'if'){
+                    setter.isMatch = true;
+                }
 
                 source.varSetters[destK.key][node._idtag] = setter;
                 El_RunIndividualSetter(source, setter, destK.key, source.vars[destK.key]);
@@ -757,6 +803,9 @@ function TempLang_Init(templates_el, framework){
 
                 El_MakeAs(setter.node, setter.node.parentNode, Data_Sub(asData));
             }
+        }else if(set.scope === 'if'){
+            node.classes.ifCls = (!set.isMatch ? 'templ-hide-if' : null);
+            El_SetStateStyle(node, node.templ);
         }else if(set.scope === 'data'){
             node._data = value; 
         }
@@ -768,6 +817,8 @@ function TempLang_Init(templates_el, framework){
         let isMatch = null;
         if(setter.set.scope === 'data' && value){
             isMatch = value._idtag;
+        }if(setter.set.scope === 'if'){
+            isMatch = Compare(value, setter.set.destK.key, setNode.vars[setter.set.destK.dest_key], setter.set.destK.comparison);
         }else if(setNode.vars && typeof setNode.vars[setterSet.destK.dest_key] !== 'undefined'){
             isMatch = setNode.vars[setterSet.destK.dest_key] === value;
         }
@@ -790,9 +841,6 @@ function TempLang_Init(templates_el, framework){
      */
     function El_SetVar(node, prop, value){
         if(node.vars[prop] !== value){
-            if(!node.templ.name && node.templ.nodeName == 'DIV'){
-            }else{
-            }
             El_RunNodeSetters(node, prop, value);
             node.vars[prop] = value;
             framework._ctx.vars[prop] = value;
@@ -1046,9 +1094,9 @@ function TempLang_Init(templates_el, framework){
     /*
      * [Events Native and Synthetic]
     */
-    function SplitMax_Cls(l, h, spec){
+    function Split_Disables(l, h, spec){
 
-        const cls = [];
+        const disable = [];
         const splitSizeW = window.innerWidth / l;
         const splitSizeH = window.innerHeight / h;
         let updated = false;
@@ -1056,19 +1104,18 @@ function TempLang_Init(templates_el, framework){
         if(spec.mapVars.h){
             const minH = Number(spec.mapVars.h.key);
             if(!isNaN(minH) && (splitSizeH < minH)){
-                cls.push('vsplit-max');
+                disable.push('vsplit');
             }
         }
         if(spec.mapVars.w){
             const minW = Number(spec.mapVars.w.key);
             if(!isNaN(minW) && (splitSizeW < minW)){
-                cls.push('split-max');
+                disable.push('split');
             }
         }
 
-        return cls;
+        return disable;
     }
-
 
     function Event_Run(event_ev){
         let r = false;
@@ -1077,14 +1124,16 @@ function TempLang_Init(templates_el, framework){
         }
 
         if(event_ev.spec.key === 'ref'){
-            console.debug('Ref ev', event_ev);
+            const direction = event_ev.spec.direction;
             for(let k in event_ev.spec.mapVars){
                 const map = event_ev.spec.mapVars[k];
                 if(event_ev.vars[map.key]){
                     event_ev.spec = Spec_Parse(event_ev.vars[map.key]);
+                    if(direction != DIRECTION_SELF){
+                        event_ev.spec.direction = direction;
+                    }
                 }
             }
-            console.log('New spec', event_ev.spec);
         }
 
         let dest_el = event_ev.dest;
@@ -1136,8 +1185,16 @@ function TempLang_Init(templates_el, framework){
 
                 new_par.flags |= FLAG_SPLIT;
                 new_par.appendChild(event_ev.dest);
-                new_par.classes.layout = ['vsplit'];
+                new_par.classes.layout = ['split'];
+                new_par.varSetters = {};
+                new_par.varSetters['split-opts'] = par_node.varSetters['split-opts'];
+                new_par.vars['split-opts'] = null;
                 par_node = new_par;
+            }
+
+            const disables_li = Split_Disables(par_node.children.length+1, 1, event_ev.dest.templ.on.split);
+            if(disables_li.length){
+                El_SetVar(par_node, 'split-opts', disables_li);
             }
 
             El_Make(event_ev.dest.templ, par_node, Data_Sub(event_ev.dest._ctx));
@@ -1147,11 +1204,6 @@ function TempLang_Init(templates_el, framework){
                 El_SetSize(child, par_node, 'h');
             }
 
-            const cls_li = SplitMax_Cls(par_node.children.length+1, 1, event_ev.dest.templ.on.split);
-            if(cls_li.length){
-                par_node.classes.split = cls_li;
-                El_SetStateStyle(par_node, par_node.templ);
-            }
 
             splitCount++;
 
@@ -1178,7 +1230,7 @@ function TempLang_Init(templates_el, framework){
 
             El_Make(event_ev.dest.templ, par_node, Data_Sub(event_ev.dest._ctx));
 
-            const cls_li = SplitMax_Cls(1, par_node.children.length+1, event_ev.dest.templ.on.split);
+            const cls_li = Split_Disables(1, par_node.children.length+1, event_ev.dest.templ.on.split);
             if(cls_li.length){
                 par_node.classes.vsplit = cls_li;
                 El_SetStateStyle(par_node, par_node.templ);
@@ -1251,8 +1303,8 @@ function TempLang_Init(templates_el, framework){
                 }
             }
 
-            par_node.classes.split = SplitMax_Cls(par_node.children.length+1, 1,  pane.templ.on.split);
-            par_node.classes.vsplit = SplitMax_Cls(1, par_node.children.length+1, event_ev.dest.templ.on.split);
+            par_node.classes.split = Split_Disables(par_node.children.length+1, 1,  pane.templ.on.split);
+            par_node.classes.vsplit = Split_Disables(1, par_node.children.length+1, event_ev.dest.templ.on.split);
             El_SetStateStyle(par_node, par_node.templ);
             splitCount--;
 
@@ -2495,10 +2547,13 @@ function TempLang_Init(templates_el, framework){
         */
 
         if(templ.on.split){
-            const cls_li = SplitMax_Cls(parent_el.children.length+2, 1, templ.on.split);
+            const cls_li = Split_Disables(parent_el.children.length+2, 1, templ.on.split);
             if(cls_li.length){
                 parent_el.classes.split = cls_li;
                 El_SetStateStyle(parent_el, parent_el.templ);
+            }
+            if(typeof parent_el.vars['split-opts'] === 'undefined'){
+                parent_el.vars['split-opts'] = null;
             }
         }
 
@@ -2895,6 +2950,7 @@ function TempLang_Init(templates_el, framework){
     }
     AddStyle(null, '.full-height{height: '+ window.innerHeight + 'px}');
     AddStyle(null, '.full-width{width: '+ window.innerWidth + 'px}');
+    AddStyle(null, '.templ-hide-if{ display: none !important;}');
 
     /* Amend relevant public properties to the framework object */
     framework.content_idx = 0;
