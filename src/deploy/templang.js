@@ -1051,6 +1051,25 @@ function TempLang_Init(templates_el, framework){
             }
         }
 
+        function copyExtObj(name){
+            for(let k in from_templ[name]){
+                if(templ[name][k]){
+                    templ[name][k] = [templ[name][k], from_templ[name][k]];
+                }else{
+                    templ[name][k] = from_templ[name][k];
+                }
+            }
+            if(into_templ){
+                for(let k in into_templ[name]){
+                    if(templ[name][k]){
+                        templ[name][k] = [templ[name][k], into_templ[name][k]];
+                    }else{
+                        templ[name][k] = into_templ[name][k];
+                    }
+                }
+            }
+        }
+
         function copyList(name){
             for(let i = 0; i < from_templ[name].length; i++){
                 templ[name].push(from_templ[name][i]);
@@ -1063,7 +1082,7 @@ function TempLang_Init(templates_el, framework){
         }
 
         copyObj('funcs');
-        copyObj('on');
+        copyExtObj('on');
         copyObj('mapVars');
         copyObj('classIfCond');
         copyObj('_misc');
@@ -1118,6 +1137,9 @@ function TempLang_Init(templates_el, framework){
     }
 
     function Event_Run(event_ev){
+        if(event_ev.target.templ.name === 'MENU'){
+            console.log('menu event: ' + event_ev.spec.key, event_ev);
+        }
         let r = false;
         if(framework._ctx.ev === null){
             framework._ctx.ev = event_ev;
@@ -1207,7 +1229,7 @@ function TempLang_Init(templates_el, framework){
 
             splitCount++;
 
-            return;
+            return true;
         }else if(event_ev.spec.key === 'vsplit'){
             let par_node = event_ev.dest;
             let w = par_node.getBoundingClientRect().width;
@@ -1244,10 +1266,10 @@ function TempLang_Init(templates_el, framework){
 
             splitCount++;
 
-            return;
+            return true;
         }else if(event_ev.spec.key === 'close'){
             if(splitCount <= 1){
-                return;
+                return false;
             }
             const pane = event_ev.dest;
             let par_node = pane.parentNode; 
@@ -1308,7 +1330,7 @@ function TempLang_Init(templates_el, framework){
             El_SetStateStyle(par_node, par_node.templ);
             splitCount--;
 
-            return;
+            return true;
         }else if(event_ev.spec.key === 'style'){
             if(event_ev.eventType === 'hover'){
                 if(event_ev.spec.varIsPair){
@@ -1318,7 +1340,12 @@ function TempLang_Init(templates_el, framework){
                 if(event_ev.spec.varIsPair){
                     El_SetStateStyle(event_ev.target, event_ev.target.templ, event_ev.spec.varList[1]);
                 }
+            }else{
+                console.log('Setting style' + event_ev.spec.varList[0], event_ev.target);
+                El_SetStateStyle(event_ev.target, event_ev.target.templ, event_ev.spec.varList[0]);
             }
+
+            r = true;
         }if(event_ev.spec.key === 'unhover'){
             if(event_ev.dest.templ && event_ev.dest.templ.on.hover){
                 sub_ev = {spec: event_ev.dest.templ.on.hover, target: event_ev.dest, eventType: "unhover"};
@@ -1329,8 +1356,11 @@ function TempLang_Init(templates_el, framework){
                 r = El_SetVar(tg, k, event_ev.vars[k]);
             }
             if(event_ev.dest && event_ev.dest.templ.on.set){
-               sub_ev = {spec: event_ev.dest.templ.on.set};
+               sub_ev = {spec: event_ev.dest.templ.on.set, target: event_ev.dest};
+               console.warn('SET called', sub_ev);
             }
+            r = true;
+
         }
 
         if(event_ev.spec.mapVars){
@@ -1342,10 +1372,23 @@ function TempLang_Init(templates_el, framework){
         }
 
         if(sub_ev){
-            const merged_ev = Event_Merge(sub_ev, event_ev)
-            const _r = Event_Run(merged_ev); 
-            if(_r !== undefined){
-                r = _r;
+            if(sub_ev && sub_ev.spec && Array.isArray(sub_ev.spec)){
+                for(let i = 0; i < sub_ev.spec.length; i++){
+                    const spec = sub_ev.spec[i];
+                    const merged_ev = Event_Merge({spec: spec, target: sub_ev.target}, event_ev);
+                    const _r = Event_Run(merged_ev); 
+                    console.debug('SUB EV loop ' + merged_ev.spec.key, merged_ev);
+                    if(_r !== undefined){
+                        r = _r;
+                    }
+                }
+            }else{
+                const merged_ev = Event_Merge(sub_ev, event_ev)
+                const _r = Event_Run(merged_ev); 
+                console.debug('SUB EV', merged_ev);
+                if(_r !== undefined){
+                    r = _r;
+                }
             }
         }
 
@@ -1823,7 +1866,10 @@ function TempLang_Init(templates_el, framework){
         if(node.templ && node.templ.on.drag){
             r = onDrag.call(node, e);
         }
-        e.stopPropagation(); e.preventDefault();
+        console.log('Down stopping', r);
+        if(r){
+            e.stopPropagation(); e.preventDefault();
+        }
     }
 
     function onResize(e){
