@@ -50,6 +50,10 @@ function TempLang_Init(templates_el, framework){
     const TYPE_ELEM = 12;
     const REUSE_AFTER = 13;
     const REUSE_BEFORE = 14;
+    const SPEC_REDIR = 15;
+
+    const EQUAL = 1000;
+    const NOT_EQUAL = 1001;
 
     const DELAY_DRAG_START = 200;
 
@@ -173,7 +177,7 @@ function TempLang_Init(templates_el, framework){
         }
     }
 
-    function El_Query(node, spec, compare){
+    function El_Query(node, spec, compare, ctx){
         if(compare._tries === undefined){
             compare._tries = 1;
         }else{
@@ -227,15 +231,24 @@ function TempLang_Init(templates_el, framework){
     function GetDestK(key){
         let var_k = key;
         let dest_k = null;
+        let qcache_key = key;
         let set_v = null;
         let var_direction = DIRECTION_SELF;
         let dest_direction = DIRECTION_SELF;
+        let comparison = null;
         let key_source = null;
-        if(/=/.test(var_k)){
+        if(var_k.indexOf('!=') != -1){
+            const var_li = var_k.split('!=');
+            var_k = var_li[1];
+            dest_k = var_li[0];
+            comparison = NOT_EQUAL;
+        }else if(/=/.test(var_k)){
             const var_li = var_k.split('=');
             var_k = var_li[1];
             dest_k = var_li[0];
+            comparison = EQUAL;
         }
+
         if(var_k.indexOf(':') != -1){
             const li = var_k.split(':');
             var_k = li[0];
@@ -245,9 +258,11 @@ function TempLang_Init(templates_el, framework){
         if(var_k.length){ 
             if(var_k[0] === '_'){
                 var_direction = DIRECTION_CHILD;
+                qcache_key = var_k;
                 var_k = var_k.substring(1);
             }else if(var_k[0] === '^'){
                 var_direction = DIRECTION_PARENT;
+                qcache_key = var_k;
                 var_k = var_k.substring(1);
             }else if(var_k[0] === '.'){
                 var_direction = DIRECTION_DATA;
@@ -255,20 +270,25 @@ function TempLang_Init(templates_el, framework){
             }else if(var_k[0] === '@'){
                 var_direction = DIRECTION_GLOBAL;
                 var_k = var_k.substring(1);
+            }else if(var_k[0] === '&'){
+                var_direction = SPEC_REDIR;
+                var_k = var_k.substring(1);
             }
         }
 
-        if(dest_k && dest_k.length){ 
-            if(dest_k[0] === '_'){
+        if(dest_k && dest_k.length){
+            if(var_k[0] === '&'){
+                dest_direction = SPEC_REDIR;
+                dest_k = dest_k.substring(1);
+            }else if(dest_k[0] === '_'){
                 dest_direction = DIRECTION_CHILD;
+                qcache_key = dest_k;
                 dest_k = dest_k.substring(1);
             }else if(dest_k[0] === '^'){
+                qcache_key = dest_k;
                 dest_direction = DIRECTION_PARENT;
                 dest_k = dest_k.substring(1);
-            }else if(dest_k[0] === '.'){
-                dest_direction = DIRECTION_DATA;
-                dest_k = dest_k.substring(1);
-            }else if(var_k[0] === '@'){
+            }else if(dest_k[0] === '@'){
                 dest_direction = DIRECTION_GLOBAL;
                 dest_k = dest_k.substring(1);
             }
@@ -278,6 +298,7 @@ function TempLang_Init(templates_el, framework){
         if(var_k){
             var_k_li.push(var_k);
         }
+
         if(var_k.indexOf('.') != -1){
             var_k_li = var_k.split('.');
             key_source = var_k_li[0];
@@ -304,6 +325,8 @@ function TempLang_Init(templates_el, framework){
             value: set_v,
             dest_direction: dest_direction,
             var_direction: var_direction,
+            qcache_key: qcache_key,
+            comparison: comparison,
             cash: cash,
         }
     }
@@ -420,6 +443,13 @@ function TempLang_Init(templates_el, framework){
         }else if(key[0] === '^'){
             spec.direction = DIRECTION_PARENT;
             key = key.substring(1);
+        }else if(key[0] === '&'){
+            spec.direction = SPEC_REDIR;
+            const destK = GetDestK(spec_s);
+            spec.key = 'ref';
+            key = key.substring(1);
+            spec.mapVars = Map_Make(key);
+            return spec;
         }
 
         if(key[0] === '#'){
@@ -519,6 +549,7 @@ function TempLang_Init(templates_el, framework){
             isSub: true,
             prev: ctx && (Array.isArray(ctx.prev) && prev.concat(ctx.prev)) || prev,
             view: (ctx && ctx.view) || {},
+            qcache: {},
         };
     }
 
@@ -545,6 +576,7 @@ function TempLang_Init(templates_el, framework){
                     isSub: true,
                     prev: ctx && (Array.isArray(ctx.prev) && prev.concat(ctx.prev)) || prev,
                     view: (ctx && ctx.view) || {},
+                    qcache: {},
                 };
             }
         }
@@ -560,12 +592,12 @@ function TempLang_Init(templates_el, framework){
                     isSub: true,
                     prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [],
                     view: (ctx && ctx.view) || {},
+                    qcache: {},
                 };
             }else{
                 return null;
             }
         }else if(key){
-            console.debug('getting Key: ' + key, data);
             if(data[key]){
                 return {
                     key: key,
@@ -576,6 +608,8 @@ function TempLang_Init(templates_el, framework){
                     isSub: true,
                     prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [],
                     view: (ctx && ctx.view) || {},
+                    // this will be an El_Query cache at some point
+                    qcache: {},
                 };
             }else{
                 return null;
@@ -590,6 +624,7 @@ function TempLang_Init(templates_el, framework){
                 vars: (ctx && ctx.vars) || {},
                 prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [],
                 view: {},
+                qcache: {},
             };
         }
     }
@@ -652,7 +687,6 @@ function TempLang_Init(templates_el, framework){
                     }
                 }
                 if(data){
-                    console.debug('DATA FOUND in global', data);
                     found = data;
                 }
                 if(framework.dataCtx.data[key] !== undefined){
@@ -785,6 +819,7 @@ function TempLang_Init(templates_el, framework){
             funcs: {},
             func: {},
             forKey: null,
+            ifKey: null,
             dataKey: null,
             withkey: null,
             mapVars: {},
@@ -874,8 +909,8 @@ function TempLang_Init(templates_el, framework){
                 templ.forKey = att.value;
                 templ.childrenKey = att.value;
             }else if(att.name == 'if'){
-                templ.forKey = att.value;
-                templ.childrenKey = att.value;
+                templ.ifKey = Statements(att.value, GetDestK);
+                templ.setters.push({scope: 'if', destK: templ.ifKey});
             }else if(att.name == 'if-not'){
                 templ.forKey = att.value;
                 templ.childrenKey = att.value;
@@ -927,7 +962,6 @@ function TempLang_Init(templates_el, framework){
         if(!into_templ){
             into_templ = {};
         }
-        console.debug('overrides', overrides);
         const templ = {
             nodeName: from_templ.nodeName,
             name: into_templ.name || from_templ.name,
@@ -938,6 +972,7 @@ function TempLang_Init(templates_el, framework){
             on: {},
             funcs: {},
             forKey: null,
+            ifKey: from_templ.ifKey || into_templ.ifKey,
             withkey: null,
             mapVars: {},
             children: (overrides && overrides.children) || (from_templ.children.length && from_templ.children) || into_templ.children || [],
@@ -1041,7 +1076,16 @@ function TempLang_Init(templates_el, framework){
             framework._ctx.ev = event_ev;
         }
 
-        debug('EventRun ' + event_ev.eventType, '#69f');
+        if(event_ev.spec.key === 'ref'){
+            console.debug('Ref ev', event_ev);
+            for(let k in event_ev.spec.mapVars){
+                const map = event_ev.spec.mapVars[k];
+                if(event_ev.vars[map.key]){
+                    event_ev.spec = Spec_Parse(event_ev.vars[map.key]);
+                }
+            }
+            console.log('New spec', event_ev.spec);
+        }
 
         let dest_el = event_ev.dest;
         if(!dest_el){
@@ -1789,7 +1833,6 @@ function TempLang_Init(templates_el, framework){
             }
             node.classes.hover = 'hover';
             Event_Run(Event_New(node, e, node.templ.on.hover, 'hover'));
-            e.stopPropagation(); e.preventDefault();
         }
     }
 
@@ -2462,8 +2505,6 @@ function TempLang_Init(templates_el, framework){
         if(templ.dataKey){
             if(templ.dataKey.var_direction === DIRECTION_GLOBAL){
                 const content = Data_Sub(ctx, templ.dataKey.key_props, [DIRECTION_GLOBAL]);
-                console.log('DATA KEY', templ);
-                console.log('DATA KEY content', content);
                 if(content){
                     ctx = Data_Push(ctx, templ.dataKey.dest_key, content.data);
                 }
@@ -2489,9 +2530,7 @@ function TempLang_Init(templates_el, framework){
         if(forKey){
             let subCtx;
 
-            console.log('ForKey : ' + forKey, ctx.data);
             if(subCtx = Data_Sub(ctx, forKey)){
-                console.log('ForKey :  SUBCTX' + forKey, subCtx);
                 const par_templ = templ;
 
                 if(typeof subCtx.data._views !== 'undefined'){
@@ -2535,14 +2574,10 @@ function TempLang_Init(templates_el, framework){
                     }
 
                     if(sub_templ){
-                        console.debug('From here');
                         sub_templ = Templ_Merge(par_templ, sub_templ, {dataKey: null});
                     }else{
                         sub_templ = Templ_Merge(null, par_templ);
                     }
-
-                    console.log('MAKE FROM SUBDATA', subData);
-                    console.log('MAKE FROM SUBDATA sub_templ', sub_templ);
 
                     El_Make(sub_templ, parent_el, subData);
                 }
