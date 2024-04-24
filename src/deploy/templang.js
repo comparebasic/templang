@@ -67,6 +67,13 @@ function TempLang_Init(templates_el, framework){
     const FLAG_SPLIT = 32;
     const FLAG_VSPLIT = 64;
 
+    const COLOR_WHITE = '#fff';
+    const COLOR_GREY = '#eee';
+    const COLOR_RED = '#f00';
+    const COLOR_BLUE = '#66f';
+    const COLOR_GREEN = '#090';
+    const COLOR_YELLOW = '#ff0';
+
     /*TODO: remove this temporary variable */
     let splitCount = 1;
 
@@ -78,24 +85,27 @@ function TempLang_Init(templates_el, framework){
      *
      */
      let _debug_el = null;
-     function debug(msg, color){
+     function debug(msg, obj, color){
         let el = null;
+        let obj_s = '';
         if(!_debug_el){
+            console.log(msg, obj);
             return;
         }else{
             el = _debug_el;
+            if(obj){
+                obj_s = ' | ' + kv_toString(obj);
+            }
         }
 
+        const n = document.createElement('PRE');
         if(color){
-            const n = document.createElement('PRE');
             n.style.color = color;
-            n.style.padding = 0;
-            n.style.margin = 0;
-            n.appendChild(document.createTextNode(msg + '\n'));
-            el.appendChild(n);
-        }else{
-            el.appendChild(document.createTextNode(msg + '\n'));
         }
+        n.style.padding = 0;
+        n.style.margin = 0;
+        n.appendChild(document.createTextNode(msg + obj_s + '\n'));
+        el.appendChild(n);
      }
 
      function Debug_SetEl(el){
@@ -213,6 +223,37 @@ function TempLang_Init(templates_el, framework){
     /*
      * [Helper Functions]
      */
+
+    function kv_toString(obj){
+        let s = '';
+        if(typeof obj === 'object'){
+            if(Array.isArray(obj)){
+                s += '[';
+                for(let i = 0; i < obj.length; i++){
+                     s += kv_toString(obj[i]);
+                     if(i < obj.length-1){
+                        s += ',';
+                     }
+                }
+                s += ']';
+            }else if(Object.keys(obj).length){
+                s += '{';
+                for(let k in obj){
+                    if(s.length > 1){
+                        s += ',';
+                    }
+                    s += k +'='+kv_toString(obj[k]);
+                }
+                s += '}';
+            }else{
+                s = String(s);
+            }
+        }else{
+            s = String(obj);
+        }
+
+        return s;
+    }
 
     function swap(orig, place){
         if(orig.nextSibling){
@@ -698,7 +739,9 @@ function TempLang_Init(templates_el, framework){
     }
 
     function LogCtx(msg){
-        console.log(msg + ' '+framework._ctx.ev_trail.join(', '), framework._ctx.vars);
+        if(framework._ctx){
+            debug(msg + ' '+framework._ctx.ev_trail.join(', '), framework._ctx.vars, COLOR_GREY);
+        }
     }
 
     function DataScope(sel, data){
@@ -1351,16 +1394,24 @@ function TempLang_Init(templates_el, framework){
             if(event_ev.eventType === 'hover'){
                 if(event_ev.spec.varIsPair){
                     El_SetStateStyle(event_ev.target, event_ev.target.templ, event_ev.spec.varList[0]);
+                    r = true;
                 }
             }else if(event_ev.eventType === 'unhover'){
                 if(event_ev.spec.varIsPair){
                     El_SetStateStyle(event_ev.target, event_ev.target.templ, event_ev.spec.varList[1]);
+                    r = true;
                 }
             }else{
-                El_SetStateStyle(event_ev.target, event_ev.target.templ, event_ev.spec.varList[0]);
+                const stateStyle = event_ev.target.classes && event_ev.target.classes.state;
+                const style = event_ev.spec.varList[0];
+                debug(stateStyle + ' vs'  + style, event_ev.target.classes, COLOR_RED);
+                if(stateStyle !== style){
+                    El_SetStateStyle(event_ev.target, event_ev.target.templ, style);
+                    r = true;
+                }
+                r = false;
             }
-
-            r = true;
+            return r;
         }if(event_ev.spec.key === 'unhover'){
             if(event_ev.dest.templ && event_ev.dest.templ.on.hover){
                 sub_ev = {spec: event_ev.dest.templ.on.hover, target: event_ev.dest, eventType: "unhover"};
@@ -1833,12 +1884,15 @@ function TempLang_Init(templates_el, framework){
     }
 
     function onTouchEnd(e){
+        ResetCtx({ev: null});
         if(framework._touch.inter >= 0){
             clearTimeout(framework._touch.inter);
         }
         framework._touch.inter = -1;
 
         const node = this;
+        LogCtx('Event (TouchEnd '+El_Name(node)+')');
+
         if(framework._touch.started.length){
             const e = framework._touch.started.pop();
             framework._touch.started = [];
@@ -1851,13 +1905,25 @@ function TempLang_Init(templates_el, framework){
     }
 
     function onTouchStart(e){
+        ResetCtx({ev: null});
         if(framework._touch){
             framework._touch.started.push(e);
         }
         const node = this;
-        if(node.templ && node.templ.click){
-            onDown.call(node, e);
-            e.stopPropagation(); e.preventDefault();
+        if(node.templ && node.templ.on.click){
+            const ev = Event_New(node, e, node.templ.on.click);
+            r = Event_Run(ev);
+            if(r){
+                e.stopPropagation(); e.preventDefault();
+            }
+        }
+        if(node.templ && node.templ.on.touch){
+            const ev = Event_New(node, e, node.templ.on.touch);
+            r = Event_Run(ev);
+            LogCtx('Event (TouchStart '+El_Name(node)+')');
+            if(r){
+                e.stopPropagation(); e.preventDefault();
+            }
         }
         framework._touch.inter = setTimeout(onTouchTiming.bind(this), DELAY_DRAG_START);
     }
@@ -2004,6 +2070,11 @@ function TempLang_Init(templates_el, framework){
                 node.onmousedown = onDown;
             }
         }
+        if(events.touch){
+            debug('Setting  up touch ' + El_Name(node), null, COLOR_YELLOW);
+            node.addEventListener('touchstart', onTouchStart, true);
+            node.addEventListener('touchend', onTouchEnd, true);
+        }
         if(events.mouseup || (node.flags & FLAG_DRAG_TARGET)){
             node.onmouseup = onUp;
         }
@@ -2147,6 +2218,8 @@ function TempLang_Init(templates_el, framework){
                 classes.state = stateStyle;
             }
         }
+
+        node.classes.state = classes.state;
 
         /*
         let style_s = Cash(templ.baseStyle, node.vars).result;
