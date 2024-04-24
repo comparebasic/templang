@@ -472,6 +472,7 @@ function TempLang_Init(templates_el, framework){
             varIsPair: false,
             key: null,
             func: null,
+            spec_s: spec_s,
         };
         if(!spec_s){
             return spec;
@@ -682,7 +683,7 @@ function TempLang_Init(templates_el, framework){
 
     function ResetCtx(args){
         if(!("_ctx" in framework)){
-           framework._ctx =  {vars: {}, ev: null};
+           framework._ctx =  {vars: {}, ev: null, ev_trail: []};
         }
 
         if(args.ev !== undefined){
@@ -692,6 +693,12 @@ function TempLang_Init(templates_el, framework){
         if(!args.preserveVars){
             framework._ctx.vars = {};
         }
+
+        framework._ctx.ev_trail = [];
+    }
+
+    function LogCtx(msg){
+        console.log(msg + ' '+framework._ctx.ev_trail.join(', '), framework._ctx.vars);
     }
 
     function DataScope(sel, data){
@@ -793,15 +800,15 @@ function TempLang_Init(templates_el, framework){
             }
             El_SetStateStyle(node, node.templ);
         }else if(set.scope === 'as'){
-            /*
-            console.log('RUNNING as value:' + value, setter);
-            */
             if(value){
+                const start_s = El_Name(node)
 
                 const asData = {}
                 asData[set.destK.key] = value;
 
                 El_MakeAs(setter.node, setter.node.parentNode, Data_Sub(asData));
+
+                framework._ctx.ev_trail.push('[setting '+ start_s + '.'+ node._idtag +' to ' + El_Name(node)+ ' because ' +set.destK.key+'='+value+']');
             }
         }else if(set.scope === 'if'){
             node.classes.ifCls = (!set.isMatch ? 'templ-hide-if' : null);
@@ -1158,6 +1165,7 @@ function TempLang_Init(templates_el, framework){
             }
         }
 
+
         let dest_el = event_ev.dest;
         if(!dest_el){
             if(event_ev.spec.key === 'set'){
@@ -1186,6 +1194,14 @@ function TempLang_Init(templates_el, framework){
                 };
             }
         }
+
+        if(event_ev.dest && event_ev.dest !== event_ev.target){
+            framework._ctx.ev_trail.push(El_Name(event_ev.target) + ' > ' + El_Name(event_ev.dest) + '[' + event_ev.spec.spec_s + ']');
+        }else{
+            framework._ctx.ev_trail.push(El_Name(event_ev.target) + '[' + event_ev.spec.spec_s + ']');
+        }
+
+
         if(event_ev.spec.key === 'size'){
             if(event_ev.target === framework._ctx.root){
                 ChangeStyle(null, '.full-width', 'width', window.innerWidth + 'px');
@@ -1770,6 +1786,7 @@ function TempLang_Init(templates_el, framework){
         ResetCtx({ev: null});
         if(node.templ && node.templ.on.drag){
             r = Event_Run(Event_New(node, e, node.templ.on.drag, 'drag'));
+            LogCtx('Event (Drag) ');
         }
         e.stopPropagation(); e.preventDefault();
     }
@@ -1780,6 +1797,7 @@ function TempLang_Init(templates_el, framework){
         ResetCtx({ev: null});
         if(node.templ && node.templ.on.drop){
             r = Event_Run(Event_New(node, e, node.templ.on.drop));
+            LogCtx('Event (Drop) ');
         }
         e.stopPropagation(); e.preventDefault();
     }
@@ -1857,11 +1875,12 @@ function TempLang_Init(templates_el, framework){
         ResetCtx({ev: null});
         if(node.templ && node.templ.on.mousedown){
             r = Event_Run(Event_New(node, e, node.templ.on.mousedown));
+            LogCtx('Event (Down) ');
         }
         if(node.templ && node.templ.on.click){
             const ev = Event_New(node, e, node.templ.on.click)
             r = Event_Run(ev);
-            console.debug('Running click for outcome: ', {spec: node.templ.on.click, result: r, node:node, ev: ev, nodeVars: node.vars});
+            LogCtx('Event (Click) ');
         }
         if(node.templ && node.templ.on.drag){
             r = onDrag.call(node, e);
@@ -1877,6 +1896,7 @@ function TempLang_Init(templates_el, framework){
         ResetCtx({ev: null});
         if(node.templ && node.templ.on.resize){
             r = Event_Run(Event_New(node, e, node.templ.on.resize));
+            LogCtx('Event (Resize) ');
         }
         e.stopPropagation(); e.preventDefault();
     }
@@ -1886,9 +1906,7 @@ function TempLang_Init(templates_el, framework){
         var node = this;
         if(node.templ && node.templ.on.mouseup){
             r = Event_Run(Event_New(node, e, node.templ.on.mouseup));
-        }
-        if(node.templ && node.templ.on.click){
-            r = Event_Run(Event_New(node, e, node.templ.on.click));
+            LogCtx('Event (Up) ');
         }
         if(node.templ && node.templ.on.drop){
             r = onDrop.call(node, e);
@@ -1896,6 +1914,7 @@ function TempLang_Init(templates_el, framework){
 
         if(framework._drag.ev){
             Event_DragRelease(framework._drag.ev);
+            LogCtx('Event (DragRelease)');
         }
         e.stopPropagation(); e.preventDefault();
     }
@@ -2525,6 +2544,7 @@ function TempLang_Init(templates_el, framework){
             Transaction_Register(
                 Transaction_New(changes, 'add', changes[changes.length-1], 'change-log')
             );
+            framework._ctx.ev_trail.push('Transaction:'+content._idtag+'['+trans.changeType+' '+trans.origObj.idx+' to '+trans.newObj.idx+']'); 
          }
      }
 
@@ -2813,6 +2833,11 @@ function TempLang_Init(templates_el, framework){
         }
 
         return node;
+    }
+
+    function El_Name(el){
+        // return ((el.templ && el.templ.name.toLowerCase()) || el.nodeName.toLowerCase() || 'El') + '.' + (el._idtag || '');
+        return ((el.templ && el.templ.name && el.templ.name.toLowerCase()) || el.nodeName.toLowerCase() || 'El');
     }
 
     function El_Destroy(node){
