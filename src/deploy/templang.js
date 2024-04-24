@@ -826,7 +826,10 @@ function TempLang_Init(templates_el, framework){
         if(isMatch == null || isMatch !== setter.isMatch){
             setter.isMatch = isMatch;
             El_RunSetter(setter, value);
+            return true;
         }
+
+        return false;
     }
 
     function El_RunNodeSetters(node, prop, value){
@@ -1137,9 +1140,6 @@ function TempLang_Init(templates_el, framework){
     }
 
     function Event_Run(event_ev){
-        if(event_ev.target.templ.name === 'MENU'){
-            console.log('menu event: ' + event_ev.spec.key, event_ev);
-        }
         let r = false;
         if(framework._ctx.ev === null){
             framework._ctx.ev = event_ev;
@@ -1341,7 +1341,6 @@ function TempLang_Init(templates_el, framework){
                     El_SetStateStyle(event_ev.target, event_ev.target.templ, event_ev.spec.varList[1]);
                 }
             }else{
-                console.log('Setting style' + event_ev.spec.varList[0], event_ev.target);
                 El_SetStateStyle(event_ev.target, event_ev.target.templ, event_ev.spec.varList[0]);
             }
 
@@ -1352,15 +1351,16 @@ function TempLang_Init(templates_el, framework){
             }
         }else if(event_ev.spec.key === 'set'){
             var tg = event_ev.dest || event_ev.target;
-            for(var k in event_ev.spec.mapVars){
-                r = El_SetVar(tg, k, event_ev.vars[k]);
+            if(Object.keys(event_ev.spec.mapVars).length){
+                for(var k in event_ev.spec.mapVars){
+                    r = El_SetVar(tg, k, event_ev.vars[k]);
+                }
+            }else{
+                r = true;
             }
             if(event_ev.dest && event_ev.dest.templ.on.set){
                sub_ev = {spec: event_ev.dest.templ.on.set, target: event_ev.dest};
-               console.warn('SET called', sub_ev);
             }
-            r = true;
-
         }
 
         if(event_ev.spec.mapVars){
@@ -1377,7 +1377,6 @@ function TempLang_Init(templates_el, framework){
                     const spec = sub_ev.spec[i];
                     const merged_ev = Event_Merge({spec: spec, target: sub_ev.target}, event_ev);
                     const _r = Event_Run(merged_ev); 
-                    console.debug('SUB EV loop ' + merged_ev.spec.key, merged_ev);
                     if(_r !== undefined){
                         r = _r;
                     }
@@ -1385,7 +1384,6 @@ function TempLang_Init(templates_el, framework){
             }else{
                 const merged_ev = Event_Merge(sub_ev, event_ev)
                 const _r = Event_Run(merged_ev); 
-                console.debug('SUB EV', merged_ev);
                 if(_r !== undefined){
                     r = _r;
                 }
@@ -1861,12 +1859,13 @@ function TempLang_Init(templates_el, framework){
             r = Event_Run(Event_New(node, e, node.templ.on.mousedown));
         }
         if(node.templ && node.templ.on.click){
-            r = Event_Run(Event_New(node, e, node.templ.on.click));
+            const ev = Event_New(node, e, node.templ.on.click)
+            r = Event_Run(ev);
+            console.debug('Running click for outcome: ', {spec: node.templ.on.click, result: r, node:node, ev: ev, nodeVars: node.vars});
         }
         if(node.templ && node.templ.on.drag){
             r = onDrag.call(node, e);
         }
-        console.log('Down stopping', r);
         if(r){
             e.stopPropagation(); e.preventDefault();
         }
