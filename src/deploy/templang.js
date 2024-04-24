@@ -44,7 +44,7 @@ function TempLang_Init(templates_el, framework){
     const DIRECTION_CHILD = 5;
     const DIRECTION_DATA = 6;
     const DIRECTION_GLOBAL = 7;
-    const DIRECTION_VARS = 8;
+    const DIRECTION_VARS = 9;
     const TYPE_HANDLER = 10;
     const TYPE_REDIR = 11;
     const TYPE_FUNC = 12;
@@ -228,6 +228,9 @@ function TempLang_Init(templates_el, framework){
 
         function kv_toString(obj){
             let s = '';
+            if(obj === null){
+                return 'null';
+            }
             if(typeof obj === 'object'){
                 if(Array.isArray(obj)){
                     s += '[';
@@ -291,9 +294,9 @@ function TempLang_Init(templates_el, framework){
                 }
             }else{
                 if(type === NOT_EQUAL){
-                    return typeof dest !== value;
+                    return dest !== value;
                 }else{
-                    return typeof dest === value;
+                    return dest === value;
                 }
             }
 
@@ -640,7 +643,7 @@ function TempLang_Init(templates_el, framework){
             };
         }
 
-        function Data_Sub(data, key, order){
+        function Data_Sub(data, key, order, destK){
             let ctx = null;
 
             if(data === null || data === undefined){
@@ -668,6 +671,22 @@ function TempLang_Init(templates_el, framework){
                 }
             }
 
+            if(destK){
+                if(destK.comparison === ASSIGN){
+                    let k = destK.key;
+                    let v = ctx.vars[destK.key];
+                    if(!v){
+                        key = 0;
+                        console.log('key of 0 data is', data);
+                    }else{
+                        if(destK.cash.isCash){
+                            k = Cash(k, ctx.data).result;
+                            console.debug('Yay', k);
+                        }
+                    }
+                }
+            }
+
             if((typeof key === 'number')){
                 if(Array.isArray(data) && key < data.length){
                     return {
@@ -677,7 +696,7 @@ function TempLang_Init(templates_el, framework){
                         idx: key,
                         isArr: false,
                         isSub: true,
-                        prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [],
+                        prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [ctx],
                         view: (ctx && ctx.view) || {},
                         qcache: {},
                     };
@@ -693,7 +712,7 @@ function TempLang_Init(templates_el, framework){
                         idx: -1,
                         isArr: Array.isArray(data[key]),
                         isSub: true,
-                        prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [],
+                        prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [ctx],
                         view: (ctx && ctx.view) || {},
                         // this will be an El_Query cache at some point
                         qcache: {},
@@ -709,7 +728,7 @@ function TempLang_Init(templates_el, framework){
                     isArr: false,
                     isSub: false,
                     vars: (ctx && ctx.vars) || {},
-                    prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [],
+                    prev: ctx && (Array.isArray(ctx.prev) && [].concat(ctx.prev)) || [ctx],
                     view: {},
                     qcache: {},
                 };
@@ -763,7 +782,7 @@ function TempLang_Init(templates_el, framework){
             let type = null;
             let found = null;
             if(!order){
-                order = [DIRECTION_VARS, DIRECTION_DATA, DIRECTION_GLOBAL];
+                order = [DIRECTION_VARS, DIRECTION_DATA, DIRECTION_GLOBAL, DIRECTION_PRIOR];
             }
             for(var i = 0; i < order.length; i++){
                 if(order[i] === DIRECTION_DATA){
@@ -810,6 +829,10 @@ function TempLang_Init(templates_el, framework){
                     compare.name = destK.key_source;
                 }
 
+                if(destK.comparison === ASSIGN){
+                    compare.vars = destK.key;
+                }
+
                 const source = El_Query(node, {direction: destK.var_direction}, compare); 
 
                 if(source){
@@ -818,7 +841,11 @@ function TempLang_Init(templates_el, framework){
                     }
                     const setter = {node: node, set: set, isMatch: false};
                     if(set.scope === 'if'){
-                        setter.isMatch = true;
+                        if(destK.comparison === ASSIGN){
+                            setter.isMatch = null;
+                        }else{
+                            setter.isMatch = true;
+                        }
                     }
 
                     source.varSetters[destK.key][node._idtag] = setter;
@@ -856,7 +883,16 @@ function TempLang_Init(templates_el, framework){
                     framework._ctx.ev_trail.push('[setting '+ start_s + '.'+ node._idtag +' to ' + El_Name(node)+ ' because ' +set.destK.key+'='+value+']');
                 }
             }else if(set.scope === 'if'){
-                node.classes.ifCls = (!set.isMatch ? 'templ-hide-if' : null);
+                /*
+                console.log('Running if', node);
+                console.log('Running if destK' + value,  set.destK);
+                */
+                let isMatch = setter.isMatch;
+                if(setter.set.destK.comparison === NOT_EQUAL){
+                    isMatch = !isMatch;
+                }
+                console.log('IS MATCH', isMatch);
+                node.classes.ifCls = ((!isMatch) ? 'templ-hide-if' : null);
                 El_SetStateStyle(node, node.templ);
             }else if(set.scope === 'data'){
                 node._data = value; 
@@ -870,7 +906,16 @@ function TempLang_Init(templates_el, framework){
             if(setter.set.scope === 'data' && value){
                 isMatch = value._idtag;
             }if(setter.set.scope === 'if'){
-                isMatch = Compare(value, setter.set.destK.key, setNode.vars[setter.set.destK.dest_key], setter.set.destK.comparison);
+
+                if(setter.set.destK.comparison === NOT_EQUAL){
+                    isMatch = Compare(value, setter.set.destK.key, setNode.vars[setter.set.destK.dest_key], setter.set.destK.comparison);
+                }else if(setter.set.destK.comparison === ASSIGN){
+                    isMatch = Compare(value, null, setNode.vars[setter.set.destK.dest_key], setter.set.destK.comparison);
+                    console.debug('Comparing if value:' + value + ' vs '  + setNode.vars[setter.set.destK.key]);
+                }
+
+                console.debug('comparing if key:' + setter.set.destK.key + ' value:' + value + ' isMatch:' + isMatch, setNode.vars);
+
             }else if(setNode.vars && typeof setNode.vars[setterSet.destK.dest_key] !== 'undefined'){
                 isMatch = setNode.vars[setterSet.destK.dest_key] === value;
             }
@@ -2737,7 +2782,7 @@ function TempLang_Init(templates_el, framework){
             if(forKey){
                 let subCtx;
 
-                if(subCtx = Data_Sub(ctx, forKey)){
+                if(subCtx = Data_Sub(ctx, forKey, null, templ.dataKey)){
                     const par_templ = templ;
 
                     if(typeof subCtx.data._views !== 'undefined'){
@@ -2848,8 +2893,17 @@ function TempLang_Init(templates_el, framework){
                 let value = null;
                 if(map.var_direction === DIRECTION_GLOBAL){
                     value = Data_Search(ctx, map.key_props, [DIRECTION_GLOBAL]);
+                }else if(map.var_direction === DIRECTION_PARENT){
+                    const source = El_Query(node,
+                        {direction: map.var_direction}, {vars: map.key});
+                    if(source && source.vars[map.key]){
+                        value = {value: source.vars[map.key], type: 'elem'};
+                    }
                 }else{
                     value = Data_Search(ctx, map.key, [DIRECTION_DATA, DIRECTION_VARS]);
+                    if(map.key === 'page'){
+                        console.log(El_Name(node) + ' Searched for ' + kv_toString(value.value) + ' from ' +map.key, framework._ctx.vars);
+                    }
                 }
 
                 if(value && value.value){
