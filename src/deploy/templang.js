@@ -66,6 +66,7 @@ function TempLang_Init(templates_el, framework){
     const FLAG_DRAG_CONT_CALCULATED = 16;
     const FLAG_SPLIT = 32;
     const FLAG_VSPLIT = 64;
+    const FLAG_SIZE_CALCULATED = 128;
 
     const COLOR_WHITE = '#fff';
     const COLOR_GREY = '#eee';
@@ -1612,6 +1613,14 @@ function TempLang_Init(templates_el, framework){
             };
         }
 
+        function PosObj_SetCached(posObj){
+            if(!(posObj.node.flags & FLAG_SIZE_CALCULATED)){
+                posObj.pos = getDragPos(posObj.node);
+                posObj.node.flags |= FLAG_SIZE_CALCULATED;
+                console.log('setting pos cached', posObj);
+            }
+        }
+
         function getDragAndContPos(node){
             let dragContainer = null;
             let el = node;
@@ -1643,15 +1652,16 @@ function TempLang_Init(templates_el, framework){
         function Event_SetDragContPos(node){
             if(node._view){
                 if((node.flags & FLAG_DRAG_CONT_CALCULATED) == 0){
+                    if(node.getBoundingClientRect().height == 0){
+                        return;
+                    }
                     node.flags |= FLAG_DRAG_CONT_CALCULATED;
                     const v = node._view;
                     for(let i = 0; i <  v.el_li.length; i++){
                         let elObj = v.el_li[i];
                         elObj.pos = getDragPos(elObj.el);
                     }
-                    /*
                     console.log('[Event_SetDragContPos] el_li', node._view.el_li);
-                    */
                 }
             }
         }
@@ -1683,17 +1693,15 @@ function TempLang_Init(templates_el, framework){
             let containers = framework._drag.byName[dragKey];
             for(let k in containers){
                 let cont = containers[k];
-                console.log('cont', cont);
-                /* TODO: 
-                */
-                continue;
+
+                PosObj_SetCached(cont);
 
                 let t = cont;
                 let rect = {
                     startX: t.pos.x,
                     startY: t.pos.y,
-                    endX: t.pos.x + t.pos.rect.width,
-                    endY: t.pos.y + t.pos.rect.height
+                    endX: t.pos.x + t.pos.w,
+                    endY: t.pos.y + t.pos.h
                 };
 
                 if((mouseY >= rect.startY && mouseY <= rect.endY) &&
@@ -1701,14 +1709,11 @@ function TempLang_Init(templates_el, framework){
                 ){
                     if(cont.node !== drag_ev.props.cont.node){
                         drag_ev.props.cont = cont;
+                        console.log('adjusting Cont: ', cont);
                         Event_SetDragContPos(cont.node);
                     }
                 }
             }
-
-            /* TODO: 
-            */
-            return;
 
             // outside the bounds of any drop container
             if(!drag_ev.props.cont){
@@ -1728,8 +1733,8 @@ function TempLang_Init(templates_el, framework){
                 let rect = {
                     startX: t.pos.x,
                     startY: t.pos.y,
-                    endX: t.pos.x + t.pos.rect.width,
-                    endY: t.pos.y + t.pos.rect.height
+                    endX: t.pos.x + t.pos.w,
+                    endY: t.pos.y + t.pos.h
                 };
 
                 if((mouseY >= rect.startY && mouseY <= rect.endY) &&
@@ -1761,9 +1766,8 @@ function TempLang_Init(templates_el, framework){
             swap(node, place);
             dragVessel.appendChild(node);
 
-            const cont = El_Query(node, {direction: DIRECTION_PARENT}, {drop: dragKey});
-
-            console.debug('Found immidiate cont', cont);
+            const cont_node = El_Query(node, {direction: DIRECTION_PARENT}, {drop: dragKey});
+            Event_SetDragContPos(cont_node);
 
             let clientX = e.clientX;
             let clientY = e.clientY;
@@ -1773,24 +1777,27 @@ function TempLang_Init(templates_el, framework){
             }
 
             event_ev.props = {
+                current_idx: -1,
                 dragPos: dragPos,
                 offsetX: clientX - dragPos.x,
                 offsetY: clientY - dragPos.y,
                 vessel: dragVessel,
                 place: place,
                 cont: {
-                    node: cont,
-                    pos: getDragPos(cont),
+                    node: cont_node,
+                    pos: getDragPos(cont_node),
                 },
                 item: {
                     node: node,
                     pos: dragPos,
                 },
                 dragKey: dragKey,
-                view: cont._view,
+                view: cont_node._view,
                 spacers: {},
                 _spacer_idtag: null
             };
+
+            framework._drag.ev = event_ev;
 
             Event_SetSpacer(framework._drag);
             dragVessel.appendChild(node);
@@ -2058,9 +2065,11 @@ function TempLang_Init(templates_el, framework){
         function onScroll(e){
             var node = this;
             if(node.templ && node.templ.on.drop && node._viewRef){
-                const container = node._viewRef.container;
-                container.flags &= ~FLAG_DRAG_CONT_CALCULATED;
-                Event_SetDragContPos(container);
+                for(let i = 0; i < node._viewRef.length; i++){
+                    const container = node._viewRef[i].container;
+                    container.flags &= ~FLAG_DRAG_CONT_CALCULATED;
+                    Event_SetDragContPos(container);
+                }
             }
         }
 
@@ -2408,10 +2417,6 @@ function TempLang_Init(templates_el, framework){
         function Injest(content){
             const framework = this;
             content._idtag = 'content_' + (++framework.content_idx);
-            content._changes = {
-                pending: [],
-                done: []
-            };
             framework.content[content._idtag] = content;
             if(Array.isArray(content)){
                 for(let i = 0; i < content.length; i++){
@@ -2428,6 +2433,7 @@ function TempLang_Init(templates_el, framework){
          */
 
          function Transaction_New(content, type, origObj, newObj, complete){
+            console.log('Making transation', content);
             return {
                 content:content,
                 changeType: type,
@@ -2438,6 +2444,10 @@ function TempLang_Init(templates_el, framework){
          }
 
          function Transaction_Register(trans){
+            trans.content._changes = trans.content._changes || {
+                pending: [],
+                done: []
+            };
             trans.content._changes.pending.push(trans);
             Content_Transact(trans.content);
          }
@@ -2446,7 +2456,7 @@ function TempLang_Init(templates_el, framework){
             return node._content_idtag && node._content_idtag === content._idtag;
          }
 
-         function _Transaction_CheckAlignment(view){
+         function _Transaction_CheckAlignment(content, view){
             let el = view.container.firstChild;
             for(let i = 0; el && i < content.length; /* in body */){
                 if(el.nodeType === Node.ELEMENT_NODE && el.flags & FLAG_DRAG_TARGET){
@@ -2621,7 +2631,7 @@ function TempLang_Init(templates_el, framework){
                         if(r){
                             for(let k in content._views){
                                 Transaction_ModifyNodes(trans, content._views[k]); 
-                                _Transaction_CheckAlignment(content._views[k]);
+                                _Transaction_CheckAlignment(content, content._views[k]);
                             }
                         }
                     }
@@ -2669,7 +2679,8 @@ function TempLang_Init(templates_el, framework){
                 Transaction_Register(
                     Transaction_New(changes, 'add', changes[changes.length-1], 'change-log')
                 );
-                framework._ctx.ev_trail.push('Transaction:'+content._idtag+'['+trans.changeType+' '+trans.origObj.idx+' to '+trans.newObj.idx+']'); 
+                
+                framework._ctx.ev_trail.push('Transaction:'+trans.content._idtag+'['+trans.changeType+' '+trans.origObj.idx+' to '+trans.newObj.idx+']'); 
              }
          }
 
@@ -2779,11 +2790,12 @@ function TempLang_Init(templates_el, framework){
                     const par_templ = templ;
 
                     if(templ.dragKey){
-                        console.log('IN SUB STUFF', templ);
                         
                         subCtx.data._views = subCtx.data._views || {};
-
-                        console.log('IN SUB STUFF data', subCtx.data);
+                        subCtx.data._changes = subCtx.data._changes || {
+                            pending: [],
+                            done: []
+                        };
 
                         const cont_el = El_Make("drop-container", parent_el, ctx);
 
@@ -2805,7 +2817,8 @@ function TempLang_Init(templates_el, framework){
 
                         if(dropTarget){
                             dropTarget.onscroll = onScroll;
-                            dropTarget._viewRef = view;
+                            dropTarget._viewRef =  dropTarget._viewRef || [];
+                            dropTarget._viewRef.push(view);
                             cont_el.flags |= FLAG_DROP_TARGET;
                         }
 
@@ -2814,7 +2827,11 @@ function TempLang_Init(templates_el, framework){
                         ctx.view = view;
                         content._views[cont_el._idtag] = view;
                         framework._drag.byName[templ.dragKey] = framework._drag.byName[templ.dragKey] || {};
-                        framework._drag.byName[templ.dragKey][cont_el._idtag] = view;
+                        framework._drag.byName[templ.dragKey][cont_el._idtag] = {
+                            node: cont_el,
+                            pos: getDragPos(cont_el),
+                            view: view,
+                        };
 
                         El_SetStyle(cont_el, 'position', 'relative');
                         parent_el = cont_el;
