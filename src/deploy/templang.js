@@ -1762,6 +1762,7 @@ function TempLang_Init(templates_el, framework){
                         node: t.el,
                         content_idtag: t.el._content_idtag,
                         content: drag_ev.props.cont.view.content,
+                        view: drag_ev.props.cont.view,
                         current: {
                             idx: wasCurrent_i, 
                             node: wasCurrent
@@ -1846,6 +1847,7 @@ function TempLang_Init(templates_el, framework){
                 const orig = {
                     idx: drag_ev.props.current_idx,
                     node: drag_ev.target,
+                    data: drag_ev.props.homeCont.view.content[drag_ev.props.current_idx],
                     content_idtag: drag_ev.target._content_idtag,
                     content: drag_ev.props.homeCont.view.content
                 };
@@ -2503,7 +2505,7 @@ function TempLang_Init(templates_el, framework){
             Content_Transact(trans.origObj.content);
             console.log('TRANS WHEN DONE', trans);
             if(typeof trans.newObj ===  'object' && trans.newObj.content._idtag !== trans.origObj.content._idtag){
-                console.log('Transacting new content too');
+                console.log('Transacting new content too', trans.newObj.content);
                 Content_AddPending(trans.newObj.content, trans);
                 Content_Transact(trans.newObj.content);
             }
@@ -2539,7 +2541,7 @@ function TempLang_Init(templates_el, framework){
                 return true;
             }
 
-            const node = trans.origObj.node || trans.newObj.node;
+            const node = trans.origObj.node;
             if(trans.origObj.content === content){
                 view.el_li.splice(startIdx, 1);
             }
@@ -2548,7 +2550,15 @@ function TempLang_Init(templates_el, framework){
                 if(endIdx < startIdx){
                     endIdx++;
                 }
+
+
                 view.el_li.splice(endIdx, 0, {
+                    el: node,
+                    pos: getDragPos(node),
+                });
+            }else{
+                const node = trans.newObj.node;
+                trans.newObj.view.el_li.splice(endIdx, 0, {
                     el: node,
                     pos: getDragPos(node),
                 });
@@ -2582,9 +2592,6 @@ function TempLang_Init(templates_el, framework){
                     el = el.nextSibling;
                 }
 
-            }else{
-                console.log('DEM DIFFERENT', content);
-                console.log('DEM DIFFERENT', trans.origObj.content);
             }
 
             if(!moveNode){
@@ -2605,11 +2612,32 @@ function TempLang_Init(templates_el, framework){
 
                     el = el.nextSibling;
                 }
-
             }else{
                 moveNode.remove();
-                console.log('make new node');
-                trans.newObj.node = {innerHTML: 'fake', _idtag: 'fake'};
+
+                el = trans.newObj.view.container.firstChild;
+                moveNode = null;
+                for(idx = 0; el && idx <= endIdx; /* incr in body */){
+                    if(el.nodeType == Node.ELEMENT_NODE && (el.flags & FLAG_DRAG_TARGET)){
+                        if(idx === endIdx){
+                            moveNode = el;
+                            break;
+                        }
+                        idx++;
+                    }
+
+                    el = el.nextSibling;
+                }
+
+                if(!moveNode){
+                    console.warn('dest node for move-change not found');
+                }
+
+                const subData = Data_Sub(trans.origObj.data);
+                const templ = trans.newObj.view.templ;
+                console.log('making thing for', content);
+                const node = El_MakeChild(templ, trans.newObj.view.container, subData, {after: el});
+                trans.newObj.node = node;
             }
 
             Transaction_ModifyView(content, trans, view);
@@ -2657,10 +2685,8 @@ function TempLang_Init(templates_el, framework){
                 if(endIdx < startIdx){
                     endIdx++;
                 }
-                trans.newObj.content.splice(endIdx, 0, item);
             }else{
-                trans.origObj.content.splice(startIdx, 1);
-                trans.newObj.content.splice(endIdx, 0, item);
+                trans.newObj.content.splice(endIdx+1, 0, item);
             }
 
             return true;
@@ -2878,6 +2904,7 @@ function TempLang_Init(templates_el, framework){
                             onDrop: dropTarget && dropTarget.templ.on.drop,
                             updateKey: templ.updateKey,
                             el_li: [],
+                            templ: templ,
                         };
 
                         if(dropTarget){
@@ -2904,19 +2931,7 @@ function TempLang_Init(templates_el, framework){
 
                     let subData;
                     while(subData = Data_Next(subCtx)){
-                        let sub_templ = null;
-                        if(par_templ.asKey){
-                            const templ_s = Cash(par_templ.asKey.key, subData.data).result;
-                            sub_templ = framework.templates[templ_s.toUpperCase()];
-                        }
-
-                        if(sub_templ){
-                            sub_templ = Templ_Merge(par_templ, sub_templ, {dataKey: null});
-                        }else{
-                            sub_templ = Templ_Merge(null, par_templ);
-                        }
-
-                        El_Make(sub_templ, parent_el, subData);
+                        El_MakeChild(par_templ, parent_el, subData);
                     }
                 }else{
                     /*
@@ -3074,6 +3089,22 @@ function TempLang_Init(templates_el, framework){
 
         function El_Destroy(node){
             node.remove();
+        }
+
+        function El_MakeChild(templ, parent_el, ctx, reuse){
+            let sub_templ = null;
+            if(templ.asKey){
+                const templ_s = Cash(templ.asKey.key, ctx.data).result;
+                sub_templ = framework.templates[templ_s.toUpperCase()];
+            }
+
+            if(sub_templ){
+                sub_templ = Templ_Merge(templ, sub_templ, {dataKey: null});
+            }else{
+                sub_templ = Templ_Merge(null, templ);
+            }
+
+            return El_Make(sub_templ, parent_el, ctx, reuse);
         }
 
         function El_MakeAs(node, parent_el, ctx){
