@@ -35,6 +35,8 @@ External Stuff:
 
 function TempLang_Init(templates_el, framework){
 
+    const DEBUG_EVENTS = false;
+
     const STATE_TEXT = 0;
     const STATE_PRE_KEY = 1;
     const STATE_KEY = 2;
@@ -767,8 +769,10 @@ function TempLang_Init(templates_el, framework){
         }
 
         function LogCtx(msg){
-            if(framework._ctx){
-                debug(msg + ' '+framework._ctx.ev_trail.join(', '), framework._ctx.vars, COLOR_GREY);
+            if(DEBUG_EVENTS){
+                if(framework._ctx){
+                    debug(msg + ' '+framework._ctx.ev_trail.join(', '), framework._ctx.vars, COLOR_GREY);
+                }
             }
         }
 
@@ -1579,10 +1583,7 @@ function TempLang_Init(templates_el, framework){
             }
             if(event_ev.eventType === 'drag'){
                 Event_SetupDrag(event_ev, framework._drag);
-                console.log('DragSet up ev:', event_ev);
-                /*
                 Event_UpdateDrag(event_ev);
-                */
             }
 
             return event_ev;
@@ -1756,7 +1757,16 @@ function TempLang_Init(templates_el, framework){
                 if((mouseY >= rect.startY && mouseY <= rect.endY) &&
                     (mouseX >= rect.startX && mouseX <= rect.endX)
                 ){
-                    return {idx: i, node: t.el, content_idtag: t.el._content_idtag, current: {idx: wasCurrent_i, node: wasCurrent}};
+                    return {
+                        idx: i,
+                        node: t.el,
+                        content_idtag: t.el._content_idtag,
+                        content: drag_ev.props.cont.view.content,
+                        current: {
+                            idx: wasCurrent_i, 
+                            node: wasCurrent
+                        }
+                    };
                 }
             }
 
@@ -1790,6 +1800,12 @@ function TempLang_Init(templates_el, framework){
                 clientY = e.touches[0].clientY;
             }
 
+            const homeCont = {
+                node: cont_node,
+                pos: getDragPos(cont_node),
+                view: cont_node._view
+            };
+
             event_ev.props = {
                 current_idx: -1,
                 dragPos: dragPos,
@@ -1797,10 +1813,8 @@ function TempLang_Init(templates_el, framework){
                 offsetY: clientY - dragPos.y,
                 vessel: dragVessel,
                 place: null,
-                cont: {
-                    node: cont_node,
-                    pos: getDragPos(cont_node),
-                },
+                cont: homeCont,
+                homeCont: homeCont,
                 item: {
                     node: node,
                     pos: dragPos,
@@ -1830,10 +1844,13 @@ function TempLang_Init(templates_el, framework){
                 const drag_ev = framework._drag.ev;
 
                 const orig = {
-                        idx: drag_ev.props.current_idx,
-                        node: drag_ev.target,
-                        content_idtag: drag_ev.target._content_idtag,
-                }
+                    idx: drag_ev.props.current_idx,
+                    node: drag_ev.target,
+                    content_idtag: drag_ev.target._content_idtag,
+                    content: drag_ev.props.homeCont.view.content
+                };
+
+                const newObj = drag_ev.props.onto;
 
                 const complete = function(){
                     drag_ev.props.cont.node.flags &= ~FLAG_DRAG_CONT_CALCULATED;
@@ -1841,13 +1858,14 @@ function TempLang_Init(templates_el, framework){
                     Changes_Add(this, framework.changes);
                 }
 
-                const trans = Transaction_New(drag_ev.props.cont.node._view.content, 
+                let trans = null;
+                trans = Transaction_New( 
                     'move', 
                     orig,
                     drag_ev.props.onto, 
                     complete);
+                Transaction_Register(trans);
 
-                Transaction_Register(trans)
                 framework._drag.ev = null;
             }
 
@@ -1904,6 +1922,8 @@ function TempLang_Init(templates_el, framework){
             if(dropObj && 
                     (!framework._drag.ev.props.onto || dropObj.idx !== framework._drag.ev.props.onto.idx) &&
                     dropObj.node !== event_ev.target){
+
+
                 framework._drag.ev.props.onto = dropObj;
                 Event_SetSpacer(framework._drag);
             }
@@ -2461,9 +2481,8 @@ function TempLang_Init(templates_el, framework){
             }
          }
 
-         function Transaction_New(content, type, origObj, newObj, complete){
+         function Transaction_New(type, origObj, newObj, complete){
             return {
-                content:content,
                 changeType: type,
                 origObj: origObj,
                 newObj: newObj,
@@ -2471,13 +2490,22 @@ function TempLang_Init(templates_el, framework){
             };
          }
 
-         function Transaction_Register(trans){
-            trans.content._changes = trans.content._changes || {
+         function Content_AddPending(content, trans){
+            content._changes = content._changes || {
                 pending: [],
                 done: []
             };
-            trans.content._changes.pending.push(trans);
-            Content_Transact(trans.content);
+            content._changes.pending.push(trans);
+         }
+
+         function Transaction_Register(trans){
+            Content_AddPending(trans.origObj.content, trans);
+            Content_Transact(trans.origObj.content);
+            if(typeof trans.newObj ===  'object' && trans.newObj.content._idtag !== trans.origObj.content._idtag){
+                console.log('Transacting new content too');
+                Content_AddPending(trans.newObj.content, trans);
+                Content_Transact(trans.newObj.content);
+            }
          }
 
          function El_CompareContent(node, content){
@@ -2620,8 +2648,8 @@ function TempLang_Init(templates_el, framework){
             return false;
          }
 
-         function Transaction_AddContent(trans){
-            trans.content.push(trans.origObj);
+         function Transaction_AddContent(content, trans){
+            content.push(trans.origObj);
             return true;
          }
 
@@ -2632,25 +2660,35 @@ function TempLang_Init(templates_el, framework){
             }
             return false;
          }
-         function Transaction_ShiftContent(trans){
-            trans.content.unshift(trans.origObj);
+
+         function Transaction_ShiftContent(content, trans){
+            content.unshift(trans.origObj);
             return true;
          }
 
-
-         function Transaction_ModifyContent(trans){
+         function Transaction_ModifyContent(content, trans){
             const startIdx = trans.origObj.idx;
             let endIdx = trans.newObj.idx;
             if(startIdx == endIdx){
                 return true;
             }
 
-            if(endIdx < startIdx){
-                endIdx++;
+            let item = null;
+            if(content === trans.origObj.content){
+                item = content[startIdx]; 
+                content.splice(startIdx, 1);
+            }else{
+                item = trans.origObj.content[startIdx]; 
             }
 
-            const item = trans.content.splice(startIdx, 1);
-            trans.content.splice(endIdx, 0, item[0]);
+            if((typeof trans.newObj === 'object') && content === trans.newObj.content){
+                if(trans.origObj.content._idtag === trans.newObj.content._idtag){
+                    if(endIdx < startIdx){
+                        endIdx++;
+                    }
+                }
+                content.splice(endIdx, 0, item[0]);
+            }
 
             return true;
          }
@@ -2662,21 +2700,21 @@ function TempLang_Init(templates_el, framework){
                     let r = true;
                     const trans = content._changes.pending[i];
                     if(trans.changeType === 'add'){
-                        r = Transaction_AddContent(trans); 
+                        r = Transaction_AddContent(content, trans); 
                         if(r){
                             for(let k in content._views){
                                 Transaction_AddNodes(trans, content._views[k]); 
                             }
                         }
                     }else if(trans.changeType === 'shift'){
-                        r = Transaction_ShiftContent(trans); 
+                        r = Transaction_ShiftContent(content, trans); 
                         if(r){
                             for(let k in content._views){
                                 Transaction_ShiftNodes(trans, content._views[k]); 
                             }
                         }
-                    }else if(trans.changeType === 'move'){
-                        r = Transaction_ModifyContent(trans); 
+                    }else if(trans.changeType === "move")){
+                        r = Transaction_ModifyContent(content, trans); 
                         if(r){
                             for(let k in content._views){
                                 Transaction_ModifyNodes(trans, content._views[k]); 
@@ -2684,7 +2722,7 @@ function TempLang_Init(templates_el, framework){
                             }
                         }
                     }
-                        if(r){
+                    if(r){
                        content._changes.pending.splice(i, 1); 
                        content._changes.done.push(trans);
                        trans.execTime = Date.now();
@@ -2719,20 +2757,17 @@ function TempLang_Init(templates_el, framework){
 
          function Changes_Add(trans, changes){
              if(changes){
-                console.log('trans change is', trans);
                 const ch = {
                     time: (new Date(trans.execTime)).toISOString(),
                     type: trans.changeType,
-                    target: Content_FindByTag(trans.content, trans.origObj.content_idtag).text,
-                    dest: Content_FindByTag(trans.content, trans.newObj.content_idtag).text,
+                    target: Content_FindByTag(trans.origObj.content, trans.origObj.content_idtag).text,
+                    dest: Content_FindByTag(trans.newObj.content, trans.newObj.content_idtag).text,
+                    content: changes
                 };
                 changes.unshift(ch);
-                console.log('Log change',ch); 
                 Transaction_Register(
-                    Transaction_New(changes, 'shift', ch, 'change-log')
+                    Transaction_New('shift', ch, 'change-log')
                 );
-                
-                framework._ctx.ev_trail.push('Transaction:'+trans.content._idtag+'['+trans.changeType+' '+trans.origObj.idx+' to '+trans.newObj.idx+']'); 
              }
          }
 
