@@ -176,8 +176,8 @@ function TempLang_Init(templates_el, framework){
                 }
 
                 if(match && compare.drop){
-                    if(node.templ && node._dropKey === compare.drop){
-                        match = true;
+                    if(node._dropKey !== compare.drop){
+                        match = false;
                     }
                 }
 
@@ -1653,6 +1653,7 @@ function TempLang_Init(templates_el, framework){
             if(node._view){
                 if((node.flags & FLAG_DRAG_CONT_CALCULATED) == 0){
                     if(node.getBoundingClientRect().height == 0){
+                        console.log('Hidden skipping');
                         return;
                     }
                     node.flags |= FLAG_DRAG_CONT_CALCULATED;
@@ -1663,6 +1664,8 @@ function TempLang_Init(templates_el, framework){
                     }
                     console.log('[Event_SetDragContPos] el_li', node._view.el_li);
                 }
+            }else{
+                console.debug('no view', node);
             }
         }
 
@@ -1680,6 +1683,31 @@ function TempLang_Init(templates_el, framework){
             return targets;
         }
 
+        function Event_CheckCountBounds(drag_ev, cont, mouseY, mouseX){
+            if(cont.node.getBoundingClientRect().height == 0){
+                return false;
+            }
+
+            PosObj_SetCached(cont);
+
+            let t = cont;
+            let rect = {
+                startX: t.pos.x,
+                startY: t.pos.y,
+                endX: t.pos.x + t.pos.w,
+                endY: t.pos.y + t.pos.h
+            };
+
+            if((mouseY >= rect.startY && mouseY <= rect.endY) &&
+                (mouseX >= rect.startX && mouseX <= rect.endX)
+            ){
+                if(cont.node !== drag_ev.props.cont.node){
+                    return true;
+                }
+            }
+            return false;
+        }
+
         function Event_DragTargetCalc(drag_ev){
             const e = drag_ev.e;
             let mouseY = e.clientY;
@@ -1690,27 +1718,15 @@ function TempLang_Init(templates_el, framework){
 
             const dragKey = drag_ev.props.dragKey;
 
-            let containers = framework._drag.byName[dragKey];
-            for(let k in containers){
-                let cont = containers[k];
+            if(!Event_CheckCountBounds(drag_ev, drag_ev.props.cont, mouseY, mouseX)){
+                let containers = framework._drag.byName[dragKey];
+                for(let k in containers){
+                    let cont = containers[k];
 
-                PosObj_SetCached(cont);
-
-                let t = cont;
-                let rect = {
-                    startX: t.pos.x,
-                    startY: t.pos.y,
-                    endX: t.pos.x + t.pos.w,
-                    endY: t.pos.y + t.pos.h
-                };
-
-                if((mouseY >= rect.startY && mouseY <= rect.endY) &&
-                    (mouseX >= rect.startX && mouseX <= rect.endX)
-                ){
-                    if(cont.node !== drag_ev.props.cont.node){
+                    if(Event_CheckCountBounds(drag_ev, cont, mouseY, mouseX)){
                         drag_ev.props.cont = cont;
-                        console.log('adjusting Cont: ', cont);
                         Event_SetDragContPos(cont.node);
+                        console.warn('adjusting Cont: ', cont);
                     }
                 }
             }
@@ -1721,6 +1737,7 @@ function TempLang_Init(templates_el, framework){
             }
 
             let dragView_li = drag_ev.props.cont.node._view.el_li;
+            console.warn('Looking for', drag_ev.props.cont.node._view);
             for(let i = 0; i < dragView_li.length; i++){
                 let t = dragView_li[i];
 
@@ -1762,11 +1779,9 @@ function TempLang_Init(templates_el, framework){
             let dragPos = getDragPos(node);
             const dragKey = node.templ.dragKey;
 
-            let place = document.createElement('SPAN');
-            swap(node, place);
-            dragVessel.appendChild(node);
 
             const cont_node = El_Query(node, {direction: DIRECTION_PARENT}, {drop: dragKey});
+
             Event_SetDragContPos(cont_node);
 
             let clientX = e.clientX;
@@ -1782,7 +1797,7 @@ function TempLang_Init(templates_el, framework){
                 offsetX: clientX - dragPos.x,
                 offsetY: clientY - dragPos.y,
                 vessel: dragVessel,
-                place: place,
+                place: null,
                 cont: {
                     node: cont_node,
                     pos: getDragPos(cont_node),
@@ -1792,12 +1807,15 @@ function TempLang_Init(templates_el, framework){
                     pos: dragPos,
                 },
                 dragKey: dragKey,
-                view: cont_node._view,
                 spacers: {},
                 _spacer_idtag: null
             };
 
             framework._drag.ev = event_ev;
+
+            event_ev.props.place = document.createElement('SPAN');
+            swap(node, event_ev.props.place);
+            dragVessel.appendChild(node);
 
             Event_SetSpacer(framework._drag);
             dragVessel.appendChild(node);
@@ -2432,8 +2450,17 @@ function TempLang_Init(templates_el, framework){
          * [Transactions and Changes]
          */
 
+         function View_Destroy(node){
+            if(node._dropKey && node._view ){
+                if(framework._drag && framework._drag.byName[node._dropKey][node._idtag]){
+                    console.log('view exists');
+                }else{
+                    console.log('no eisting view', framework._drag.byName);
+                }
+            }
+         }
+
          function Transaction_New(content, type, origObj, newObj, complete){
-            console.log('Making transation', content);
             return {
                 content:content,
                 changeType: type,
@@ -3049,6 +3076,7 @@ function TempLang_Init(templates_el, framework){
                 node.classList.remove(node.classList[0]);
             }
             node.classes = {};
+            View_Destroy(node);
             
             El_Make(templ, parent_el, ctx, node);
         }
