@@ -2501,6 +2501,7 @@ function TempLang_Init(templates_el, framework){
          function Transaction_Register(trans){
             Content_AddPending(trans.origObj.content, trans);
             Content_Transact(trans.origObj.content);
+            console.log('TRANS WHEN DONE', trans);
             if(typeof trans.newObj ===  'object' && trans.newObj.content._idtag !== trans.origObj.content._idtag){
                 console.log('Transacting new content too');
                 Content_AddPending(trans.newObj.content, trans);
@@ -2517,11 +2518,11 @@ function TempLang_Init(templates_el, framework){
             for(let i = 0; el && i < content.length; /* in body */){
                 if(el.nodeType === Node.ELEMENT_NODE && el.flags & FLAG_DRAG_TARGET){
                     if(el._content_idtag !== content[i]._idtag){
-                        console.error('_Transaction_CheckAlignment: nodes do not align to content ' + i + ' ' +el._content_idtag + ' vs ' + content[i]._idtag + ' "' + el.innerHTML + '"', content);
+                        console.error('_Transaction_CheckAlignment: nodes do not align to content at' + i + ' ' +el._content_idtag + ' vs ' + content[i]._idtag + ' "' + el.innerHTML + '"', content);
                         break;
                     }
                     if(el !== view.el_li[i].el){
-                        console.error('_Transaction_CheckAlignment: ei_li does not align ' + i + ' ' + el._idtag + ' vs ' + view.el_li[i].el._idtag + ' "'+ el.innerHTML + '" ', view.el_li);
+                        console.error('_Transaction_CheckAlignment: ei_li does not align at ' + i + ' ' + el._idtag + ' vs ' + view.el_li[i].el._idtag + ' "'+ el.innerHTML + '" ', view.el_li);
                         break;
                     }
                     i++;
@@ -2531,45 +2532,59 @@ function TempLang_Init(templates_el, framework){
             }
          }
 
-         function Transaction_ModifyView(trans, view){
+         function Transaction_ModifyView(content, trans, view){
             const startIdx = trans.origObj.idx;
             let endIdx = trans.newObj.idx;
-            if(startIdx == endIdx){
+            if(startIdx == endIdx && trans.origObj.content === trans.newObj.content){
                 return true;
             }
 
-            if(endIdx < startIdx){
-                endIdx++;
+            const node = trans.origObj.node || trans.newObj.node;
+            if(trans.origObj.content === content){
+                view.el_li.splice(startIdx, 1);
             }
 
-            const item = view.el_li.splice(startIdx, 1);
-            view.el_li.splice(endIdx, 0, item[0]);
+            if(trans.origObj.content === trans.newObj.content){
+                if(endIdx < startIdx){
+                    endIdx++;
+                }
+                view.el_li.splice(endIdx, 0, {
+                    el: node,
+                    pos: getDragPos(node),
+                });
+            }
 
             return true;
          }
 
-         function Transaction_ModifyNodes(trans, view){
+         function Transaction_ModifyNodes(content, trans, view){
             let el = view.container.firstChild;
             let start_el = el;
             const startIdx = trans.origObj.idx;
             let endIdx = trans.newObj.idx;
-
-            if(startIdx == endIdx){
-                return true;
-            }
-
-            let moveNode = null;
             let r = false;
-            for(idx = 0; el && idx <= startIdx; /* incr in body */){
-                if(el.nodeType == Node.ELEMENT_NODE && (el.flags & FLAG_DRAG_TARGET)){
-                    if(idx === startIdx){
-                        moveNode = el;
-                        break;
-                    }
-                    idx++;
+            let moveNode = null;
+            
+            if((typeof trans.origObj === 'object') && content == trans.origObj.content){
+                if(startIdx == endIdx){
+                    return true;
                 }
 
-                el = el.nextSibling;
+                for(idx = 0; el && idx <= startIdx; /* incr in body */){
+                    if(el.nodeType == Node.ELEMENT_NODE && (el.flags & FLAG_DRAG_TARGET)){
+                        if(idx === startIdx){
+                            moveNode = el;
+                            break;
+                        }
+                        idx++;
+                    }
+
+                    el = el.nextSibling;
+                }
+
+            }else{
+                console.log('DEM DIFFERENT', content);
+                console.log('DEM DIFFERENT', trans.origObj.content);
             }
 
             if(!moveNode){
@@ -2577,66 +2592,28 @@ function TempLang_Init(templates_el, framework){
                 return false;
             }
 
-            el = start_el;
-            for(idx = 0; el && idx <= endIdx; /* incr in body */){
-                if(el.nodeType == Node.ELEMENT_NODE && (el.flags & FLAG_DRAG_TARGET)){
-                    if(idx === endIdx){
-                        el.parentNode.insertBefore(moveNode, el.nextSibling);
-                        r = true;
+            if((typeof trans.newObj === 'object') && content === trans.newObj.content){
+                el = start_el;
+                for(idx = 0; el && idx <= endIdx; /* incr in body */){
+                    if(el.nodeType == Node.ELEMENT_NODE && (el.flags & FLAG_DRAG_TARGET)){
+                        if(idx === endIdx){
+                            el.parentNode.insertBefore(moveNode, el.nextSibling);
+                            r = true;
+                        }
+                        idx++;
                     }
-                    idx++;
+
+                    el = el.nextSibling;
                 }
 
-                el = el.nextSibling;
+            }else{
+                moveNode.remove();
+                console.log('make new node');
+                trans.newObj.node = {innerHTML: 'fake', _idtag: 'fake'};
             }
 
-            Transaction_ModifyView(trans, view);
-            return r;
-         }
+            Transaction_ModifyView(content, trans, view);
 
-         function Transaction_ModifyNodes(trans, view){
-            let el = view.container.firstChild;
-            let start_el = el;
-            const startIdx = trans.origObj.idx;
-            let endIdx = trans.newObj.idx;
-
-            if(startIdx == endIdx){
-                return true;
-            }
-
-            let moveNode = null;
-            let r = false;
-            for(idx = 0; el && idx <= startIdx; /* incr in body */){
-                if(el.nodeType == Node.ELEMENT_NODE && (el.flags & FLAG_DRAG_TARGET)){
-                    if(idx === startIdx){
-                        moveNode = el;
-                        break;
-                    }
-                    idx++;
-                }
-
-                el = el.nextSibling;
-            }
-
-            if(!moveNode){
-                console.warn('Transaction_ModifyNodes: did not find node to move', startIdx);
-                return false;
-            }
-
-            el = start_el;
-            for(idx = 0; el && idx <= endIdx; /* incr in body */){
-                if(el.nodeType == Node.ELEMENT_NODE && (el.flags & FLAG_DRAG_TARGET)){
-                    if(idx === endIdx){
-                        el.parentNode.insertBefore(moveNode, el.nextSibling);
-                        r = true;
-                    }
-                    idx++;
-                }
-
-                el = el.nextSibling;
-            }
-
-            Transaction_ModifyView(trans, view);
             return r;
          }
 
@@ -2673,21 +2650,17 @@ function TempLang_Init(templates_el, framework){
                 return true;
             }
 
-            let item = null;
-            if(content === trans.origObj.content){
-                item = content[startIdx]; 
-                content.splice(startIdx, 1);
-            }else{
-                item = trans.origObj.content[startIdx]; 
-            }
+            const item = trans.origObj.content[startIdx]; 
 
             if((typeof trans.newObj === 'object') && content === trans.newObj.content){
-                if(trans.origObj.content._idtag === trans.newObj.content._idtag){
-                    if(endIdx < startIdx){
-                        endIdx++;
-                    }
+                trans.origObj.content.splice(startIdx, 1);
+                if(endIdx < startIdx){
+                    endIdx++;
                 }
-                content.splice(endIdx, 0, item[0]);
+                trans.newObj.content.splice(endIdx, 0, item);
+            }else{
+                trans.origObj.content.splice(startIdx, 1);
+                trans.newObj.content.splice(endIdx, 0, item);
             }
 
             return true;
@@ -2713,15 +2686,16 @@ function TempLang_Init(templates_el, framework){
                                 Transaction_ShiftNodes(trans, content._views[k]); 
                             }
                         }
-                    }else if(trans.changeType === "move")){
+                    }else if(trans.changeType === "move"){
                         r = Transaction_ModifyContent(content, trans); 
                         if(r){
                             for(let k in content._views){
-                                Transaction_ModifyNodes(trans, content._views[k]); 
+                                Transaction_ModifyNodes(content, trans, content._views[k]); 
                                 _Transaction_CheckAlignment(content, content._views[k]);
                             }
                         }
                     }
+
                     if(r){
                        content._changes.pending.splice(i, 1); 
                        content._changes.done.push(trans);
@@ -2757,11 +2731,13 @@ function TempLang_Init(templates_el, framework){
 
          function Changes_Add(trans, changes){
              if(changes){
+                const from = Content_FindByTag(trans.origObj.content, trans.origObj.content_idtag);
+                const to = Content_FindByTag(trans.newObj.content, trans.newObj.content_idtag);
                 const ch = {
                     time: (new Date(trans.execTime)).toISOString(),
                     type: trans.changeType,
-                    target: Content_FindByTag(trans.origObj.content, trans.origObj.content_idtag).text,
-                    dest: Content_FindByTag(trans.newObj.content, trans.newObj.content_idtag).text,
+                    target: from && from.text,
+                    dest: to && to.text,
                     content: changes
                 };
                 changes.unshift(ch);
