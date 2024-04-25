@@ -51,7 +51,8 @@ function TempLang_Init(templates_el, framework){
     const TYPE_ELEM = 13;
     const REUSE_AFTER = 14;
     const REUSE_BEFORE = 15;
-    const SPEC_REDIR = 16;
+    const REUSE_SHIFT = 16;
+    const SPEC_REDIR = 17;
 
     const ASSIGN = 1000;
     const EQUAL = 1001;
@@ -981,7 +982,7 @@ function TempLang_Init(templates_el, framework){
                 asKey: null,
                 body: '',
                 uiSplit: false,
-                dragKey: null,
+                updateKey: null,
                 dropKey: null,
                 _misc: {},
             };
@@ -1007,7 +1008,9 @@ function TempLang_Init(templates_el, framework){
                 }else if(att.name == 'drag'){
                     templ.flags |= FLAG_DRAG_TARGET;
                     templ.on.drag = Spec_Parse('move');
-                    templ.dragKey = att.value;
+                    templ.updateKey = att.value;
+                }else if(att.name == 'sync'){
+                    templ.updateKey = att.value;
                 }else if(att.name == 'drop'){
                     templ.on.drop = Spec_Parse('drop');
                     templ.dropKey = att.value;
@@ -1127,7 +1130,7 @@ function TempLang_Init(templates_el, framework){
                 funcs: {},
                 forKey: null,
                 ifKey: from_templ.ifKey || into_templ.ifKey,
-                dragKey: from_templ.dragKey || into_templ.dragKey,
+                updateKey: from_templ.updateKey || into_templ.updateKey,
                 dropKey: from_templ.dropKey || into_templ.dropKey,
                 withkey: null,
                 mapVars: {},
@@ -1617,7 +1620,6 @@ function TempLang_Init(templates_el, framework){
             if(!(posObj.node.flags & FLAG_SIZE_CALCULATED)){
                 posObj.pos = getDragPos(posObj.node);
                 posObj.node.flags |= FLAG_SIZE_CALCULATED;
-                console.log('setting pos cached', posObj);
             }
         }
 
@@ -1653,7 +1655,6 @@ function TempLang_Init(templates_el, framework){
             if(node._view){
                 if((node.flags & FLAG_DRAG_CONT_CALCULATED) == 0){
                     if(node.getBoundingClientRect().height == 0){
-                        console.log('Hidden skipping');
                         return;
                     }
                     node.flags |= FLAG_DRAG_CONT_CALCULATED;
@@ -1662,10 +1663,10 @@ function TempLang_Init(templates_el, framework){
                         let elObj = v.el_li[i];
                         elObj.pos = getDragPos(elObj.el);
                     }
+                    /*
                     console.log('[Event_SetDragContPos] el_li', node._view.el_li);
+                    */
                 }
-            }else{
-                console.debug('no view', node);
             }
         }
 
@@ -1716,17 +1717,16 @@ function TempLang_Init(templates_el, framework){
             let wasCurrent = null;
             let wasCurrent_i = 0;
 
-            const dragKey = drag_ev.props.dragKey;
+            const updateKey = drag_ev.props.updateKey;
 
             if(!Event_CheckCountBounds(drag_ev, drag_ev.props.cont, mouseY, mouseX)){
-                let containers = framework._drag.byName[dragKey];
+                let containers = framework._drag.byName[updateKey];
                 for(let k in containers){
                     let cont = containers[k];
 
                     if(Event_CheckCountBounds(drag_ev, cont, mouseY, mouseX)){
                         drag_ev.props.cont = cont;
                         Event_SetDragContPos(cont.node);
-                        console.warn('adjusting Cont: ', cont);
                     }
                 }
             }
@@ -1737,7 +1737,6 @@ function TempLang_Init(templates_el, framework){
             }
 
             let dragView_li = drag_ev.props.cont.node._view.el_li;
-            console.warn('Looking for', drag_ev.props.cont.node._view);
             for(let i = 0; i < dragView_li.length; i++){
                 let t = dragView_li[i];
 
@@ -1777,10 +1776,10 @@ function TempLang_Init(templates_el, framework){
             }
 
             let dragPos = getDragPos(node);
-            const dragKey = node.templ.dragKey;
+            const updateKey = node.templ.updateKey;
 
 
-            const cont_node = El_Query(node, {direction: DIRECTION_PARENT}, {drop: dragKey});
+            const cont_node = El_Query(node, {direction: DIRECTION_PARENT}, {drop: updateKey});
 
             Event_SetDragContPos(cont_node);
 
@@ -1806,7 +1805,7 @@ function TempLang_Init(templates_el, framework){
                     node: node,
                     pos: dragPos,
                 },
-                dragKey: dragKey,
+                updateKey: updateKey,
                 spacers: {},
                 _spacer_idtag: null
             };
@@ -2433,14 +2432,16 @@ function TempLang_Init(templates_el, framework){
          * [Injest and Tag Data]
          */
         function Injest(content){
-            const framework = this;
-            content._idtag = 'content_' + (++framework.content_idx);
-            framework.content[content._idtag] = content;
             if(Array.isArray(content)){
+                content._idtag = 'content_' + (++framework.content_idx);
                 for(let i = 0; i < content.length; i++){
                     content[i]._idtag = 'content_' + (++framework.content_idx);
                     if(typeof content[i].rev === 'undefined'){
                         content[i].rev = 0;
+                    }
+                    const cont = content[i];
+                    for(let k in cont){
+                        Injest(cont[k]);
                     }
                 }
             }
@@ -2618,10 +2619,24 @@ function TempLang_Init(templates_el, framework){
             }
             return false;
          }
+
          function Transaction_AddContent(trans){
             trans.content.push(trans.origObj);
             return true;
          }
+
+         function Transaction_ShiftNodes(trans, view){
+            const node = El_Make(trans.newObj, view.container, Data_Sub(trans.origObj), {shift: true});
+            if(node){
+                return true;
+            }
+            return false;
+         }
+         function Transaction_ShiftContent(trans){
+            trans.content.unshift(trans.origObj);
+            return true;
+         }
+
 
          function Transaction_ModifyContent(trans){
             const startIdx = trans.origObj.idx;
@@ -2651,6 +2666,13 @@ function TempLang_Init(templates_el, framework){
                         if(r){
                             for(let k in content._views){
                                 Transaction_AddNodes(trans, content._views[k]); 
+                            }
+                        }
+                    }else if(trans.changeType === 'shift'){
+                        r = Transaction_ShiftContent(trans); 
+                        if(r){
+                            for(let k in content._views){
+                                Transaction_ShiftNodes(trans, content._views[k]); 
                             }
                         }
                     }else if(trans.changeType === 'move'){
@@ -2697,14 +2719,17 @@ function TempLang_Init(templates_el, framework){
 
          function Changes_Add(trans, changes){
              if(changes){
-                changes.push({
+                console.log('trans change is', trans);
+                const ch = {
                     time: (new Date(trans.execTime)).toISOString(),
                     type: trans.changeType,
                     target: Content_FindByTag(trans.content, trans.origObj.content_idtag).text,
                     dest: Content_FindByTag(trans.content, trans.newObj.content_idtag).text,
-                });
+                };
+                changes.unshift(ch);
+                console.log('Log change',ch); 
                 Transaction_Register(
-                    Transaction_New(changes, 'add', changes[changes.length-1], 'change-log')
+                    Transaction_New(changes, 'shift', ch, 'change-log')
                 );
                 
                 framework._ctx.ev_trail.push('Transaction:'+trans.content._idtag+'['+trans.changeType+' '+trans.origObj.idx+' to '+trans.newObj.idx+']'); 
@@ -2744,6 +2769,8 @@ function TempLang_Init(templates_el, framework){
                 }else if(reuse.before){
                     reuseNode = reuse.before;
                     reuseType = REUSE_BEFORE;
+                }else if(reuse.shift){
+                    reuseType = REUSE_SHIFT;
                 }
             }
 
@@ -2816,7 +2843,7 @@ function TempLang_Init(templates_el, framework){
                 if(subCtx = Data_Sub(ctx, forKey, null, templ.dataKey)){
                     const par_templ = templ;
 
-                    if(templ.dragKey){
+                    if(templ.updateKey){
                         
                         subCtx.data._views = subCtx.data._views || {};
                         subCtx.data._changes = subCtx.data._changes || {
@@ -2838,7 +2865,7 @@ function TempLang_Init(templates_el, framework){
                             container: cont_el,
                             dropTarget: dropTarget,
                             onDrop: dropTarget && dropTarget.templ.on.drop,
-                            dragKey: templ.dragKey,
+                            updateKey: templ.updateKey,
                             el_li: [],
                         };
 
@@ -2850,11 +2877,11 @@ function TempLang_Init(templates_el, framework){
                         }
 
                         cont_el._view = view;
-                        cont_el._dropKey = templ.dragKey;
+                        cont_el._dropKey = templ.updateKey;
                         ctx.view = view;
                         content._views[cont_el._idtag] = view;
-                        framework._drag.byName[templ.dragKey] = framework._drag.byName[templ.dragKey] || {};
-                        framework._drag.byName[templ.dragKey][cont_el._idtag] = {
+                        framework._drag.byName[templ.updateKey] = framework._drag.byName[templ.updateKey] || {};
+                        framework._drag.byName[templ.updateKey][cont_el._idtag] = {
                             node: cont_el,
                             pos: getDragPos(cont_el),
                             view: view,
@@ -2910,7 +2937,11 @@ function TempLang_Init(templates_el, framework){
             }
 
             if(!reuseNode){
-                parent_el.appendChild(node);
+                if(reuseType === REUSE_SHIFT){
+                    parent_el.parentNode.insertBefore(node, parent_el.parentNode.firstChild);
+                }else{
+                    parent_el.appendChild(node);
+                }
             }else if(reuseType === REUSE_AFTER){
                 reuseNode.parentNode.insertBefore(node, reuseNode.nextSibling);
             }else if(reuseType === REUSE_BEFORE){
