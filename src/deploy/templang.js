@@ -8,29 +8,21 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 see https://templang.org for technical documentation
 
-
-How to Read This for Documentation:
-
 Sections:
 
-Internal Stuff:
-
-    [Elem Query and Match]
-    [Helper Functions]
-    [Data And Context Functions]
-    [Setters Run and Register]
-    [Parsing Templates]
-    [Events Native and Synthetic]
-    [Bind and Assign Browser Events]
-
-
-External Stuff:
-
-    [Styles and Stylesheet Management]
-    [Cash Variable-In-String Parser]
-    [Injest and Tag Data]
-    [Core Functions For Element Creation]
-    [Initialized the Framework Object]
+     [Elem Query and Match]
+     [Helper Functions]
+     [Data And Context Functions]
+     [Setters Run and Register]
+     [Parsing Templates]
+     [Events Native and Synthetic]
+     [Drag-n-drop Setup]
+     [Bind and Assign Browser Events]
+     [Styles and Stylesheet Management]
+     [Injest and Tag Data]
+     [Transactions and Changes]
+     [Core Functions For Element Creation]
+     [Initialized the Framework Object]
 */
 
 function TempLang_Init(templates_el, framework){

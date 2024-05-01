@@ -19,24 +19,20 @@ The development files have been split out by section, for easy browsing
 
 ### Sections:
 
-#### Internal Stuff:
+[Initialized the Framework Object](src/devel/templang_init.js)
 
- - [Elem Query and Match](src/devel/templang_query.js)
- - [Helper Functions](src/devel/templang_helpers.js)
- - [Data And Context Functions](src/devel/templang_data.js)
- - [Setters Run and Register](src/devel/templang_setters.js)
- - [Parsing Templates](src/devel/templang_parse.js)
- - [Events Native and Synthetic](src/devel/templang_events.js)
- - [Bind and Assign Browser Events](src/devel/templang_bind_ev.js)
-
-
-#### External Stuff:
-
- - [Styles and Stylesheet Management](src/devel/templang_styles.js)
- - [Cash Variable-In-String Parser](src/devel/templang_cash.js)
- - [Injest and Tag Data](src/devel/templang_injest.js)
- - [Core Functions For Element Creation](src/devel/templang_element.js)
- - [Initialized the Framework Object](src/devel/templan_init.js)
+[Elem Query and Match](src/devel/components/templang_elem_query.js)
+[Helper Functions](src/devel/components/templang_helpers.js)
+[Data And Context Functions](src/devel/components/templang_data.js)
+[Setters Run and Register](src/devel/components/templang_setters.js)
+[Parsing Templates](src/devel/components/templang_template_parse.js)
+[Events Native and Synthetic](src/devel/components/templang_events.js)
+[Drag-n-drop Setup](src/devel/components/templang_drag-n-drop.js)
+[Bind and Assign Browser Events](src/devel/components/templang_browser.js)
+[Styles and Stylesheet Management](src/devel/components/templang_style.js)
+[Injest and Tag Data](src/devel/components/templang_injest.js)
+[Transactions and Changes](src/devel/components/templang_transaction.js)
+[Core Functions For Element Creation](src/devel/components/templang_elem_create.js)
 
 ##  Deploy File
 
@@ -45,7 +41,6 @@ Status: Not Ready for much
 Please use this as an inspirational system for a while, this will change as we deploy products on it, but it is not yet ready for production use.
 
 [Deploy file: src/deploy/templang.js](src/deploy/templang.js)
-
 
 
 ## TempLang: Documentation

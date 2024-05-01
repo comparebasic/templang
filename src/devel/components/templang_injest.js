@@ -7,15 +7,27 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 see https://templang.org for technical documentation
+
+Sections:
+
+     [Injest and Tag Data]
 */
-    /*
-     * [Injest and Tag Data]
-     */
-    function Injest(content){
-        const framework = this;
-        if(Array.isArray(content)){
-            for(let i = 0; i < content.length; i++){
+
+        /*
+         * [Injest and Tag Data]
+         */
+        function Injest(content){
+            if(Array.isArray(content)){
                 content._idtag = 'content_' + (++framework.content_idx);
+                for(let i = 0; i < content.length; i++){
+                    content[i]._idtag = 'content_' + (++framework.content_idx);
+                    if(typeof content[i].rev === 'undefined'){
+                        content[i].rev = 0;
+                    }
+                    const cont = content[i];
+                    for(let k in cont){
+                        Injest(cont[k]);
+                    }
+                }
             }
         }
-    }
