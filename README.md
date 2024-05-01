@@ -19,20 +19,20 @@ The development files have been split out by section, for easy browsing
 
 ### Sections:
 
-[Initialized the Framework Object](src/devel/templang_init.js)
-
-[Elem Query and Match](src/devel/components/templang_elem_query.js)
-[Helper Functions](src/devel/components/templang_helpers.js)
-[Data And Context Functions](src/devel/components/templang_data.js)
-[Setters Run and Register](src/devel/components/templang_setters.js)
-[Parsing Templates](src/devel/components/templang_template_parse.js)
-[Events Native and Synthetic](src/devel/components/templang_events.js)
-[Drag-n-drop Setup](src/devel/components/templang_drag-n-drop.js)
-[Bind and Assign Browser Events](src/devel/components/templang_browser.js)
-[Styles and Stylesheet Management](src/devel/components/templang_style.js)
-[Injest and Tag Data](src/devel/components/templang_injest.js)
-[Transactions and Changes](src/devel/components/templang_transaction.js)
-[Core Functions For Element Creation](src/devel/components/templang_elem_create.js)
+ - [Initialized the Framework Object](src/devel/templang_init.js)
+ - 
+ - [Elem Query and Match](src/devel/components/templang_elem_query.js)
+ - [Helper Functions](src/devel/components/templang_helpers.js)
+ - [Data And Context Functions](src/devel/components/templang_data.js)
+ - [Setters Run and Register](src/devel/components/templang_setters.js)
+ - [Parsing Templates](src/devel/components/templang_template_parse.js)
+ - [Events Native and Synthetic](src/devel/components/templang_events.js)
+ - [Drag-n-drop Setup](src/devel/components/templang_drag-n-drop.js)
+ - [Bind and Assign Browser Events](src/devel/components/templang_browser.js)
+ - [Styles and Stylesheet Management](src/devel/components/templang_style.js)
+ - [Injest and Tag Data](src/devel/components/templang_injest.js)
+ - [Transactions and Changes](src/devel/components/templang_transaction.js)
+ - [Core Functions For Element Creation](src/devel/components/templang_elem_create.js)
 
 ##  Deploy File
 
