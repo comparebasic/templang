@@ -20,7 +20,6 @@ The development files have been split out by section, for easy browsing
 ### Sections:
 
  - [Initialized the Framework Object](src/devel/templang_init.js)
- - 
  - [Elem Query and Match](src/devel/components/templang_elem_query.js)
  - [Helper Functions](src/devel/components/templang_helpers.js)
  - [Data And Context Functions](src/devel/components/templang_data.js)
